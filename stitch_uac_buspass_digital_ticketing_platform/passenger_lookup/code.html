@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Manual Passenger Search - CROUS-UAC</title>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Theme Configuration -->
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-background": "#191c1d",
+                    "inverse-primary": "#a7c8ff",
+                    "surface-container": "#edeeef",
+                    "on-tertiary-fixed": "#281900",
+                    "on-primary": "#ffffff",
+                    "on-primary-fixed": "#001b3c",
+                    "primary-fixed-dim": "#a7c8ff",
+                    "on-tertiary-container": "#ce9000",
+                    "primary-fixed": "#d5e3ff",
+                    "on-surface-variant": "#43474f",
+                    "tertiary-fixed": "#ffdeac",
+                    "background": "#f8f9fa",
+                    "error-container": "#ffdad6",
+                    "inverse-surface": "#2e3132",
+                    "secondary-fixed": "#a3f69c",
+                    "on-secondary": "#ffffff",
+                    "outline-variant": "#c3c6d1",
+                    "error": "#ba1a1a",
+                    "surface-container-high": "#e7e8e9",
+                    "on-primary-container": "#799dd6",
+                    "on-tertiary-fixed-variant": "#604100",
+                    "surface-variant": "#e1e3e4",
+                    "secondary-fixed-dim": "#88d982",
+                    "on-tertiary": "#ffffff",
+                    "surface-dim": "#d9dadb",
+                    "on-error-container": "#93000a",
+                    "surface-tint": "#3a5f94",
+                    "on-secondary-container": "#217128",
+                    "outline": "#737780",
+                    "inverse-on-surface": "#f0f1f2",
+                    "surface-container-highest": "#e1e3e4",
+                    "on-primary-fixed-variant": "#1f477b",
+                    "surface-container-lowest": "#ffffff",
+                    "primary": "#001e40",
+                    "on-secondary-fixed": "#002204",
+                    "on-secondary-fixed-variant": "#005312",
+                    "surface-container-low": "#f3f4f5",
+                    "tertiary-fixed-dim": "#ffba38",
+                    "on-surface": "#191c1d",
+                    "secondary-container": "#a0f399",
+                    "tertiary-container": "#472f00",
+                    "surface": "#f8f9fa",
+                    "secondary": "#1b6d24",
+                    "on-error": "#ffffff",
+                    "tertiary": "#2b1b00",
+                    "surface-bright": "#f8f9fa",
+                    "primary-container": "#003366"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "xs": "4px",
+                    "sm": "8px",
+                    "lg": "24px",
+                    "xl": "32px",
+                    "gutter": "12px",
+                    "container-margin": "16px",
+                    "md": "16px",
+                    "base": "4px"
+            },
+            "fontFamily": {
+                    "display-lg": ["Inter"],
+                    "body-md": ["Inter"],
+                    "status-code": ["Inter"],
+                    "headline-md": ["Inter"],
+                    "body-lg": ["Inter"],
+                    "label-caps": ["Inter"],
+                    "headline-sm": ["Inter"]
+            },
+            "fontSize": {
+                    "display-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                    "status-code": ["18px", {"lineHeight": "24px", "letterSpacing": "0.1em", "fontWeight": "700"}],
+                    "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                    "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "label-caps": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                    "headline-sm": ["20px", {"lineHeight": "28px", "fontWeight": "600"}]
+            }
+          }
+        }
+      }
+    </script>
+<style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        
+        /* Hide scrollbar for horizontal chip list */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="bg-background text-on-background min-h-screen">
+<!-- TopAppBar -->
+<header class="bg-primary text-on-primary fixed top-0 w-full z-50 shadow-md flex justify-between items-center px-container-margin h-14">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">directions_bus</span>
+<h1 class="font-headline-sm text-headline-sm font-bold text-on-primary">CROUS-UAC Driver</h1>
+</div>
+<div class="flex items-center">
+<span class="font-label-caps text-label-caps bg-surface-tint text-on-primary px-3 py-1 rounded-full border border-primary-fixed-dim/30">OPERATIONAL</span>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="pt-20 pb-24 md:pb-8 px-container-margin max-w-[1200px] mx-auto flex flex-col gap-lg">
+<!-- Context & Search Header -->
+<section class="flex flex-col gap-4">
+<div class="flex flex-col">
+<span class="font-label-caps text-label-caps text-on-surface-variant uppercase">Current Manifest</span>
+<h2 class="font-headline-md text-headline-md text-on-background">Trip #4022 - Campus to Cotonou</h2>
+</div>
+<!-- Search Bar Component -->
+<div class="relative w-full">
+<label class="sr-only" for="passenger-search">Search Passenger</label>
+<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-outline">search</span>
+</div>
+<input class="block w-full h-12 pl-10 pr-3 py-2 border border-outline-variant rounded-lg leading-5 bg-surface placeholder-on-surface-variant text-on-surface focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary font-body-lg text-body-lg transition-colors shadow-sm" id="passenger-search" placeholder="Search by Matricule (e.g. UAC-...) or Phone" type="text"/>
+</div>
+<!-- Filter Chips -->
+<div class="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+<button class="flex-shrink-0 px-4 py-2 rounded-full border border-primary bg-primary text-on-primary font-body-md text-body-md transition-colors filter-btn" data-filter="all">
+                    All (45)
+                </button>
+<button class="flex-shrink-0 px-4 py-2 rounded-full border border-outline-variant bg-surface text-on-surface-variant font-body-md text-body-md hover:bg-surface-variant transition-colors filter-btn" data-filter="pending">
+                    Pending (12)
+                </button>
+<button class="flex-shrink-0 px-4 py-2 rounded-full border border-outline-variant bg-surface text-on-surface-variant font-body-md text-body-md hover:bg-surface-variant transition-colors filter-btn" data-filter="checked">
+                    Checked-in (33)
+                </button>
+</div>
+</section>
+<!-- Passenger Grid (Bento/Card Layout) -->
+<section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-md" id="passenger-list">
+<!-- Pending Passenger Card -->
+<div class="passenger-card group relative bg-surface-container rounded-xl p-4 shadow-[0px_2px_8px_rgba(0,0,0,0.05)] border border-surface-container-high flex flex-col gap-4 overflow-hidden transition-all hover:shadow-[0px_4px_12px_rgba(0,0,0,0.12)]" data-status="pending">
+<!-- Status Badge -->
+<div class="absolute top-4 right-4 flex items-center gap-1 bg-tertiary-container text-on-tertiary-container px-2 py-1 rounded-full font-label-caps text-label-caps">
+<span class="material-symbols-outlined text-[16px]">info</span>
+                    Pending
+                </div>
+<div class="flex items-center gap-4 mt-2">
+<div class="w-12 h-12 rounded-full bg-surface-variant flex items-center justify-center border border-outline-variant/30 flex-shrink-0">
+<span class="material-symbols-outlined text-outline text-[24px]">person</span>
+</div>
+<div class="flex flex-col">
+<span class="font-headline-sm text-headline-sm text-on-surface">Koffi Alain</span>
+<span class="font-status-code text-status-code text-on-surface-variant tracking-wider text-sm">UAC-2022-8492</span>
+</div>
+</div>
+<div class="flex flex-col gap-1 mt-2">
+<div class="flex items-center gap-2 text-on-surface-variant font-body-md text-body-md">
+<span class="material-symbols-outlined text-[18px]">call</span>
+                        +229 97 00 11 22
+                    </div>
+<div class="flex items-center gap-2 text-on-surface-variant font-body-md text-body-md">
+<span class="material-symbols-outlined text-[18px]">location_on</span>
+                        Stop: Portail Principal
+                    </div>
+</div>
+<div class="mt-auto pt-4 border-t border-surface-variant">
+<button class="w-full h-[48px] bg-primary text-on-primary rounded-lg font-headline-sm text-headline-sm flex items-center justify-center gap-2 hover:bg-primary-container hover:text-on-primary-container transition-colors active:scale-95">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+                        Manual Validate
+                    </button>
+</div>
+</div>
+<!-- Checked-in Passenger Card -->
+<div class="passenger-card relative bg-surface-container-lowest rounded-xl p-4 shadow-[0px_2px_8px_rgba(0,0,0,0.05)] border border-secondary flex flex-col gap-4 overflow-hidden" data-status="checked">
+<!-- Subtle background gradient for checked state -->
+<div class="absolute inset-0 bg-gradient-to-br from-secondary-container/20 to-transparent pointer-events-none"></div>
+<!-- Status Badge -->
+<div class="absolute top-4 right-4 flex items-center gap-1 bg-secondary-container text-on-secondary-container px-2 py-1 rounded-full font-label-caps text-label-caps z-10">
+<span class="material-symbols-outlined text-[16px]" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+                    Checked-in
+                </div>
+<div class="flex items-center gap-4 mt-2 relative z-10">
+<div class="w-12 h-12 rounded-full bg-secondary-container flex items-center justify-center border border-secondary/30 flex-shrink-0">
+<span class="material-symbols-outlined text-on-secondary-container text-[24px]">person</span>
+</div>
+<div class="flex flex-col">
+<span class="font-headline-sm text-headline-sm text-on-surface">Sena Dossou</span>
+<span class="font-status-code text-status-code text-on-surface-variant tracking-wider text-sm">UAC-2021-3310</span>
+</div>
+</div>
+<div class="flex flex-col gap-1 mt-2 relative z-10">
+<div class="flex items-center gap-2 text-on-surface-variant font-body-md text-body-md">
+<span class="material-symbols-outlined text-[18px]">call</span>
+                        +229 95 44 33 22
+                    </div>
+<div class="flex items-center gap-2 text-on-surface-variant font-body-md text-body-md">
+<span class="material-symbols-outlined text-[18px]">schedule</span>
+                        Checked in at 07:42 AM
+                    </div>
+</div>
+<div class="mt-auto pt-4 border-t border-surface-variant relative z-10">
+<button class="w-full h-[48px] bg-surface text-on-surface-variant border border-outline-variant rounded-lg font-headline-sm text-headline-sm flex items-center justify-center gap-2 opacity-50 cursor-not-allowed">
+                        Validated
+                    </button>
+</div>
+</div>
+<!-- Pending Passenger Card 2 -->
+<div class="passenger-card group relative bg-surface-container rounded-xl p-4 shadow-[0px_2px_8px_rgba(0,0,0,0.05)] border border-surface-container-high flex flex-col gap-4 overflow-hidden transition-all hover:shadow-[0px_4px_12px_rgba(0,0,0,0.12)]" data-status="pending">
+<!-- Status Badge -->
+<div class="absolute top-4 right-4 flex items-center gap-1 bg-tertiary-container text-on-tertiary-container px-2 py-1 rounded-full font-label-caps text-label-caps">
+<span class="material-symbols-outlined text-[16px]">info</span>
+                    Pending
+                </div>
+<div class="flex items-center gap-4 mt-2">
+<div class="w-12 h-12 rounded-full bg-surface-variant flex items-center justify-center border border-outline-variant/30 flex-shrink-0">
+<span class="material-symbols-outlined text-outline text-[24px]">person</span>
+</div>
+<div class="flex flex-col">
+<span class="font-headline-sm text-headline-sm text-on-surface">Aminata Sylla</span>
+<span class="font-status-code text-status-code text-on-surface-variant tracking-wider text-sm">UAC-2023-1102</span>
+</div>
+</div>
+<div class="flex flex-col gap-1 mt-2">
+<div class="flex items-center gap-2 text-on-surface-variant font-body-md text-body-md">
+<span class="material-symbols-outlined text-[18px]">call</span>
+                        +229 61 22 99 88
+                    </div>
+<div class="flex items-center gap-2 text-on-surface-variant font-body-md text-body-md">
+<span class="material-symbols-outlined text-[18px]">location_on</span>
+                        Stop: Godomey
+                    </div>
+</div>
+<div class="mt-auto pt-4 border-t border-surface-variant">
+<button class="w-full h-[48px] bg-primary text-on-primary rounded-lg font-headline-sm text-headline-sm flex items-center justify-center gap-2 hover:bg-primary-container hover:text-on-primary-container transition-colors active:scale-95">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+                        Manual Validate
+                    </button>
+</div>
+</div>
+</section>
+</main>
+<!-- BottomNavBar (Mobile Only) -->
+<nav class="md:hidden bg-surface fixed bottom-0 w-full rounded-t-xl bg-surface-container-highest shadow-[0px_-4px_12px_rgba(0,0,0,0.12)] fixed bottom-0 left-0 w-full z-50 flex justify-around items-center py-2 px-4">
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:bg-surface-variant rounded-full p-2 transition-all" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-label-caps text-label-caps mt-1">Home</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:bg-surface-variant rounded-full p-2 transition-all" href="#">
+<span class="material-symbols-outlined">qr_code_scanner</span>
+<span class="font-label-caps text-label-caps mt-1">Scan</span>
+</a>
+<!-- Active Tab: Users -->
+<a class="flex flex-col items-center justify-center bg-secondary-container text-on-secondary-container rounded-full px-4 py-1 active:scale-90 transition-all" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">group</span>
+<span class="font-label-caps text-label-caps mt-1">Users</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:bg-surface-variant rounded-full p-2 transition-all" href="#">
+<span class="material-symbols-outlined">notifications</span>
+<span class="font-label-caps text-label-caps mt-1">Alerts</span>
+</a>
+</nav>
+<!-- Micro-interactions Script -->
+<script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const filterBtns = document.querySelectorAll('.filter-btn');
+            const cards = document.querySelectorAll('.passenger-card');
+            const searchInput = document.getElementById('passenger-search');
+
+            // Filter functionality
+            filterBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    // Reset all buttons
+                    filterBtns.forEach(b => {
+                        b.classList.remove('bg-primary', 'text-on-primary', 'border-primary');
+                        b.classList.add('bg-surface', 'text-on-surface-variant', 'border-outline-variant');
+                    });
+                    
+                    // Set active button
+                    btn.classList.remove('bg-surface', 'text-on-surface-variant', 'border-outline-variant');
+                    btn.classList.add('bg-primary', 'text-on-primary', 'border-primary');
+
+                    const filterValue = btn.getAttribute('data-filter');
+
+                    // Filter cards
+                    cards.forEach(card => {
+                        if (filterValue === 'all' || card.getAttribute('data-status') === filterValue) {
+                            card.style.display = 'flex';
+                        } else {
+                            card.style.display = 'none';
+                        }
+                    });
+                });
+            });
+
+            // Basic Search functionality (client-side simulation)
+            searchInput.addEventListener('input', (e) => {
+                const term = e.target.value.toLowerCase();
+                
+                cards.forEach(card => {
+                    const textContent = card.innerText.toLowerCase();
+                    if (textContent.includes(term)) {
+                        card.style.display = 'flex';
+                    } else {
+                        card.style.display = 'none';
+                    }
+                });
+                
+                // Reset filters to 'All' when searching
+                if(term.length > 0) {
+                     filterBtns[0].click(); // Click 'All'
+                }
+            });
+        });
+    </script>
+</body></html>

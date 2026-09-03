@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Driver Main Operations Hub</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "on-background": "#191c1d",
+                      "inverse-primary": "#a7c8ff",
+                      "surface-container": "#edeeef",
+                      "on-tertiary-fixed": "#281900",
+                      "on-primary": "#ffffff",
+                      "on-primary-fixed": "#001b3c",
+                      "primary-fixed-dim": "#a7c8ff",
+                      "on-tertiary-container": "#ce9000",
+                      "primary-fixed": "#d5e3ff",
+                      "on-surface-variant": "#43474f",
+                      "tertiary-fixed": "#ffdeac",
+                      "background": "#f8f9fa",
+                      "error-container": "#ffdad6",
+                      "inverse-surface": "#2e3132",
+                      "secondary-fixed": "#a3f69c",
+                      "on-secondary": "#ffffff",
+                      "outline-variant": "#c3c6d1",
+                      "error": "#ba1a1a",
+                      "surface-container-high": "#e7e8e9",
+                      "on-primary-container": "#799dd6",
+                      "on-tertiary-fixed-variant": "#604100",
+                      "surface-variant": "#e1e3e4",
+                      "secondary-fixed-dim": "#88d982",
+                      "on-tertiary": "#ffffff",
+                      "surface-dim": "#d9dadb",
+                      "on-error-container": "#93000a",
+                      "surface-tint": "#3a5f94",
+                      "on-secondary-container": "#217128",
+                      "outline": "#737780",
+                      "inverse-on-surface": "#f0f1f2",
+                      "surface-container-highest": "#e1e3e4",
+                      "on-primary-fixed-variant": "#1f477b",
+                      "surface-container-lowest": "#ffffff",
+                      "primary": "#001e40",
+                      "on-secondary-fixed": "#002204",
+                      "on-secondary-fixed-variant": "#005312",
+                      "surface-container-low": "#f3f4f5",
+                      "tertiary-fixed-dim": "#ffba38",
+                      "on-surface": "#191c1d",
+                      "secondary-container": "#a0f399",
+                      "tertiary-container": "#472f00",
+                      "surface": "#f8f9fa",
+                      "secondary": "#1b6d24",
+                      "on-error": "#ffffff",
+                      "tertiary": "#2b1b00",
+                      "surface-bright": "#f8f9fa",
+                      "primary-container": "#003366"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "xs": "4px",
+                      "sm": "8px",
+                      "lg": "24px",
+                      "xl": "32px",
+                      "gutter": "12px",
+                      "container-margin": "16px",
+                      "md": "16px",
+                      "base": "4px"
+              },
+              "fontFamily": {
+                      "display-lg": [
+                              "Inter"
+                      ],
+                      "body-md": [
+                              "Inter"
+                      ],
+                      "status-code": [
+                              "Inter"
+                      ],
+                      "headline-md": [
+                              "Inter"
+                      ],
+                      "body-lg": [
+                              "Inter"
+                      ],
+                      "label-caps": [
+                              "Inter"
+                      ],
+                      "headline-sm": [
+                              "Inter"
+                      ]
+              },
+              "fontSize": {
+                      "display-lg": [
+                              "32px",
+                              {
+                                      "lineHeight": "40px",
+                                      "letterSpacing": "-0.02em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "body-md": [
+                              "14px",
+                              {
+                                      "lineHeight": "20px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "status-code": [
+                              "18px",
+                              {
+                                      "lineHeight": "24px",
+                                      "letterSpacing": "0.1em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "headline-md": [
+                              "24px",
+                              {
+                                      "lineHeight": "32px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "body-lg": [
+                              "16px",
+                              {
+                                      "lineHeight": "24px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "label-caps": [
+                              "12px",
+                              {
+                                      "lineHeight": "16px",
+                                      "letterSpacing": "0.05em",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "headline-sm": [
+                              "20px",
+                              {
+                                      "lineHeight": "28px",
+                                      "fontWeight": "600"
+                              }
+                      ]
+              }
+      },
+          },
+        }
+    </script>
+</head>
+<body class="bg-background text-on-background antialiased flex flex-col h-screen overflow-hidden">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full bg-primary text-on-primary shadow-md flex justify-between items-center px-container-margin h-14 z-50 transition-transform active:scale-95">
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined hover:opacity-90 cursor-pointer">directions_bus</span>
+<span class="font-headline-sm text-headline-sm font-bold text-on-primary">CROUS-UAC Driver</span>
+</div>
+<div class="flex items-center">
+<button class="bg-secondary-container text-on-secondary-container font-label-caps text-label-caps px-3 py-1 rounded-full font-bold shadow-sm hover:opacity-90 active:scale-95 transition-transform flex items-center gap-xs">
+<span class="material-symbols-outlined text-[16px]">check_circle</span>
+                OPERATIONAL
+            </button>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="flex-1 mt-14 mb-[72px] overflow-y-auto p-container-margin flex flex-col gap-lg max-w-[1200px] mx-auto w-full">
+<!-- Bento Grid Layout for Dashboard -->
+<div class="grid grid-cols-1 md:grid-cols-12 gap-md">
+<!-- Route Card (Hero) -->
+<div class="md:col-span-12 bg-surface-container-lowest rounded-xl shadow-[0px_2px_8px_rgba(0,0,0,0.05)] p-md flex flex-col gap-md border border-outline-variant/30">
+<div class="flex justify-between items-start">
+<div>
+<h2 class="font-headline-md text-headline-md text-primary">Campus Express Route 4</h2>
+<p class="font-body-md text-body-md text-on-surface-variant flex items-center gap-xs mt-1">
+<span class="material-symbols-outlined text-[16px]">schedule</span> Next stop in 5 mins: Science Block
+                        </p>
+</div>
+<div class="bg-surface-container py-1 px-3 rounded-full flex items-center gap-xs">
+<span class="w-2 h-2 rounded-full bg-secondary animate-pulse"></span>
+<span class="font-label-caps text-label-caps text-on-surface-variant">Live</span>
+</div>
+</div>
+<div class="h-48 w-full rounded-lg overflow-hidden relative shadow-inner">
+<img class="w-full h-full object-cover" data-alt="A highly detailed top-down view of a modern university campus map showing a bus route. The style is clean, corporate, and digital, using a light mode aesthetic with crisp white roads, light gray buildings, and a clear blue line tracing the route. Subtle shadows provide depth, and the lighting mimics bright daytime conditions, perfect for a high-utility transport app interface." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAR5lPXdcsA1m6iUCyTxq0iaJTueZ0MZOCPsFXQiGv11vGzhmUebNvVZX-hQI4-NuD1Nlq4qY7-3WtB6dIlrvyNLaRsTiGu3fCMfwn2pvXDuGG-2-WjLJyfPL5ZMCV8nOE_5G9TfdZQctUlpsMTQT_nrNoP-H0pP2POX8ivvbjEj31CAdZ8peHwNkUqNVudtk0fbRTxiz2FqWCVS2QDet_PlFDpzqML055rA8uYvQeoPeM7DjqhHoAy9A"/>
+</div>
+</div>
+<!-- Passenger Count & Boarding -->
+<div class="md:col-span-6 bg-surface-container-lowest rounded-xl shadow-[0px_4px_12px_rgba(0,0,0,0.12)] p-md flex flex-col gap-md border border-outline-variant/30 z-10 relative">
+<div class="flex justify-between items-center">
+<h3 class="font-headline-sm text-headline-sm text-primary">Capacity</h3>
+<span class="material-symbols-outlined text-outline">group</span>
+</div>
+<div class="flex items-end justify-center py-4">
+<span class="font-display-lg text-display-lg text-primary">32</span>
+<span class="font-headline-md text-headline-md text-outline mb-1">/50</span>
+</div>
+<!-- Progress Bar -->
+<div class="w-full bg-surface-container h-3 rounded-full overflow-hidden">
+<div class="bg-secondary h-full rounded-full w-[64%]"></div>
+</div>
+<button class="w-full bg-tertiary-fixed-dim text-on-tertiary-container font-headline-sm text-headline-sm py-4 rounded-lg shadow-sm hover:opacity-90 active:scale-95 transition-transform mt-2 flex items-center justify-center gap-sm">
+<span class="material-symbols-outlined">qr_code_scanner</span>
+                    Start Boarding
+                </button>
+</div>
+<!-- Incidents & Quick Actions -->
+<div class="md:col-span-6 flex flex-col gap-md">
+<!-- Report Delay/Incident Button (High Priority) -->
+<button class="w-full bg-error text-on-error font-headline-sm text-headline-sm py-6 rounded-xl shadow-[0px_4px_12px_rgba(0,0,0,0.12)] hover:opacity-90 active:scale-95 transition-transform flex items-center justify-center gap-sm h-full max-h-[160px]">
+<span class="material-symbols-outlined text-[32px]">warning</span>
+                    Report Delay / Incident
+                </button>
+<!-- Secondary Actions -->
+<div class="grid grid-cols-2 gap-md h-full">
+<button class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md flex flex-col items-center justify-center gap-sm shadow-sm hover:bg-surface-container active:scale-95 transition-all text-on-surface-variant">
+<span class="material-symbols-outlined text-[28px]">chat</span>
+<span class="font-label-caps text-label-caps">Dispatch</span>
+</button>
+<button class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md flex flex-col items-center justify-center gap-sm shadow-sm hover:bg-surface-container active:scale-95 transition-all text-on-surface-variant">
+<span class="material-symbols-outlined text-[28px]">local_gas_station</span>
+<span class="font-label-caps text-label-caps">Refuel</span>
+</button>
+</div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center py-2 px-4 bg-surface shadow-[0px_-4px_12px_rgba(0,0,0,0.12)] rounded-t-xl md:hidden">
+<button class="flex flex-col items-center justify-center bg-secondary-container text-on-secondary-container rounded-full px-4 py-1 hover:opacity-90 active:scale-90 transition-all">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">dashboard</span>
+<span class="font-label-caps text-label-caps mt-1">Home</span>
+</button>
+<button class="flex flex-col items-center justify-center text-on-surface-variant hover:bg-surface-variant rounded-full px-4 py-1 active:scale-90 transition-all">
+<span class="material-symbols-outlined">qr_code_scanner</span>
+<span class="font-label-caps text-label-caps mt-1">Scan</span>
+</button>
+<button class="flex flex-col items-center justify-center text-on-surface-variant hover:bg-surface-variant rounded-full px-4 py-1 active:scale-90 transition-all">
+<span class="material-symbols-outlined">group</span>
+<span class="font-label-caps text-label-caps mt-1">Users</span>
+</button>
+<button class="flex flex-col items-center justify-center text-on-surface-variant hover:bg-surface-variant rounded-full px-4 py-1 active:scale-90 transition-all">
+<span class="material-symbols-outlined">notifications</span>
+<span class="font-label-caps text-label-caps mt-1">Alerts</span>
+</button>
+</nav>
+</body></html>

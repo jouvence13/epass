@@ -1,0 +1,188 @@
+import React, { useState } from 'react';
+import { View, Text, TextInput, StyleSheet, ScrollView, Pressable, Modal, ActivityIndicator, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { MaterialIcons } from '@expo/vector-icons';
+import { colors, radius, spacing, typography } from '../../theme/theme';
+
+const DELAYS = [15, 30, 45];
+const INCIDENTS: { key: string; label: string; icon: keyof typeof MaterialIcons.glyphMap }[] = [
+  { key: 'traffic', label: 'Heavy Traffic', icon: 'traffic' },
+  { key: 'mechanical', label: 'Mechanical Issue', icon: 'build' },
+  { key: 'roadblock', label: 'Roadblock / Detour', icon: 'block' },
+];
+
+export default function ReportDelayScreen({ navigation }: any) {
+  const [delay, setDelay] = useState(30);
+  const [customDelay, setCustomDelay] = useState('');
+  const [incident, setIncident] = useState('mechanical');
+  const [sending, setSending] = useState(false);
+
+  const broadcast = () => {
+    setSending(true);
+    setTimeout(() => {
+      setSending(false);
+      Alert.alert('Incident broadcasted successfully.', undefined, [
+        { text: 'OK', onPress: () => navigation.goBack() },
+      ]);
+    }, 1600);
+  };
+
+  return (
+    <SafeAreaView style={styles.safe} edges={['bottom']}>
+      <View style={styles.topBar}>
+        <Pressable onPress={() => navigation.goBack()} hitSlop={10} style={styles.backBtn}>
+          <MaterialIcons name="arrow-back" size={22} color={colors.onPrimary} />
+        </Pressable>
+        <Text style={styles.topBarTitle}>Report Delay</Text>
+        <View style={styles.emergencyBtn}>
+          <MaterialIcons name="warning" size={14} color={colors.onError} />
+          <Text style={styles.emergencyText}>EMERGENCY</Text>
+        </View>
+      </View>
+
+      <ScrollView contentContainerStyle={styles.scroll}>
+        <View style={styles.banner}>
+          <MaterialIcons name="campaign" size={28} color={colors.onTertiaryFixedVariant} style={{ marginTop: 2 }} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.bannerTitle}>Instant Notification</Text>
+            <Text style={styles.bannerBody}>
+              Selecting an option below will instantly notify all <Text style={{ fontWeight: '700' }}>50 passengers</Text> currently tracking Route 42. Please report accurately.
+            </Text>
+          </View>
+        </View>
+
+        <Text style={styles.sectionTitle}>
+          <MaterialIcons name="schedule" size={18} color={colors.primary} /> Estimated Delay
+        </Text>
+        <View style={styles.delayRow}>
+          {DELAYS.map((d) => (
+            <Pressable
+              key={d}
+              onPress={() => setDelay(d)}
+              style={[styles.delayChip, delay === d && styles.delayChipActive]}
+            >
+              <Text style={[styles.delayNum, delay === d && styles.delayNumActive]}>+{d}</Text>
+              <Text style={styles.delayUnit}>MIN</Text>
+            </Pressable>
+          ))}
+        </View>
+        <Text style={styles.inputLabel}>Custom Delay (Minutes)</Text>
+        <TextInput
+          value={customDelay}
+          onChangeText={setCustomDelay}
+          placeholder="e.g. 60"
+          placeholderTextColor={colors.outline}
+          keyboardType="number-pad"
+          style={styles.input}
+        />
+
+        <Text style={[styles.sectionTitle, { marginTop: spacing.lg }]}>
+          <MaterialIcons name="report" size={18} color={colors.primary} /> Incident Type
+        </Text>
+        <View style={{ gap: spacing.sm }}>
+          {INCIDENTS.map((inc) => {
+            const active = incident === inc.key;
+            return (
+              <Pressable
+                key={inc.key}
+                onPress={() => setIncident(inc.key)}
+                style={[styles.incidentRow, active && styles.incidentRowActive]}
+              >
+                <View style={[styles.incidentIcon, active && styles.incidentIconActive]}>
+                  <MaterialIcons name={inc.icon} size={20} color={active ? colors.onPrimary : colors.onSurfaceVariant} />
+                </View>
+                <Text style={[styles.incidentLabel, active && { color: colors.primary }]}>{inc.label}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        <View style={styles.actions}>
+          <Pressable style={styles.cancelBtn} onPress={() => navigation.goBack()}>
+            <Text style={styles.cancelText}>Cancel</Text>
+          </Pressable>
+          <Pressable style={styles.broadcastBtn} onPress={broadcast}>
+            <MaterialIcons name="send" size={18} color={colors.onTertiaryContainer} />
+            <Text style={styles.broadcastText}>Broadcast Delay</Text>
+          </Pressable>
+        </View>
+      </ScrollView>
+
+      <Modal transparent visible={sending} animationType="fade">
+        <View style={styles.overlay}>
+          <View style={styles.overlayCard}>
+            <ActivityIndicator size="large" color={colors.secondary} />
+            <Text style={styles.overlayTitle}>Broadcasting...</Text>
+            <Text style={styles.overlayBody}>Notifying 50 passengers tracking Route 42.</Text>
+          </View>
+        </View>
+      </Modal>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: colors.background },
+  topBar: {
+    height: 56, backgroundColor: colors.primary, flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: spacing.containerMargin, gap: spacing.sm,
+  },
+  backBtn: { padding: 4 },
+  topBarTitle: { flex: 1, ...typography.headlineSm, fontSize: 16, color: colors.onPrimary },
+  emergencyBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.error,
+    paddingHorizontal: spacing.sm, paddingVertical: 5, borderRadius: radius.full,
+  },
+  emergencyText: { ...typography.labelCaps, color: colors.onError },
+  scroll: { padding: spacing.containerMargin, paddingBottom: spacing.xl, gap: spacing.md },
+  banner: {
+    flexDirection: 'row', gap: spacing.md, backgroundColor: colors.tertiaryFixed,
+    padding: spacing.md, borderRadius: radius.lg,
+  },
+  bannerTitle: { ...typography.headlineSm, fontSize: 16, color: colors.onTertiaryFixedVariant, marginBottom: 2 },
+  bannerBody: { ...typography.bodyMd, color: colors.onTertiaryFixed, opacity: 0.9 },
+  sectionTitle: { ...typography.headlineSm, color: colors.primary, marginTop: spacing.sm },
+  delayRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
+  delayChip: {
+    flex: 1, height: 64, borderRadius: radius.lg, borderWidth: 2, borderColor: colors.outlineVariant,
+    backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center',
+  },
+  delayChipActive: { borderColor: colors.primary, backgroundColor: colors.primaryFixed },
+  delayNum: { ...typography.headlineSm, fontWeight: '700', color: colors.primary },
+  delayNumActive: { color: colors.primary },
+  delayUnit: { ...typography.labelCaps, color: colors.onSurfaceVariant },
+  inputLabel: { ...typography.labelCaps, color: colors.onSurfaceVariant, marginTop: spacing.sm, marginBottom: spacing.xs },
+  input: {
+    height: 48, borderWidth: 1, borderColor: colors.outlineVariant, borderRadius: radius.md,
+    paddingHorizontal: spacing.md, ...typography.bodyLg, color: colors.onSurface, backgroundColor: colors.surface,
+  },
+  incidentRow: {
+    flexDirection: 'row', alignItems: 'center', minHeight: 64, borderRadius: radius.lg, borderWidth: 2,
+    borderColor: colors.outlineVariant, backgroundColor: colors.surface, padding: spacing.md, gap: spacing.md,
+  },
+  incidentRowActive: { borderColor: colors.primary, backgroundColor: colors.primaryFixed },
+  incidentIcon: {
+    width: 40, height: 40, borderRadius: 20, backgroundColor: colors.surfaceVariant,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  incidentIconActive: { backgroundColor: colors.primary },
+  incidentLabel: { ...typography.headlineSm, fontSize: 16, color: colors.onSurface },
+  actions: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.lg, borderTopWidth: 1, borderTopColor: colors.outlineVariant, paddingTop: spacing.lg },
+  cancelBtn: {
+    flex: 1, height: 48, borderRadius: radius.full, borderWidth: 1, borderColor: colors.primary,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  cancelText: { ...typography.headlineSm, fontSize: 15, color: colors.primary },
+  broadcastBtn: {
+    flex: 1.4, height: 48, borderRadius: radius.full, backgroundColor: colors.tertiaryFixedDim,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm,
+  },
+  broadcastText: { ...typography.headlineSm, fontSize: 15, color: colors.onTertiaryContainer },
+  overlay: { flex: 1, backgroundColor: 'rgba(25,28,29,0.8)', alignItems: 'center', justifyContent: 'center' },
+  overlayCard: {
+    backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.xl,
+    width: '80%', alignItems: 'center', gap: spacing.sm,
+  },
+  overlayTitle: { ...typography.headlineMd, fontSize: 20, color: colors.primary },
+  overlayBody: { ...typography.bodyMd, color: colors.onSurfaceVariant, textAlign: 'center' },
+});

@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+
+<html class="h-full" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>CROUS-UAC QR Scanner</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "on-background": "#191c1d",
+                      "inverse-primary": "#a7c8ff",
+                      "surface-container": "#edeeef",
+                      "on-tertiary-fixed": "#281900",
+                      "on-primary": "#ffffff",
+                      "on-primary-fixed": "#001b3c",
+                      "primary-fixed-dim": "#a7c8ff",
+                      "on-tertiary-container": "#ce9000",
+                      "primary-fixed": "#d5e3ff",
+                      "on-surface-variant": "#43474f",
+                      "tertiary-fixed": "#ffdeac",
+                      "background": "#f8f9fa",
+                      "error-container": "#ffdad6",
+                      "inverse-surface": "#2e3132",
+                      "secondary-fixed": "#a3f69c",
+                      "on-secondary": "#ffffff",
+                      "outline-variant": "#c3c6d1",
+                      "error": "#ba1a1a",
+                      "surface-container-high": "#e7e8e9",
+                      "on-primary-container": "#799dd6",
+                      "on-tertiary-fixed-variant": "#604100",
+                      "surface-variant": "#e1e3e4",
+                      "secondary-fixed-dim": "#88d982",
+                      "on-tertiary": "#ffffff",
+                      "surface-dim": "#d9dadb",
+                      "on-error-container": "#93000a",
+                      "surface-tint": "#3a5f94",
+                      "on-secondary-container": "#217128",
+                      "outline": "#737780",
+                      "inverse-on-surface": "#f0f1f2",
+                      "surface-container-highest": "#e1e3e4",
+                      "on-primary-fixed-variant": "#1f477b",
+                      "surface-container-lowest": "#ffffff",
+                      "primary": "#001e40",
+                      "on-secondary-fixed": "#002204",
+                      "on-secondary-fixed-variant": "#005312",
+                      "surface-container-low": "#f3f4f5",
+                      "tertiary-fixed-dim": "#ffba38",
+                      "on-surface": "#191c1d",
+                      "secondary-container": "#a0f399",
+                      "tertiary-container": "#472f00",
+                      "surface": "#f8f9fa",
+                      "secondary": "#1b6d24",
+                      "on-error": "#ffffff",
+                      "tertiary": "#2b1b00",
+                      "surface-bright": "#f8f9fa",
+                      "primary-container": "#003366"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "xs": "4px",
+                      "sm": "8px",
+                      "lg": "24px",
+                      "xl": "32px",
+                      "gutter": "12px",
+                      "container-margin": "16px",
+                      "md": "16px",
+                      "base": "4px"
+              },
+              "fontFamily": {
+                      "display-lg": ["Inter"],
+                      "body-md": ["Inter"],
+                      "status-code": ["Inter"],
+                      "headline-md": ["Inter"],
+                      "body-lg": ["Inter"],
+                      "label-caps": ["Inter"],
+                      "headline-sm": ["Inter"]
+              },
+              "fontSize": {
+                      "display-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                      "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                      "status-code": ["18px", {"lineHeight": "24px", "letterSpacing": "0.1em", "fontWeight": "700"}],
+                      "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                      "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                      "label-caps": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                      "headline-sm": ["20px", {"lineHeight": "28px", "fontWeight": "600"}]
+              }
+            },
+          }
+        }
+    </script>
+<style>
+        .scan-line {
+            animation: scan 2s linear infinite;
+            background: linear-gradient(to bottom, transparent, rgba(160, 243, 153, 0.8), transparent);
+        }
+        @keyframes scan {
+            0% { transform: translateY(-100%); }
+            100% { transform: translateY(100%); }
+        }
+        .pulse-overlay {
+            animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes pulse-ring {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(160, 243, 153, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(160, 243, 153, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(160, 243, 153, 0); }
+        }
+        .success-bg {
+            background-color: #a0f399; /* secondary-container */
+        }
+        .success-text {
+            color: #217128; /* on-secondary-container */
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background h-full font-body-md overflow-hidden flex flex-col antialiased">
+<!-- TopAppBar (Hidden on mobile via generic hidden md:flex layout rule, but keeping JSON classes as requested, adapting for responsive) -->
+<header class="bg-primary dark:bg-primary-container font-headline-sm text-headline-sm fixed top-0 w-full shadow-md z-50 flex justify-between items-center px-container-margin h-14 hidden md:flex">
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-on-primary dark:text-on-primary-container" data-icon="directions_bus">directions_bus</span>
+<h1 class="font-headline-sm text-headline-sm font-bold text-on-primary">CROUS-UAC Driver</h1>
+</div>
+<!-- Web Navigation equivalent of Bottom Nav -->
+<nav class="flex gap-lg h-full items-center">
+<a class="text-primary-fixed-dim hover:opacity-90 flex items-center gap-2 h-full px-2 active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined">dashboard</span> Home
+            </a>
+<a class="text-on-primary font-bold hover:opacity-90 flex items-center gap-2 h-full px-2 active:scale-95 transition-transform border-b-2 border-on-primary" href="#">
+<span class="material-symbols-outlined">qr_code_scanner</span> Scan
+            </a>
+<a class="text-primary-fixed-dim hover:opacity-90 flex items-center gap-2 h-full px-2 active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined">group</span> Users
+            </a>
+<a class="text-primary-fixed-dim hover:opacity-90 flex items-center gap-2 h-full px-2 active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined">notifications</span> Alerts
+            </a>
+</nav>
+<div class="flex items-center gap-4">
+<button class="font-label-caps text-label-caps bg-secondary-container text-on-secondary-container px-4 py-2 rounded-full hover:opacity-90 active:scale-95 transition-transform">OPERATIONAL</button>
+</div>
+</header>
+<!-- Main Content Area -->
+<main class="flex-1 relative w-full h-full md:mt-14 pb-20 md:pb-0 bg-surface-variant flex flex-col">
+<!-- Camera Viewfinder Mockup (Simulated with image/gradient) -->
+<div class="absolute inset-0 z-0">
+<!-- Simulated camera feed image -->
+<div class="w-full h-full bg-cover bg-center opacity-80 filter blur-sm transition-all duration-500" data-alt="A blurred, point-of-view shot from a mobile phone camera showing the interior of a bright, modern bus. In focus in the center is a digital QR code displayed on another mobile phone screen being held up for scanning. The lighting is bright West African daylight streaming through the bus windows, casting soft reflections. The aesthetic is realistic, urban, and focused." id="camera-feed" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAZmtsI0kcE8maoixMvd2M8Hs9tNSTFBBoy4bB9_Pvw0CkSRiKjqAbRfg4L-v2paZkPkeX4qbbgAZ6zqJ3PbocljCBFr2d59lEh0XKlEHVmmXum25YnV1x-XC--_FSWkFJQyu7vpSaXcrAdKHqKSW1sDTAcnu6utL4r2fW-MHZxb6w_WS-4De9w9A9A3EOhhcle1Dj2FRkCqiSsJmhod0BOUgtZmG3cxhULDKQ4-jeWYpt6KiCD74ks0Q')"></div>
+<!-- Vignette overlay for focus -->
+<div class="absolute inset-0 bg-black/40"></div>
+</div>
+<!-- Scanner UI Overlay -->
+<div class="relative z-10 flex-1 flex flex-col p-container-margin md:p-xl pointer-events-none">
+<!-- Mobile Header (Visible only on mobile) -->
+<div class="flex justify-between items-center md:hidden w-full text-on-primary pt-4 pb-8 pointer-events-auto">
+<button class="bg-surface-container/50 backdrop-blur-md p-2 rounded-full text-on-primary">
+<span class="material-symbols-outlined">menu</span>
+</button>
+<h2 class="font-headline-sm text-headline-sm font-bold shadow-sm">Scan Ticket</h2>
+<button class="bg-secondary-container text-on-secondary-container p-2 rounded-full">
+<span class="material-symbols-outlined">flashlight_on</span>
+</button>
+</div>
+<!-- Target Reticle -->
+<div class="flex-1 flex items-center justify-center pointer-events-none">
+<div class="relative w-64 h-64 md:w-80 md:h-80 border-2 border-dashed border-white/50 rounded-xl overflow-hidden pulse-overlay" id="scanner-reticle">
+<!-- Corner markers -->
+<div class="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-secondary-container rounded-tl-xl"></div>
+<div class="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-secondary-container rounded-tr-xl"></div>
+<div class="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-secondary-container rounded-bl-xl"></div>
+<div class="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-secondary-container rounded-br-xl"></div>
+<!-- Animated Scan Line -->
+<div class="absolute inset-x-0 top-0 h-32 scan-line"></div>
+</div>
+</div>
+<!-- Status & Actions Area -->
+<div class="mt-auto flex flex-col gap-sm pointer-events-auto w-full max-w-md mx-auto">
+<!-- Last Scan Result (Simulated Success) -->
+<div class="bg-surface rounded-xl p-md shadow-[0px_4px_12px_rgba(0,0,0,0.12)] border border-outline-variant/30 flex items-start gap-md transform transition-all duration-300 translate-y-0 opacity-100" id="scan-result">
+<div class="w-12 h-12 rounded-full success-bg flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined success-text text-[24px]">check_circle</span>
+</div>
+<div class="flex-1">
+<p class="font-label-caps text-label-caps success-text mb-xs">Ticket Valid</p>
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Student 2023-4458</h3>
+<div class="flex items-center gap-xs mt-xs text-on-surface-variant font-body-md text-sm">
+<span class="material-symbols-outlined text-[16px]">route</span>
+<span>Line 4 - Calavi</span>
+<span class="mx-1">•</span>
+<span>10:42 AM</span>
+</div>
+</div>
+</div>
+<!-- Manual Entry Button -->
+<button class="w-full bg-surface-container-high text-on-surface-variant font-body-lg text-body-lg h-14 rounded-xl flex items-center justify-center gap-sm shadow-sm border border-outline-variant/50 active:bg-surface-variant transition-colors backdrop-blur-md">
+<span class="material-symbols-outlined">keyboard</span>
+                    Manual Entry
+                </button>
+</div>
+</div>
+</main>
+<!-- BottomNavBar (Mobile Only) -->
+<nav class="bg-surface dark:bg-surface-dim font-label-caps text-label-caps fixed bottom-0 w-full rounded-t-xl bg-surface-container-highest shadow-[0px_-4px_12px_rgba(0,0,0,0.12)] fixed bottom-0 left-0 w-full z-50 flex justify-around items-center py-2 px-4 md:hidden">
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:bg-surface-variant active:scale-90 transition-all p-2 rounded-lg" href="#">
+<span class="material-symbols-outlined mb-1">dashboard</span>
+<span class="text-on-surface-variant">Home</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-secondary-container text-on-secondary-container rounded-full px-4 py-1 hover:bg-surface-variant active:scale-90 transition-all" href="#">
+<span class="material-symbols-outlined mb-1" style="font-variation-settings: 'FILL' 1;">qr_code_scanner</span>
+<span>Scan</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:bg-surface-variant active:scale-90 transition-all p-2 rounded-lg" href="#">
+<span class="material-symbols-outlined mb-1">group</span>
+<span class="text-on-surface-variant">Users</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:bg-surface-variant active:scale-90 transition-all p-2 rounded-lg" href="#">
+<span class="material-symbols-outlined mb-1">notifications</span>
+<span class="text-on-surface-variant">Alerts</span>
+</a>
+</nav>
+<script>
+        // Simple mock interaction for the scanner result
+        document.getElementById('scanner-reticle').addEventListener('click', function() {
+            const resultCard = document.getElementById('scan-result');
+            
+            // Simulate a new scan wiping the old one
+            resultCard.style.opacity = '0';
+            resultCard.style.transform = 'translateY(20px)';
+            
+            setTimeout(() => {
+                // Flash the camera feed
+                const feed = document.getElementById('camera-feed');
+                feed.classList.add('brightness-150');
+                
+                setTimeout(() => {
+                    feed.classList.remove('brightness-150');
+                    // Show result again
+                    resultCard.style.opacity = '1';
+                    resultCard.style.transform = 'translateY(0)';
+                }, 300);
+            }, 300);
+        });
+    </script>
+</body></html>

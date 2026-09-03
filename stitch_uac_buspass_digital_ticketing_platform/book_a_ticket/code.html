@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+
+<html lang="fr"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>CROUS-UAC - Réservation de Ticket</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "tertiary-container": "#472f00",
+                        "primary-fixed": "#d5e3ff",
+                        "on-secondary": "#ffffff",
+                        "surface-container-highest": "#e1e3e4",
+                        "inverse-surface": "#2e3132",
+                        "surface-container-high": "#e7e8e9",
+                        "secondary-fixed": "#a3f69c",
+                        "on-error-container": "#93000a",
+                        "on-surface-variant": "#43474f",
+                        "on-secondary-container": "#217128",
+                        "on-primary-fixed": "#001b3c",
+                        "surface-container": "#edeeef",
+                        "on-secondary-fixed": "#002204",
+                        "surface": "#f8f9fa",
+                        "on-tertiary": "#ffffff",
+                        "primary-fixed-dim": "#a7c8ff",
+                        "outline": "#737780",
+                        "surface-tint": "#3a5f94",
+                        "secondary-container": "#a0f399",
+                        "on-primary-container": "#799dd6",
+                        "background": "#f8f9fa",
+                        "on-tertiary-fixed-variant": "#604100",
+                        "error-container": "#ffdad6",
+                        "on-surface": "#191c1d",
+                        "on-error": "#ffffff",
+                        "surface-bright": "#f8f9fa",
+                        "tertiary-fixed": "#ffdeac",
+                        "inverse-on-surface": "#f0f1f2",
+                        "on-background": "#191c1d",
+                        "surface-dim": "#d9dadb",
+                        "secondary": "#1b6d24",
+                        "primary": "#001e40",
+                        "on-primary": "#ffffff",
+                        "error": "#ba1a1a",
+                        "tertiary": "#2b1b00",
+                        "inverse-primary": "#a7c8ff",
+                        "surface-variant": "#e1e3e4",
+                        "on-secondary-fixed-variant": "#005312",
+                        "surface-container-low": "#f3f4f5",
+                        "primary-container": "#003366",
+                        "surface-container-lowest": "#ffffff",
+                        "outline-variant": "#c3c6d1",
+                        "on-primary-fixed-variant": "#1f477b",
+                        "on-tertiary-fixed": "#281900",
+                        "secondary-fixed-dim": "#88d982",
+                        "on-tertiary-container": "#ce9000",
+                        "tertiary-fixed-dim": "#ffba38"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "lg": "24px",
+                        "md": "16px",
+                        "sm": "8px",
+                        "xs": "4px",
+                        "xl": "32px",
+                        "base": "4px",
+                        "gutter": "12px",
+                        "container-margin": "16px"
+                    },
+                    "fontFamily": {
+                        "status-code": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "display-lg": ["Inter"],
+                        "label-caps": ["Inter"],
+                        "body-md": ["Inter"],
+                        "headline-sm": ["Inter"]
+                    },
+                    "fontSize": {
+                        "status-code": ["18px", { "lineHeight": "24px", "letterSpacing": "0.1em", "fontWeight": "700" }],
+                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "display-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "label-caps": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600" }],
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "headline-sm": ["20px", { "lineHeight": "28px", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-background text-on-background min-h-screen pb-[90px]">
+<!-- TopAppBar -->
+<header class="bg-surface shadow-sm fixed top-0 left-0 w-full z-50 flex justify-between items-center px-container-margin py-sm">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">directions_bus</span>
+<h1 class="text-headline-sm font-headline-sm font-bold text-primary">CROUS-UAC</h1>
+</div>
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-on-surface-variant hover:bg-surface-container transition-colors rounded-full p-2 cursor-pointer">notifications</span>
+<img class="w-8 h-8 rounded-full object-cover" data-alt="A small circular avatar of a university student looking professional but casual, suitable for an academic transport application. The style is modern, well-lit, and highly realistic, fitting within a light-mode UI context." src="https://lh3.googleusercontent.com/aida-public/AB6AXuD7rb_K6eP2IgpuKNb34H_URfJkFXed6veGRqfLSxp8Ts-xw8AkR6R4kyYTOu4TnGY_gxr1WbbMNX79N6oB3XJFanxl5G2B3KpD0a-LE-uVMeRuhqGeU2vmLb4rWe0FMG0h76f2HcIcRe03d_KJdpgI1N8M3U6_md0bwqPTEsdWmQIr83XB6V7iUZOwc9-_KUk0TG1J-yEFp6OJYqYW7K0GOsWh63aiTn5bD8JtNcVdrHKy2sHV3Qr6Og"/>
+</div>
+</header>
+<!-- Main Content -->
+<main class="pt-[72px] px-container-margin max-w-[1200px] mx-auto">
+<div class="mb-lg mt-md">
+<h2 class="font-headline-md text-headline-md text-primary">Booking</h2>
+<p class="font-body-md text-body-md text-on-surface-variant">Réservez votre trajet universitaire.</p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-lg">
+<!-- Left Column: Route & Time Selection -->
+<div class="flex flex-col gap-md">
+<!-- Route Selection -->
+<div class="bg-surface-container-lowest p-md rounded-xl shadow-[0px_2px_8px_rgba(0,0,0,0.05)]">
+<h3 class="font-label-caps text-label-caps text-outline mb-sm uppercase">Trajet</h3>
+<div class="flex flex-col gap-sm relative">
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">trip_origin</span>
+<select class="w-full bg-surface border border-outline-variant rounded-lg p-sm font-body-lg text-body-lg text-on-surface focus:border-primary focus:ring-1 focus:ring-primary outline-none">
+<option>Calavi Campus</option>
+<option>Cotonou Centre</option>
+<option>Porto-Novo</option>
+</select>
+</div>
+<div class="absolute left-[11px] top-[32px] bottom-[32px] w-[2px] bg-outline-variant"></div>
+<div class="flex items-center gap-sm mt-xs">
+<span class="material-symbols-outlined text-error" style="font-variation-settings: 'FILL' 1;">location_on</span>
+<select class="w-full bg-surface border border-outline-variant rounded-lg p-sm font-body-lg text-body-lg text-on-surface focus:border-primary focus:ring-1 focus:ring-primary outline-none">
+<option>Cotonou Centre</option>
+<option>Calavi Campus</option>
+<option>Porto-Novo</option>
+</select>
+</div>
+</div>
+</div>
+<!-- Time Slot & Capacity -->
+<div class="bg-surface-container-lowest p-md rounded-xl shadow-[0px_2px_8px_rgba(0,0,0,0.05)]">
+<h3 class="font-label-caps text-label-caps text-outline mb-sm uppercase">Horaires Disponibles (Aujourd'hui)</h3>
+<div class="flex flex-col gap-sm">
+<!-- Slot 1 (Available) -->
+<label class="flex items-center justify-between p-sm border border-outline-variant rounded-lg cursor-pointer hover:border-primary transition-colors">
+<div class="flex items-center gap-md">
+<input checked="" class="text-primary focus:ring-primary h-5 w-5 border-outline-variant" name="time_slot" type="radio"/>
+<div>
+<span class="block font-body-lg text-body-lg font-semibold">07:30 - Ligne A</span>
+<span class="font-body-md text-body-md text-on-surface-variant flex items-center gap-xs">
+<span class="material-symbols-outlined text-[16px]">groups</span>
+                                        32/50 places
+                                    </span>
+</div>
+</div>
+<span class="bg-secondary-container text-on-secondary-container font-label-caps text-label-caps px-2 py-1 rounded-full">Disponible</span>
+</label>
+<!-- Slot 2 (Full) -->
+<label class="flex items-center justify-between p-sm border border-outline-variant rounded-lg bg-surface-dim opacity-70 cursor-not-allowed">
+<div class="flex items-center gap-md">
+<input class="text-primary focus:ring-primary h-5 w-5 border-outline-variant" disabled="" name="time_slot" type="radio"/>
+<div>
+<span class="block font-body-lg text-body-lg font-semibold text-on-surface-variant">08:15 - Ligne B</span>
+<span class="font-body-md text-body-md text-error flex items-center gap-xs">
+<span class="material-symbols-outlined text-[16px]">person_off</span>
+                                        50/50 places
+                                    </span>
+</div>
+</div>
+<span class="bg-error-container text-on-error-container font-label-caps text-label-caps px-2 py-1 rounded-full">Complet</span>
+</label>
+</div>
+</div>
+</div>
+<!-- Right Column: Payment & Summary -->
+<div class="flex flex-col gap-md">
+<!-- Payment Method -->
+<div class="bg-surface-container-lowest p-md rounded-xl shadow-[0px_2px_8px_rgba(0,0,0,0.05)]">
+<h3 class="font-label-caps text-label-caps text-outline mb-sm uppercase">Mode de Paiement</h3>
+<div class="flex flex-col gap-sm">
+<!-- MTN MoMo -->
+<label class="flex items-center gap-md p-sm border border-outline-variant rounded-lg cursor-pointer hover:border-primary transition-colors h-[64px]">
+<input checked="" class="text-primary focus:ring-primary h-5 w-5 border-outline-variant" name="payment_method" type="radio"/>
+<div class="w-12 h-12 bg-[#FFCC00] rounded-lg flex items-center justify-center font-bold text-black shadow-sm">
+                                MTN
+                            </div>
+<div class="flex-1">
+<span class="block font-body-lg text-body-lg font-semibold">MTN Mobile Money</span>
+<span class="font-body-md text-body-md text-on-surface-variant">Frais: 0F</span>
+</div>
+</label>
+<!-- Moov Money -->
+<label class="flex items-center gap-md p-sm border border-outline-variant rounded-lg cursor-pointer hover:border-primary transition-colors h-[64px]">
+<input class="text-primary focus:ring-primary h-5 w-5 border-outline-variant" name="payment_method" type="radio"/>
+<div class="w-12 h-12 bg-[#0055A5] rounded-lg flex items-center justify-center font-bold text-white shadow-sm">
+                                Moov
+                            </div>
+<div class="flex-1">
+<span class="block font-body-lg text-body-lg font-semibold">Moov Money</span>
+<span class="font-body-md text-body-md text-on-surface-variant">Frais: 0F</span>
+</div>
+</label>
+</div>
+<div class="mt-sm">
+<label class="block font-label-caps text-label-caps text-outline mb-xs">Numéro de paiement</label>
+<input class="w-full bg-surface border border-outline-variant rounded-lg p-sm font-body-lg text-body-lg text-on-surface focus:border-primary focus:ring-1 focus:ring-primary outline-none" placeholder="Ex: 97000000" type="tel"/>
+</div>
+</div>
+<!-- Action -->
+<div class="mt-auto">
+<button class="w-full bg-tertiary-fixed-dim text-on-tertiary-fixed-variant font-headline-md text-headline-md py-md rounded-xl shadow-[0px_4px_12px_rgba(0,0,0,0.12)] flex justify-between items-center px-lg hover:opacity-90 transition-opacity">
+<span>Payer &amp; Réserver</span>
+<span class="font-bold">250 FCFA</span>
+</button>
+<p class="text-center font-body-md text-body-md text-on-surface-variant mt-sm">Un SMS de confirmation vous sera envoyé.</p>
+</div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="bg-surface border-t border-outline-variant shadow-lg fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-sm pb-gutter pt-sm rounded-t-xl">
+<a class="flex flex-col items-center justify-center text-on-surface-variant px-4 py-1 hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined">directions_bus</span>
+<span class="font-label-caps text-label-caps mt-1">Home</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant px-4 py-1 hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined">confirmation_number</span>
+<span class="font-label-caps text-label-caps mt-1">Tickets</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-secondary-container text-on-secondary-container rounded-full px-4 py-1 scale-90 duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">add_circle</span>
+<span class="font-label-caps text-label-caps mt-1">Booking</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant px-4 py-1 hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined">person</span>
+<span class="font-label-caps text-label-caps mt-1">Profile</span>
+</a>
+</nav>
+</body></html>
