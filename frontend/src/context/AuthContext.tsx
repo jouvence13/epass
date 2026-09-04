@@ -100,6 +100,10 @@ const formatApiError = (detail: any, defaultMsg: string): string => {
   return defaultMsg;
 };
 
+const DEFAULT_HEADERS = {
+  'ngrok-skip-browser-warning': 'true',
+};
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -139,6 +143,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const res = await fetch(ENDPOINTS.AVAILABLE_TRIPS, {
         credentials: 'include',
+        headers: DEFAULT_HEADERS,
       });
       if (res.ok) {
         const data = await res.json();
@@ -516,6 +521,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
+          ...DEFAULT_HEADERS,
         },
         body: JSON.stringify({
           phone_number: cleanPhone,
@@ -536,6 +542,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Récupération dynamique du profil via la session cookie HttpOnly fraîchement établie
       const profileRes = await fetch(ENDPOINTS.MY_PROFILE, {
         credentials: 'include',
+        headers: DEFAULT_HEADERS,
       });
 
       let userData: User;
@@ -571,6 +578,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       return { success: true };
     } catch (err: any) {
+      console.warn('LOGIN ERROR:', err);
       setIsLoading(false);
       return {
         success: false,
@@ -595,6 +603,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
+          ...DEFAULT_HEADERS,
         },
         body: JSON.stringify({
           ...payload,
