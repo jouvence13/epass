@@ -1,10 +1,13 @@
 import uuid
+from typing import Optional
+from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_async_db
 from app.models.user_model import Users
 from app.schemas.payment_schema import PaymentInitiateRequestSchema, PaymentInitiateResponseSchema
+from app.schemas.ticket_schema import ActiveTicketScreenOutSchema
 from app.services.auth_service import get_current_authenticated_user
 from app.services.ticket_engine_service import book_trip_with_capacity_lock
 from app.services.payment_service import payment_service

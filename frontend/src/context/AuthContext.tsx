@@ -134,10 +134,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Liste dynamique des créneaux & rotations de bus
   const [busSlots, setBusSlots] = useState<BusSlot[]>([
-    { id: 'slot-1', time: '07:30 - Rotation Matin', route: 'Ligne A (Calavi ↔ Cotonou)', bookedSeats: 32, totalSeats: 50, full: false },
-    { id: 'slot-2', time: '08:15 - Rotation Express', route: 'Ligne B (Calavi ↔ Godomey)', bookedSeats: 50, totalSeats: 50, full: true },
-    { id: 'slot-3', time: '09:00 - Rotation Campus', route: 'Ligne A (Calavi ↔ Cotonou)', bookedSeats: 18, totalSeats: 50, full: false },
-    { id: 'slot-4', time: '12:30 - Rotation Midi', route: 'Ligne C (Calavi ↔ Akpakpa)', bookedSeats: 40, totalSeats: 50, full: false },
+    { id: '7a6ad347-c0fb-472d-80c7-7830ed61cdad', time: '07:30 - Rotation Matin', route: 'Ligne A (Calavi ↔ Cotonou)', bookedSeats: 32, totalSeats: 50, full: false },
+    { id: '2a953d78-5279-4342-8d66-2a6e8b0a0a87', time: '08:15 - Rotation Express', route: 'Ligne B (Calavi ↔ Godomey)', bookedSeats: 50, totalSeats: 50, full: true },
+    { id: '3c81e9b2-6541-487a-bfa1-7f912c018a99', time: '09:00 - Rotation Campus', route: 'Ligne A (Calavi ↔ Cotonou)', bookedSeats: 18, totalSeats: 50, full: false },
+    { id: '4d92fa13-7652-498b-cfb2-8a023d129b00', time: '12:30 - Rotation Midi', route: 'Ligne C (Calavi ↔ Akpakpa)', bookedSeats: 40, totalSeats: 50, full: false },
   ]);
 
   // Liste dynamique des titres de transport achetés par l'étudiant (support multi-tickets)
@@ -246,8 +246,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             recycleCount: typeof tk.recycle_count === 'number' ? tk.recycle_count : 0,
           }));
           setTickets(mappedTickets);
-          const active = mappedTickets.find((t) => t.status === 'ACTIVE') || mappedTickets[0];
-          setActiveTicket(active);
+          setActiveTicket((prev) => {
+            if (prev) {
+              const matched = mappedTickets.find((t) => t.id === prev.id || t.code === prev.code);
+              if (matched) return matched;
+            }
+            return mappedTickets.find((t) => t.status === 'ACTIVE') || mappedTickets[0];
+          });
         }
       }
     } catch (e) {
@@ -424,7 +429,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const targetDbTicketId =
         ticketId.length > 20 && ticketId.includes('-')
           ? ticketId
-          : currentTicket.code === 'A7B9-X2M4'
+          : currentTicket.code.includes('X2M4')
           ? '4134b24d-f3f7-4e08-a996-f87452033095'
           : '61a2be79-d843-4f9b-b869-e5838a6a84dc';
 
@@ -432,6 +437,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const targetDbTripId =
         newSlotId.length > 20 && newSlotId.includes('-')
           ? newSlotId
+          : newSlotId === 'slot-2'
+          ? '2a953d78-5279-4342-8d66-2a6e8b0a0a87'
+          : newSlotId === 'slot-3'
+          ? '3c81e9b2-6541-487a-bfa1-7f912c018a99'
+          : newSlotId === 'slot-4'
+          ? '4d92fa13-7652-498b-cfb2-8a023d129b00'
           : '7a6ad347-c0fb-472d-80c7-7830ed61cdad';
 
       const res = await fetch(ENDPOINTS.RECYCLE_TICKET, {
@@ -449,10 +460,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const nextRecycleCount = recycleData.recycle_count ?? 1;
         let codeFormatted = updatedTicket.code;
         if (recycleData.sms_backup_code) {
+          const raw = recycleData.sms_backup_code;
           codeFormatted =
-            recycleData.sms_backup_code.length === 8
-              ? `${recycleData.sms_backup_code.slice(0, 4)}-${recycleData.sms_backup_code.slice(4)}`
-              : recycleData.sms_backup_code;
+            raw.length === 8
+              ? `${raw.slice(0, 4)}-${raw.slice(4)}`
+              : raw.length === 6
+              ? `${raw.slice(0, 3)}-${raw.slice(3)}`
+              : raw;
         }
         updatedTicket.code = codeFormatted;
         updatedTicket.recycleCount = nextRecycleCount;

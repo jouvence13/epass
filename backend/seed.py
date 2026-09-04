@@ -262,17 +262,22 @@ async def run_seed():
         # TRAJETS PROGRAMMÉS (TRIPS)
         # ----------------------------------------------------------------------
         print("\n🗓️ 7. Programmation des Trajets (Trips)...")
-        main_route = routes_map["Campus Express Route 4"]
+        route_a = routes_map["Campus Express Route 4"]
+        route_b = routes_map["Navette Inter-Facultés"]
+        route_c = routes_map["Ligne Calavi - Porto-Novo"]
         bus_1 = buses_map["BUS-UAC-01"]
         bus_2 = buses_map["BUS-UAC-02"]
+        bus_3 = buses_map["BUS-UAC-03"]
 
+        # Trip 1 (Ligne A - 07:30 Rotation Matin - 32/50 places)
         trip_1 = (await db.execute(
-            select(Trips).where(Trips.route_id == main_route.route_id, Trips.bus_id == bus_1.bus_id)
+            select(Trips).where(Trips.trip_id == uuid.UUID("7a6ad347-c0fb-472d-80c7-7830ed61cdad"))
         )).scalars().first()
 
         if not trip_1:
             trip_1 = Trips(
-                route_id=main_route.route_id,
+                trip_id=uuid.UUID("7a6ad347-c0fb-472d-80c7-7830ed61cdad"),
+                route_id=route_a.route_id,
                 bus_id=bus_1.bus_id,
                 driver_id=driver_user.user_id,
                 departure_time=now + timedelta(hours=1),
@@ -280,24 +285,26 @@ async def run_seed():
                 status=TripStatusEnum.SCHEDULED,
                 total_seats=50,
                 available_seats=32,
-                delay_minutes=15,
-                delay_reason="Due to heavy traffic near the central campus roundabout."
+                delay_minutes=0,
+                delay_reason=None
             )
             db.add(trip_1)
             await db.flush()
-            print(f"   🗓️ Trajet 1 créé : Départ dans 1h (32/50 places disponibles, retard +15 min)")
+            print(f"   🗓️ Trajet 1 créé : 07:30 - Rotation Matin (32/50 places disponibles)")
 
+        # Trip 2 (Ligne B - 08:15 Rotation Express - 0/50 places COMPLET)
         trip_2 = (await db.execute(
-            select(Trips).where(Trips.route_id == main_route.route_id, Trips.bus_id == bus_2.bus_id)
+            select(Trips).where(Trips.trip_id == uuid.UUID("2a953d78-5279-4342-8d66-2a6e8b0a0a87"))
         )).scalars().first()
 
         if not trip_2:
             trip_2 = Trips(
-                route_id=main_route.route_id,
+                trip_id=uuid.UUID("2a953d78-5279-4342-8d66-2a6e8b0a0a87"),
+                route_id=route_b.route_id,
                 bus_id=bus_2.bus_id,
                 driver_id=driver_user.user_id,
                 departure_time=now + timedelta(hours=2),
-                estimated_arrival_time=now + timedelta(hours=2, minutes=35),
+                estimated_arrival_time=now + timedelta(hours=2, minutes=20),
                 status=TripStatusEnum.SCHEDULED,
                 total_seats=50,
                 available_seats=0, # Complet
@@ -306,7 +313,53 @@ async def run_seed():
             )
             db.add(trip_2)
             await db.flush()
-            print(f"   🗓️ Trajet 2 créé : Départ dans 2h (0/50 places - COMPLET)")
+            print(f"   🗓️ Trajet 2 créé : 08:15 - Rotation Express (0/50 places - COMPLET)")
+
+        # Trip 3 (Ligne A - 09:00 Rotation Campus - 18/50 places)
+        trip_3 = (await db.execute(
+            select(Trips).where(Trips.trip_id == uuid.UUID("3c81e9b2-6541-487a-bfa1-7f912c018a99"))
+        )).scalars().first()
+
+        if not trip_3:
+            trip_3 = Trips(
+                trip_id=uuid.UUID("3c81e9b2-6541-487a-bfa1-7f912c018a99"),
+                route_id=route_a.route_id,
+                bus_id=bus_1.bus_id,
+                driver_id=driver_user.user_id,
+                departure_time=now + timedelta(hours=3),
+                estimated_arrival_time=now + timedelta(hours=3, minutes=35),
+                status=TripStatusEnum.SCHEDULED,
+                total_seats=50,
+                available_seats=18,
+                delay_minutes=0,
+                delay_reason=None
+            )
+            db.add(trip_3)
+            await db.flush()
+            print(f"   🗓️ Trajet 3 créé : 09:00 - Rotation Campus (18/50 places disponibles)")
+
+        # Trip 4 (Ligne C - 12:30 Rotation Midi - 10/50 places)
+        trip_4 = (await db.execute(
+            select(Trips).where(Trips.trip_id == uuid.UUID("4d92fa13-7652-498b-cfb2-8a023d129b00"))
+        )).scalars().first()
+
+        if not trip_4:
+            trip_4 = Trips(
+                trip_id=uuid.UUID("4d92fa13-7652-498b-cfb2-8a023d129b00"),
+                route_id=route_c.route_id,
+                bus_id=bus_3.bus_id,
+                driver_id=driver_user.user_id,
+                departure_time=now + timedelta(hours=5),
+                estimated_arrival_time=now + timedelta(hours=6),
+                status=TripStatusEnum.SCHEDULED,
+                total_seats=50,
+                available_seats=10,
+                delay_minutes=0,
+                delay_reason=None
+            )
+            db.add(trip_4)
+            await db.flush()
+            print(f"   🗓️ Trajet 4 créé : 12:30 - Rotation Midi (10/50 places disponibles)")
 
         # ----------------------------------------------------------------------
         # PAIEMENTS ET TICKETS ACTIFS (TICKETS & QR CODES)
