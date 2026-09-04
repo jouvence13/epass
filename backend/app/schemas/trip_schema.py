@@ -79,3 +79,4 @@ class DriverActiveTripOutSchema(BaseModel):
     delay_minutes: int = 0
     delay_reason: Optional[str] = None
     departure_time: datetime
+    kyc_status: Optional[str] = None

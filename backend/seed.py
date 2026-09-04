@@ -633,11 +633,18 @@ async def run_seed():
         # ----------------------------------------------------------------------
         print("\n📄 10. Enregistrement des Justificatifs KYC...")
         admin_user = users_map["+22997000000"]
+        driver_user = users_map["+22997000001"]
+        controller_user = users_map["+22997000002"]
         kyc_entries = [
             (student_koffi.user_id, DocumentTypeEnum.STUDENT_CARD, "/uploads/kyc/koffi_carte_etudiant.jpg", KycStatusEnum.APPROVED, admin_user.user_id, now, "2024-2025"),
             (student_koffi.user_id, DocumentTypeEnum.CIP_IDENTITY, "/uploads/kyc/koffi_cip.jpg", KycStatusEnum.APPROVED, admin_user.user_id, now, "2024-2025"),
             (student_sena.user_id, DocumentTypeEnum.STUDENT_CARD, "/uploads/kyc/sena_carte_etudiant.jpg", KycStatusEnum.APPROVED, admin_user.user_id, now, "2024-2025"),
             (student_marius.user_id, DocumentTypeEnum.STUDENT_CARD, "/uploads/kyc/marius_carte_etudiant.jpg", KycStatusEnum.PENDING, None, None, "2024-2025"),
+            (driver_user.user_id, DocumentTypeEnum.DRIVER_LICENSE, "/uploads/kyc/driver_permis_d.jpg", KycStatusEnum.APPROVED, admin_user.user_id, now, "2024-2025"),
+            (driver_user.user_id, DocumentTypeEnum.MEDICAL_CERTIFICATE, "/uploads/kyc/driver_certificat_medical.jpg", KycStatusEnum.APPROVED, admin_user.user_id, now, "2024-2025"),
+            (driver_user.user_id, DocumentTypeEnum.CIP_IDENTITY, "/uploads/kyc/driver_cip.jpg", KycStatusEnum.APPROVED, admin_user.user_id, now, "2024-2025"),
+            (controller_user.user_id, DocumentTypeEnum.CONTROLLER_BADGE, "/uploads/kyc/controller_badge.jpg", KycStatusEnum.APPROVED, admin_user.user_id, now, "2024-2025"),
+            (controller_user.user_id, DocumentTypeEnum.CIP_IDENTITY, "/uploads/kyc/controller_cip.jpg", KycStatusEnum.APPROVED, admin_user.user_id, now, "2024-2025"),
         ]
         for u_id, dtype, durl, vstatus, vby, vat, ayear in kyc_entries:
             doc_existing = (await db.execute(
@@ -715,6 +722,24 @@ async def run_seed():
                 "PUSH",
                 False,
                 now - timedelta(minutes=25)
+            ),
+            (
+                driver_user.user_id,
+                None,
+                "Contrôle Technique : Navette BUS-UAC-01",
+                "Pression des pneus et niveau de carburant vérifiés ce matin par les équipes de maintenance CROUS.",
+                "PUSH",
+                False,
+                now - timedelta(hours=2)
+            ),
+            (
+                driver_user.user_id,
+                None,
+                "Rotation Campus Express Active",
+                "Votre service sur la Ligne A est programmé. Départs réguliers assurés toute la journée.",
+                "PUSH",
+                False,
+                now - timedelta(hours=4)
             )
         ]
 

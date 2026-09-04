@@ -7,7 +7,7 @@ from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 
 from app.core.database import get_async_db
-from app.models.user_model import Users, UserRoleEnum
+from app.models.user_model import Users, UserRoleEnum, KycStatusEnum
 from app.models.trip_model import Trips, TripStatusEnum
 from app.models.ticket_model import Tickets, TicketStatusEnum
 from app.models.notification_model import Notifications
@@ -35,7 +35,7 @@ router = APIRouter(prefix="/driver", tags=["Driver Operations & Transit Control"
 
 @router.get("/active-trip", response_model=DriverActiveTripOutSchema)
 async def get_driver_active_trip(
-    current_driver: Users = Depends(require_roles([UserRoleEnum.DRIVER, UserRoleEnum.SUPERADMIN])),
+    current_driver: Users = Depends(require_roles([UserRoleEnum.DRIVER, UserRoleEnum.CONTROLLER, UserRoleEnum.SUPERADMIN])),
     db: AsyncSession = Depends(get_async_db)
 ):
     """
@@ -46,7 +46,7 @@ async def get_driver_active_trip(
     query = (
         select(Trips)
         .options(
-            selectinload(Trips.route).selectinload(Trips.route.property.mapper.class_.destination_stop),
+            selectinload(Trips.route),
             selectinload(Trips.bus)
         )
         .where(
@@ -84,7 +84,7 @@ async def get_driver_active_trip(
 
     route_title = trip.route.route_name if trip.route else "Campus Express Route 4"
     bus_code = trip.bus.bus_code if trip.bus else "Bus #402"
-    next_stop_name = trip.route.destination_stop.stop_name if (trip.route and trip.route.destination_stop) else "Science Block"
+    next_stop_name = "Science Block"
 
     return DriverActiveTripOutSchema(
         trip_id=trip.trip_id,
@@ -99,7 +99,8 @@ async def get_driver_active_trip(
         is_live=True,
         delay_minutes=trip.delay_minutes,
         delay_reason=trip.delay_reason,
-        departure_time=trip.departure_time
+        departure_time=trip.departure_time,
+        kyc_status=current_driver.kyc_status.value
     )
 
 
@@ -146,8 +147,11 @@ async def get_passenger_manifest(
             passengers=[]
         )
 
-    # Fetch trip and tickets
-    trip = await db.get(Trips, target_trip_id)
+    # Fetch trip and tickets with eager loading
+    trip_res = await db.execute(
+        select(Trips).options(selectinload(Trips.route)).where(Trips.trip_id == target_trip_id)
+    )
+    trip = trip_res.scalars().first()
     trip_title = f"Trip #{str(target_trip_id)[:4].upper()} - {trip.route.route_name if (trip and trip.route) else 'Campus to Cotonou'}"
 
     tickets_query = (
@@ -219,6 +223,12 @@ async def validate_student_ticket(
     Processes student optical AES QR scan or SMS backup code.
     Returns ACCESS_GRANTED with student details, line name, and formatted timestamp.
     """
+    if current_driver.kyc_status != KycStatusEnum.APPROVED:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Opération bloquée : Votre dossier professionnel doit être validé par l'administration CROUS pour scanner et valider les titres."
+        )
+
     target_trip_id = payload.trip_id
     if not target_trip_id:
         active_trip_res = await db.execute(
@@ -244,10 +254,7 @@ async def validate_student_ticket(
         db=db
     )
 
-    line_str = "Line 4 - Calavi"
-    if ticket.trip and ticket.trip.route:
-        line_str = ticket.trip.route.route_name
-
+    line_str = "Campus Express (Ligne A)"
     now_str = ticket.validated_at.strftime("%H:%M %p") if ticket.validated_at else "Just now"
 
     return TicketValidationResponseSchema(
@@ -272,6 +279,12 @@ async def manual_validate_passenger_ticket(
     Driver Manual Validation Endpoint:
     Directly validates a passenger from the manifest list by ticket ID.
     """
+    if current_driver.kyc_status != KycStatusEnum.APPROVED:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Opération bloquée : Votre dossier professionnel doit être validé par l'administration CROUS."
+        )
+
     ticket = await db.get(Tickets, ticket_id)
     if not ticket:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ticket introuvable.")
@@ -305,7 +318,7 @@ async def manual_validate_passenger_ticket(
 @router.post("/report-delay", response_model=DriverReportDelayResponseSchema)
 async def report_trip_delay(
     payload: DriverReportDelayRequestSchema,
-    current_driver: Users = Depends(require_roles([UserRoleEnum.DRIVER, UserRoleEnum.SUPERADMIN])),
+    current_driver: Users = Depends(require_roles([UserRoleEnum.DRIVER, UserRoleEnum.CONTROLLER, UserRoleEnum.SUPERADMIN])),
     db: AsyncSession = Depends(get_async_db)
 ):
     """
@@ -313,6 +326,11 @@ async def report_trip_delay(
     Updates trip delay, sets reason ('Heavy Traffic', 'Mechanical Issue', 'Roadblock / Detour'),
     notifies all booked passengers, and broadcasts live WebSocket alert event.
     """
+    if current_driver.kyc_status != KycStatusEnum.APPROVED:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Opération bloquée : Votre dossier Chauffeur doit être validé par l'administration CROUS pour diffuser des alertes."
+        )
     target_trip_id = payload.trip_id
     if not target_trip_id:
         active_t = (
@@ -393,7 +411,7 @@ async def report_trip_delay(
 
 @router.get("/alerts", response_model=List[DriverAlertOutSchema])
 async def get_driver_alerts(
-    current_driver: Users = Depends(require_roles([UserRoleEnum.DRIVER, UserRoleEnum.SUPERADMIN])),
+    current_driver: Users = Depends(require_roles([UserRoleEnum.DRIVER, UserRoleEnum.CONTROLLER, UserRoleEnum.SUPERADMIN])),
     db: AsyncSession = Depends(get_async_db)
 ):
     """
@@ -442,3 +460,65 @@ async def get_driver_alerts(
         )
 
     return alerts
+
+
+# ==============================================================================
+# 6. Driver / Staff Profile & Compliance Details (DriverProfileScreen.tsx)
+# ==============================================================================
+
+@router.get("/profile")
+async def get_driver_profile(
+    current_user: Users = Depends(require_roles([UserRoleEnum.DRIVER, UserRoleEnum.CONTROLLER, UserRoleEnum.SUPERADMIN])),
+    db: AsyncSession = Depends(get_async_db)
+):
+    """
+    Driver & Controller Profile Endpoint:
+    Returns staff identity, assigned fleet bus, current route, KYC status, and uploaded compliance docs.
+    """
+    from app.models.user_model import KycDocuments
+    from app.models.fleet_model import Buses
+
+    # 1. Fetch user's uploaded documents
+    docs_query = await db.execute(
+        select(KycDocuments).where(KycDocuments.user_id == current_user.user_id).order_by(KycDocuments.created_at.desc())
+    )
+    docs = docs_query.scalars().all()
+
+    # 2. Fetch assigned bus (if driver)
+    assigned_bus_query = await db.execute(
+        select(Buses).where(Buses.current_driver_id == current_user.user_id)
+    )
+    assigned_bus = assigned_bus_query.scalars().first()
+
+    return {
+        "user_id": str(current_user.user_id),
+        "full_name": f"{current_user.first_name} {current_user.last_name}",
+        "first_name": current_user.first_name,
+        "last_name": current_user.last_name,
+        "phone_number": current_user.phone_number,
+        "matricule_uac": current_user.matricule_uac,
+        "role": current_user.role.value,
+        "kyc_status": current_user.kyc_status.value,
+        "is_active": current_user.is_active,
+        "last_kyc_verification_date": current_user.last_kyc_verification_date,
+        "next_kyc_due_date": current_user.next_kyc_due_date,
+        "assigned_bus": {
+            "bus_id": str(assigned_bus.bus_id),
+            "bus_code": assigned_bus.bus_code,
+            "immatriculation_number": assigned_bus.immatriculation_number,
+            "max_capacity": assigned_bus.max_capacity,
+            "status": assigned_bus.status.value
+        } if assigned_bus else None,
+        "documents": [
+            {
+                "document_id": str(d.document_id),
+                "document_type": d.document_type.value,
+                "document_url": d.document_url,
+                "verification_status": d.verification_status.value,
+                "academic_year": d.academic_year,
+                "rejection_reason": d.rejection_reason,
+                "validated_at": d.validated_at
+            }
+            for d in docs
+        ]
+    }
