@@ -8,6 +8,8 @@ import AlertsScreen from '../screens/driver/AlertsScreen';
 import TopBar from '../components/TopBar';
 import { colors } from '../theme/theme';
 
+import { useAuth } from '../context/AuthContext';
+
 const Tab = createBottomTabNavigator();
 
 const ICONS: Record<string, keyof typeof MaterialIcons.glyphMap> = {
@@ -18,13 +20,22 @@ const ICONS: Record<string, keyof typeof MaterialIcons.glyphMap> = {
 };
 
 export default function DriverTabs() {
+  const { logout } = useAuth();
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         header:
           route.name === 'Scan'
             ? undefined
-            : () => <TopBar title="CROUS-UAC Driver" dark rightBadge="OPERATIONAL" />,
+            : () => (
+                <TopBar
+                  title="CROUS-UAC Driver"
+                  dark
+                  rightIcon="logout"
+                  onRightPress={logout}
+                />
+              ),
         tabBarActiveTintColor: colors.onSecondaryContainer,
         tabBarInactiveTintColor: colors.onSurfaceVariant,
         tabBarStyle: { borderTopColor: colors.outlineVariant, height: 64, paddingBottom: 8, paddingTop: 6 },

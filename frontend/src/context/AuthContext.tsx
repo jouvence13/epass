@@ -21,18 +21,31 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (phoneNumber: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  register: (payload: {
-    phone_number: string;
-    password: string;
-    first_name: string;
-    last_name: string;
-    matricule_uac?: string;
-    role?: UserRole;
-  }) => Promise<{ success: boolean; error?: string }>;
+  register: (
+    payload: {
+      phone_number: string;
+      password: string;
+      first_name: string;
+      last_name: string;
+      matricule_uac?: string;
+      role?: UserRole;
+    },
+    autoLogin?: boolean
+  ) => Promise<{ success: boolean; error?: string; user?: any }>;
   logout: () => void;
   quickLogin: (roleKey: 'STUDENT' | 'DRIVER' | 'CONTROLLER' | 'ADMIN_CROUS') => Promise<void>;
   updateUserKycStatus: (status: KycStatus) => void;
 }
+
+const formatApiError = (detail: any, defaultMsg: string): string => {
+  if (!detail) return defaultMsg;
+  if (typeof detail === 'string') return detail;
+  if (Array.isArray(detail)) {
+    return detail.map((d: any) => d.msg || d.message || JSON.stringify(d)).join(', ');
+  }
+  if (typeof detail === 'object' && detail.message) return detail.message;
+  return defaultMsg;
+};
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -89,6 +102,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (phoneNumber: string, password: string) => {
     setIsLoading(true);
+    const cleanPhone = phoneNumber.replace(/\s+/g, '').replace(/-/g, '');
     try {
       const response = await fetch(ENDPOINTS.LOGIN, {
         method: 'POST',
@@ -96,7 +110,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          phone_number: phoneNumber,
+          phone_number: cleanPhone,
           password: password,
         }),
       });
@@ -107,7 +121,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsLoading(false);
         return {
           success: false,
-          error: data.detail || 'Numéro de téléphone ou mot de passe incorrect.',
+          error: formatApiError(data.detail, 'Numéro de téléphone ou mot de passe incorrect.'),
         };
       }
 
@@ -133,7 +147,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } else {
         userData = {
           user_id: data.user_id,
-          phone_number: phoneNumber,
+          phone_number: cleanPhone,
           first_name: 'Utilisateur',
           last_name: 'UAC',
           role: data.role,
@@ -168,13 +182,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     autoLogin: boolean = false
   ) => {
     setIsLoading(true);
+    const cleanPhone = payload.phone_number.replace(/\s+/g, '').replace(/-/g, '');
     try {
       const response = await fetch(ENDPOINTS.REGISTER, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          ...payload,
+          phone_number: cleanPhone,
+        }),
       });
 
       const data = await response.json();
@@ -183,12 +201,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsLoading(false);
         return {
           success: false,
-          error: data.detail || "Erreur lors de l'inscription.",
+          error: formatApiError(data.detail, "Erreur lors de l'inscription."),
         };
       }
 
       if (autoLogin) {
-        const loginRes = await login(payload.phone_number, payload.password);
+        const loginRes = await login(cleanPhone, payload.password);
         setIsLoading(false);
         return loginRes;
       }

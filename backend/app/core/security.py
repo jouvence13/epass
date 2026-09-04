@@ -17,39 +17,36 @@ from typing import Any, Dict, Optional, Union
 
 # PyJWT permet de signer et valider des JSON Web Tokens
 import jwt
-
-# Passlib gère le hachage sécurisé des mots de passe
-from passlib.context import CryptContext
-
-# Cryptography fournit les primitives cryptographiques de bas niveau (AES, CBC, padding PKCS7)
+import bcrypt
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
 
 from app.core.config import settings
 
-# Configuration du contexte de hachage Bcrypt
-# 'deprecated="auto"' permet d'assurer une compatibilité future si l'algorithme évolue
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-
 # ==============================================================================
-# 1. GESTION DES MOTS DE PASSE (BCRYPT)
+# 1. GESTION DES MOTS DE PASSE (BCRYPT NATIF)
 # ==============================================================================
 
 def hash_password(password: str) -> str:
     """
     Hache un mot de passe en clair à l'aide de l'algorithme Bcrypt.
-    Bcrypt génère automatiquement un 'salt' (sel) aléatoire à chaque appel.
+    Génère un sel aléatoire et tronque à 72 octets max (limite standard bcrypt).
     """
-    return pwd_context.hash(password)
+    pwd_bytes = password.encode("utf-8")[:72]
+    salt = bcrypt.gensalt()
+    return bcrypt.hashpw(pwd_bytes, salt).decode("utf-8")
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """
-    Vérifie si le mot de passe fourni par l'utilisateur correspond au hash enregistré.
-    Retourne True si valide, False sinon.
+    Vérifie si le mot de passe fourni correspond au hash enregistré.
     """
-    return pwd_context.verify(plain_password, hashed_password)
+    try:
+        pwd_bytes = plain_password.encode("utf-8")[:72]
+        hashed_bytes = hashed_password.encode("utf-8")
+        return bcrypt.checkpw(pwd_bytes, hashed_bytes)
+    except Exception:
+        return False
 
 
 # ==============================================================================

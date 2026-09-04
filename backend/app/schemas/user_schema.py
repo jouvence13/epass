@@ -14,7 +14,7 @@ class UserRegistrationSchema(BaseModel):
     phone_number: str = Field(..., example="+22997000000")
     first_name: str = Field(..., example="Koffi")
     last_name: str = Field(..., example="MENSAH")
-    password: str = Field(..., min_length=8, example="SecretPassword123")
+    password: str = Field(..., min_length=6, example="SecretPassword123")
     role: Optional[UserRoleEnum] = UserRoleEnum.STUDENT
 
 

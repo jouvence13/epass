@@ -33,22 +33,25 @@ async def register_user(
     """
     Register a new student or user account. Initial KYC status is set to PENDING.
     """
+    # Nettoyage du numéro de téléphone
+    phone_clean = payload.phone_number.replace(" ", "").replace("-", "")
+    
     # Check uniqueness of matricule (if provided) and phone number
-    query_conditions = [Users.phone_number == payload.phone_number]
+    query_conditions = [Users.phone_number == phone_clean]
     if payload.matricule_uac:
-        query_conditions.append(Users.matricule_uac == payload.matricule_uac)
+        query_conditions.append(Users.matricule_uac == payload.matricule_uac.strip())
         
     existing_user_query = await db.execute(
         select(Users).where(or_(*query_conditions))
     )
     existing_user = existing_user_query.scalars().first()
     if existing_user:
-        if existing_user.phone_number == payload.phone_number:
+        if existing_user.phone_number == phone_clean:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Ce numéro de téléphone est déjà enregistré."
             )
-        if payload.matricule_uac and existing_user.matricule_uac == payload.matricule_uac:
+        if payload.matricule_uac and existing_user.matricule_uac == payload.matricule_uac.strip():
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Ce matricule UAC est déjà associé à un autre compte."
@@ -64,10 +67,10 @@ async def register_user(
     user_role = UserRoleEnum.STUDENT
 
     new_user = Users(
-        matricule_uac=payload.matricule_uac,
-        phone_number=payload.phone_number,
-        first_name=payload.first_name,
-        last_name=payload.last_name,
+        matricule_uac=payload.matricule_uac.strip(),
+        phone_number=phone_clean,
+        first_name=payload.first_name.strip(),
+        last_name=payload.last_name.strip(),
         password_hash=hash_password(payload.password),
         role=user_role,
         kyc_status=KycStatusEnum.PENDING,
@@ -92,8 +95,9 @@ async def login_user(
     """
     Authenticate user by phone number and password. Returns JWT access and refresh tokens.
     """
+    phone_clean = payload.phone_number.replace(" ", "").replace("-", "")
     user_query = await db.execute(
-        select(Users).where(Users.phone_number == payload.phone_number)
+        select(Users).where(Users.phone_number == phone_clean)
     )
     user = user_query.scalars().first()
 
