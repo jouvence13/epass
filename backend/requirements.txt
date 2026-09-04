@@ -1,0 +1,34 @@
+# FastAPI & ASGI Server
+fastapi>=0.111.0
+uvicorn[standard]>=0.30.0
+gunicorn>=22.0.0
+pydantic>=2.7.0
+pydantic-settings>=2.2.0
+python-multipart>=0.0.9
+
+# Database & ORM
+SQLAlchemy>=2.0.30
+asyncpg>=0.29.0
+psycopg2-binary>=2.9.9
+GeoAlchemy2>=0.15.0
+Shapely>=2.0.4
+alembic>=1.13.1
+
+# Caching, Broker & Asynchronous Tasks
+redis>=5.0.4
+celery>=5.4.0
+
+# Security, Tokens & Cryptography
+passlib[bcrypt]>=1.7.4
+bcrypt>=4.0.1
+pyjwt>=2.8.0
+cryptography>=42.0.7
+
+# HTTP Client & External APIs (FedaPay, KkiaPay, SMS, FCM)
+httpx>=0.27.0
+requests>=2.32.0
+
+# Testing
+pytest>=8.2.0
+pytest-asyncio>=0.23.6
+httpx>=0.27.0
