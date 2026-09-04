@@ -32,6 +32,7 @@ async def get_my_notifications(
 ):
     """
     Returns user notifications from PostgreSQL database.
+    If no notifications exist for a newly registered user, creates initial onboarding notifications.
     """
     query = (
         select(Notifications)
@@ -40,6 +41,34 @@ async def get_my_notifications(
     )
     result = await db.execute(query)
     notifs = result.scalars().all()
+
+    # Si l'utilisateur est nouvellement inscrit et n'a pas encore de notifications
+    if not notifs:
+        init_notifs = [
+            Notifications(
+                user_id=current_user.user_id,
+                title="Vérification Académique Requise",
+                message=f"Bienvenue {current_user.first_name} ! Veuillez téléverser votre Carte d’Étudiant UAC et votre CIP pour débloquer les billets subventionnés à 100 FCFA.",
+                is_sent=False
+            ),
+            Notifications(
+                user_id=current_user.user_id,
+                title="Portefeuille Universitaire Activé",
+                message="Votre compte étudiant est initialisé. Vous pouvez enregistrer vos numéros MTN, Moov ou Celtiis pour recharger votre solde en 1 clic.",
+                is_sent=False
+            ),
+            Notifications(
+                user_id=current_user.user_id,
+                title="Réseau Bus CROUS Actif",
+                message="Navettes Campus Calavi ↔ Cotonou & Porto-Novo en circulation normale. Départs réguliers assurés.",
+                is_sent=True
+            ),
+        ]
+        db.add_all(init_notifs)
+        await db.commit()
+        for n in init_notifs:
+            await db.refresh(n)
+        notifs = init_notifs
 
     items = []
     now = datetime.now(timezone.utc)

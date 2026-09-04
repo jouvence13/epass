@@ -110,15 +110,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Solde dynamique du Portefeuille Universitaire CROUS
   const [walletBalance, setWalletBalance] = useState<number>(2300);
 
-  // Numéros Mobile Money enregistrés
+  // Numéros Mobile Money enregistrés (initialisés dynamiquement avec le numéro du compte)
   const [operatorPhoneNumbers, setOperatorPhoneNumbers] = useState<{
     MTN: string;
     MOOV: string;
     CELTIIS: string;
   }>({
-    MTN: '+2290157774305',
-    MOOV: '+2290199134633',
-    CELTIIS: '+2290143272822',
+    MTN: '',
+    MOOV: '',
+    CELTIIS: '',
   });
 
   // Liste dynamique des créneaux & rotations de bus
@@ -462,10 +462,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     refreshTrips();
   }, [refreshTrips]);
 
-  // Re-synchronisation des billets quand l'utilisateur change
+  // Re-synchronisation des billets, numéros et solde portefeuille quand l'utilisateur change
   useEffect(() => {
     if (user) {
       refreshTickets();
+
+      // Initialise les numéros avec le numéro réel de l'utilisateur
+      const raw = user.phone_number || '';
+      const formatted = raw.startsWith('+229') ? raw : raw ? `+229${raw}` : '';
+      setOperatorPhoneNumbers({
+        MTN: formatted,
+        MOOV: formatted,
+        CELTIIS: formatted,
+      });
+
+      // Synchronise les moyens de paiement et solde portefeuille depuis PostgreSQL
+      (async () => {
+        try {
+          const res = await fetch(ENDPOINTS.PAYMENT_METHODS, { credentials: 'include' });
+          if (res.ok) {
+            const methods = await res.json();
+            if (Array.isArray(methods)) {
+              methods.forEach((m: any) => {
+                if (m.type === 'MTN_MOMO' && m.account) {
+                  setOperatorPhoneNumbers((prev) => ({ ...prev, MTN: m.account }));
+                } else if (m.type === 'MOOV_MONEY' && m.account) {
+                  setOperatorPhoneNumbers((prev) => ({ ...prev, MOOV: m.account }));
+                } else if (m.type === 'CELTIIS_CASH' && m.account) {
+                  setOperatorPhoneNumbers((prev) => ({ ...prev, CELTIIS: m.account }));
+                }
+              });
+            }
+          }
+        } catch (e) {
+          console.warn('Sync payment methods error:', e);
+        }
+      })();
     }
   }, [user, refreshTickets]);
 

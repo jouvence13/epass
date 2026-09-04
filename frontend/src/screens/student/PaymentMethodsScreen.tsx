@@ -82,14 +82,14 @@ export default function PaymentMethodsScreen({ navigation }: any) {
   // Modal de Recharge du Portefeuille
   const [rechargeModalVisible, setRechargeModalVisible] = useState(false);
   const [rechargeOperator, setRechargeOperator] = useState<'MTN' | 'MOOV' | 'CELTIIS'>('MTN');
-  const [rechargePhone, setRechargePhone] = useState(operatorPhoneNumbers.MTN || '+2290157774305');
+  const [rechargePhone, setRechargePhone] = useState(user?.phone_number || operatorPhoneNumbers.MTN || '');
   const [rechargeAmount, setRechargeAmount] = useState('1000');
   const [ussdPromptVisible, setUssdPromptVisible] = useState(false);
   const [isProcessingUssd, setIsProcessingUssd] = useState(false);
 
   const handleSelectRechargeOperator = (op: 'MTN' | 'MOOV' | 'CELTIIS') => {
     setRechargeOperator(op);
-    setRechargePhone(operatorPhoneNumbers[op] || '+2290157774305');
+    setRechargePhone(operatorPhoneNumbers[op] || user?.phone_number || '');
   };
 
   const setDefaultMethod = (id: string) => {
@@ -104,7 +104,8 @@ export default function PaymentMethodsScreen({ navigation }: any) {
   const openAddModal = () => {
     setEditingMethodId(null);
     setSelectedOperator('MTN');
-    setInputPhoneNumber(operatorPhoneNumbers.MTN.replace('+229', ''));
+    const defaultNum = operatorPhoneNumbers.MTN || user?.phone_number || '';
+    setInputPhoneNumber(defaultNum.replace('+229', ''));
     setModalVisible(true);
   };
 
@@ -117,13 +118,12 @@ export default function PaymentMethodsScreen({ navigation }: any) {
         ? 'MOOV'
         : 'CELTIIS';
     setSelectedOperator(op);
-    // Nettoie pour afficher format compact
     const clean = method.account.replace('+229', '').replace(/\s+/g, '').trim();
     setInputPhoneNumber(clean);
     setModalVisible(true);
   };
 
-  const handleSaveMethod = () => {
+  const handleSaveMethod = async () => {
     const compactInput = inputPhoneNumber.replace(/\s+/g, '').replace(/-/g, '').trim();
     if (!compactInput || compactInput.length < 8) {
       Alert.alert('Numéro incomplet', 'Veuillez saisir un numéro de téléphone valide à 10 chiffres (ex: 0197001122).');
@@ -132,6 +132,36 @@ export default function PaymentMethodsScreen({ navigation }: any) {
 
     const formatted = compactInput.startsWith('+229') ? compactInput : `+229${compactInput}`;
     updateOperatorPhone(selectedOperator, formatted);
+
+    const providerType =
+      selectedOperator === 'MTN'
+        ? 'MTN_MOMO'
+        : selectedOperator === 'MOOV'
+        ? 'MOOV_MONEY'
+        : 'CELTIIS_CASH';
+    const label =
+      selectedOperator === 'MTN'
+        ? 'Compte MTN Mobile Money'
+        : selectedOperator === 'MOOV'
+        ? 'Compte Moov Money'
+        : 'Compte Celtiis Cash';
+
+    try {
+      await fetch(ENDPOINTS.PAYMENT_METHODS, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          provider_type: providerType,
+          account_number: formatted,
+          account_label: label,
+          is_default: true,
+        }),
+      });
+      fetchPaymentData();
+    } catch (e) {
+      console.warn('Error saving payment method to backend:', e);
+    }
 
     setModalVisible(false);
     showToast({

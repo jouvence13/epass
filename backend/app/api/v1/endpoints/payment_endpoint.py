@@ -60,6 +60,7 @@ async def get_payment_methods(
 ):
     """
     Returns payment methods and live wallet balance strictly from PostgreSQL for current_user.
+    If none exist yet, automatically initializes default Mobile Money accounts for the user's phone number.
     """
     # 1. Fetch user's registered operator payment methods from DB
     methods_query = await db.execute(
@@ -69,11 +70,55 @@ async def get_payment_methods(
     )
     user_methods = methods_query.scalars().all()
 
+    # Si aucun moyen de paiement enregistré, initialiser automatiquement avec le numéro de l'utilisateur
+    if not user_methods:
+        phone = current_user.phone_number
+        if not phone.startswith("+229"):
+            phone = f"+229{phone.lstrip('+')}"
+            
+        default_methods = [
+            UserPaymentMethods(
+                user_id=current_user.user_id,
+                provider_type="MTN_MOMO",
+                account_number=phone,
+                account_label="Compte MTN Mobile Money",
+                is_default=True
+            ),
+            UserPaymentMethods(
+                user_id=current_user.user_id,
+                provider_type="MOOV_MONEY",
+                account_number=phone,
+                account_label="Compte Moov Money",
+                is_default=False
+            ),
+            UserPaymentMethods(
+                user_id=current_user.user_id,
+                provider_type="CELTIIS_CASH",
+                account_number=phone,
+                account_label="Compte Celtiis Cash",
+                is_default=False
+            ),
+        ]
+        db.add_all(default_methods)
+        await db.commit()
+        for m in default_methods:
+            await db.refresh(m)
+        user_methods = default_methods
+
     # 2. Fetch user's wallet from DB
     wallet_query = await db.execute(
         select(Wallets).where(Wallets.user_id == current_user.user_id)
     )
     wallet = wallet_query.scalars().first()
+    if not wallet:
+        wallet = Wallets(
+            user_id=current_user.user_id,
+            balance=2300.0,
+            currency="FCFA"
+        )
+        db.add(wallet)
+        await db.commit()
+        await db.refresh(wallet)
 
     # 3. Format dynamic response strictly from database records
     items: List[PaymentMethodOutSchema] = []
@@ -118,7 +163,7 @@ async def get_payment_methods(
                 )
             )
 
-    # Add dynamic Wallet from PostgreSQL if exists
+    # Add dynamic Wallet from PostgreSQL
     if wallet:
         items.append(
             PaymentMethodOutSchema(
@@ -152,14 +197,28 @@ async def add_payment_method(
             .values(is_default=False)
         )
 
-    new_pm = UserPaymentMethods(
-        user_id=current_user.user_id,
-        provider_type=payload.provider_type,
-        account_number=payload.account_number,
-        account_label=payload.account_label,
-        is_default=payload.is_default
+    existing_query = await db.execute(
+        select(UserPaymentMethods).where(
+            UserPaymentMethods.user_id == current_user.user_id,
+            UserPaymentMethods.provider_type == payload.provider_type
+        )
     )
-    db.add(new_pm)
+    new_pm = existing_query.scalars().first()
+    if new_pm:
+        new_pm.account_number = payload.account_number
+        new_pm.account_label = payload.account_label
+        if payload.is_default:
+            new_pm.is_default = True
+    else:
+        new_pm = UserPaymentMethods(
+            user_id=current_user.user_id,
+            provider_type=payload.provider_type,
+            account_number=payload.account_number,
+            account_label=payload.account_label,
+            is_default=payload.is_default
+        )
+        db.add(new_pm)
+
     await db.commit()
     await db.refresh(new_pm)
 
