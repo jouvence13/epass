@@ -315,26 +315,27 @@ async def run_seed():
         student_koffi = users_map["+22997001122"]
         student_sena = users_map["+22995443322"]
 
-        tk_koffi = (await db.execute(
-            select(Tickets).where(Tickets.user_id == student_koffi.user_id)
+        # Ticket 1 Koffi
+        tk_koffi_1 = (await db.execute(
+            select(Tickets).where(Tickets.user_id == student_koffi.user_id, Tickets.sms_backup_code == "A7B9X2M4")
         )).scalars().first()
 
-        if not tk_koffi:
-            pay_koffi = Payments(
+        if not tk_koffi_1:
+            pay_koffi_1 = Payments(
                 user_id=student_koffi.user_id,
                 transaction_reference=f"PAY-FEDAPAY-{uuid.uuid4().hex[:6].upper()}",
                 gateway=PaymentGatewayEnum.FEDAPAY,
-                amount=250.00,
+                amount=100.00,
                 phone_number=student_koffi.phone_number,
                 status=PaymentStatusEnum.SUCCESSFUL
             )
-            db.add(pay_koffi)
+            db.add(pay_koffi_1)
             await db.flush()
 
-            tk_koffi = Tickets(
+            tk_koffi_1 = Tickets(
                 user_id=student_koffi.user_id,
                 trip_id=trip_1.trip_id,
-                payment_id=pay_koffi.payment_id,
+                payment_id=pay_koffi_1.payment_id,
                 qr_code_token="CROUS-UAC-TICKET-A7B9X2M4",
                 sms_backup_code="A7B9X2M4",
                 status=TicketStatusEnum.ISSUED,
@@ -342,9 +343,41 @@ async def run_seed():
                 initial_expiration_date=trip_1.departure_time,
                 final_expiration_date=trip_1.departure_time + timedelta(days=6)
             )
-            db.add(tk_koffi)
+            db.add(tk_koffi_1)
             await db.flush()
-            print(f"   🎫 Ticket Actif généré pour Koffi Alain | Code SMS: A7B9-X2M4 | Token QR: CROUS-UAC-TICKET-A7B9X2M4")
+            print(f"   🎫 Ticket #1 généré pour Koffi Alain | Code: A7B9-X2M4")
+
+        # Ticket 2 Koffi
+        tk_koffi_2 = (await db.execute(
+            select(Tickets).where(Tickets.user_id == student_koffi.user_id, Tickets.sms_backup_code == "A7B9K8N5")
+        )).scalars().first()
+
+        if not tk_koffi_2:
+            pay_koffi_2 = Payments(
+                user_id=student_koffi.user_id,
+                transaction_reference=f"PAY-FEDAPAY-{uuid.uuid4().hex[:6].upper()}",
+                gateway=PaymentGatewayEnum.FEDAPAY,
+                amount=100.00,
+                phone_number=student_koffi.phone_number,
+                status=PaymentStatusEnum.SUCCESSFUL
+            )
+            db.add(pay_koffi_2)
+            await db.flush()
+
+            tk_koffi_2 = Tickets(
+                user_id=student_koffi.user_id,
+                trip_id=trip_1.trip_id,
+                payment_id=pay_koffi_2.payment_id,
+                qr_code_token="CROUS-UAC-TICKET-A7B9K8N5",
+                sms_backup_code="A7B9K8N5",
+                status=TicketStatusEnum.ISSUED,
+                recycle_count=0,
+                initial_expiration_date=trip_1.departure_time,
+                final_expiration_date=trip_1.departure_time + timedelta(days=6)
+            )
+            db.add(tk_koffi_2)
+            await db.flush()
+            print(f"   🎫 Ticket #2 généré pour Koffi Alain | Code: A7B9-K8N5")
 
         tk_sena = (await db.execute(
             select(Tickets).where(Tickets.user_id == student_sena.user_id)

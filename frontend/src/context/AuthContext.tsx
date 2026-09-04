@@ -118,8 +118,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(false);
   const [justRegistered, setJustRegistered] = useState(false);
 
-  // Solde dynamique du Portefeuille Universitaire CROUS
-  const [walletBalance, setWalletBalance] = useState<number>(2500);
+  // Solde dynamique du Portefeuille Universitaire CROUS (2300 F = 2500 F - 2 tickets de 100 F)
+  const [walletBalance, setWalletBalance] = useState<number>(2300);
 
   // Numéros Mobile Money enregistrés (compacts, tout collé)
   const [operatorPhoneNumbers, setOperatorPhoneNumbers] = useState<{
@@ -140,8 +140,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     { id: 'slot-4', time: '12:30 - Rotation Midi', route: 'Ligne C (Calavi ↔ Akpakpa)', bookedSeats: 40, totalSeats: 50, full: false },
   ]);
 
-  // Liste dynamique des titres de transport achetés par l'étudiant
+  // Liste dynamique des titres de transport achetés par l'étudiant (support multi-tickets)
   const [tickets, setTickets] = useState<StudentTicket[]>([
+    {
+      id: 't-102',
+      code: 'A7B9-K8N5',
+      line: 'Campus Express • Ligne A',
+      route: 'Calavi Campus → Cotonou Étoile Rouge',
+      busId: 'Bus CROUS #402',
+      price: 100,
+      date: "Aujourd'hui, 07:45",
+      status: 'ACTIVE',
+      paymentMethod: 'Portefeuille CROUS',
+      timeSlot: '07:30 - Rotation Matin',
+      recycleCount: 0,
+    },
     {
       id: 't-101',
       code: 'A7B9-X2M4',
@@ -153,10 +166,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       status: 'ACTIVE',
       paymentMethod: 'Portefeuille CROUS',
       timeSlot: '07:30 - Rotation Matin',
+      recycleCount: 0,
     },
   ]);
 
-  const [activeTicket, setActiveTicket] = useState<StudentTicket | null>(null);
+  const [activeTicket, setActiveTicket] = useState<StudentTicket | null>({
+    id: 't-102',
+    code: 'A7B9-K8N5',
+    line: 'Campus Express • Ligne A',
+    route: 'Calavi Campus → Cotonou Étoile Rouge',
+    busId: 'Bus CROUS #402',
+    price: 100,
+    date: "Aujourd'hui, 07:45",
+    status: 'ACTIVE',
+    paymentMethod: 'Portefeuille CROUS',
+    timeSlot: '07:30 - Rotation Matin',
+    recycleCount: 0,
+  });
 
   // Synchronisation dynamique des départs depuis le Backend API
   const refreshTrips = useCallback(async () => {
