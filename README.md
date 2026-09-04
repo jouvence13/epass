@@ -1,139 +1,119 @@
-# 🚌 UAC-BusPass - Backend API & WebSockets
+# 🚌 CROUS ePass UAC - Plateforme Digitale de Transit Universitaire
 
-Plateforme SaaS de billetterie numérique, gestion de flotte de bus et suivi géospatial temps réel pour l'**Université d'Abomey-Calavi (UAC)**.
-
----
-
-## 🛠️ Stack Technologique Backend
-
-- **Langage & Framework** : Python 3.11+, [FastAPI](https://fastapi.tiangolo.com/), [Uvicorn](https://www.uvicorn.org/) (Asyncio)
-- **Base de Données & Moteur SIG** : PostgreSQL 16 + [PostGIS](https://postgis.net/) 3.4
-- **ORM & Migrations** : SQLAlchemy 2.0 (Async) + GeoAlchemy2 + Alembic
-- **Cache & Message Broker** : Redis 7 (Pub/Sub WebSockets & Sessions)
-- **Gestionnaire de Tâches Distribuées** : Celery + Celery Beat (Planification Crons J-3..J+7 & KYC 90j)
-- **Passerelles de Paiement Mobile Money** : FedaPay & KkiaPay (MTN MoMo, Moov Money Bénin)
-- **Sécurité & Chiffrement** : Bcrypt, JWT (Access/Refresh), Chiffrement AES-256 (QR Codes anti-fraude)
-- **Conteneurisation** : Docker & Docker-Compose Multi-Services
+Plateforme intégrée de billetterie numérique, validation par QR code anti-fraude, gestion de flotte de navettes, modération académique et contrôle d'accès pour le **Centre des Œuvres Universitaires et Sociales d'Abomey-Calavi (CROUS-UAC)**.
 
 ---
 
-## 📂 Structure du Répertoire
+## 📱 Les 4 Espaces de l'Application Mobile / Web
+
+| Espace & Rôle | Identifiant (Démo) | Mot de passe | Fonctionnalités Clés |
+| :--- | :--- | :--- | :--- |
+| 🎓 **Étudiant** (`STUDENT`) | `+22997001122` | `Student1234` | Achat instantané (100 FCFA), Portefeuille Mobile Money (MTN / Moov / Celtiis), Pass QR Code chiffré AES, Recyclage de pass sous J+7, Suivi GPS en direct. |
+| 🚍 **Chauffeur** (`DRIVER`) | `+22997000001` | `Driver1234` | Poste de conduite, Déclenchement de départ/arrivée, Signalement de retard avec motif, Manifeste passagers, Scanner de billet. |
+| 🛡️ **Contrôleur** (`CONTROLLER`) | `+22997000002` | `Controller1234` | Hub d'inspection assermentée, Validation de conformité KYC (Badge CROUS + CIP), Établissement de procès-verbaux d'infraction/fraude en temps réel. |
+| 🏛️ **Admin CROUS** (`ADMIN_CROUS`) | `+22997000000` | `Admin1234` | Audit financier (Recettes en FCFA, taux de recyclage), Modération KYC en 1-clic (validité 90 jours), Gestion de la flotte (Bus, Lignes, Trajets), Enrôlement du personnel. |
+
+---
+
+## 🚀 Démarrage Complet du Projet (En Local)
+
+### 1. Démarrer le Backend & la Base de Données
+Le backend tourne avec Docker Compose (FastAPI, PostgreSQL 16 + PostGIS, Redis 7, Celery) :
+
+```bash
+# À la racine du projet
+docker compose up --build -d
+```
+- **API Swagger UI** : [http://localhost:8001/docs](http://localhost:8001/docs)
+- **Base de données** : `localhost:5433` (PostGIS)
+
+---
+
+### 2. Démarrer le Tunnel Public (Pour les tests mobiles à distance)
+Pour que l'application mobile (APK ou Expo) puisse communiquer avec votre ordinateur depuis n'importe où (en 4G ou sur un autre réseau Wi-Fi) :
+
+```bash
+ngrok http 8001
+```
+> Le tunnel fournit une URL sécurisée `https://xxxx.ngrok-free.app` configurée dans `frontend/src/config/api.ts`.
+
+---
+
+### 3. Démarrer le Frontend (Mode Développement / Web)
+
+```bash
+cd frontend
+npm install
+npx expo start
+```
+- Appuyez sur **`w`** pour ouvrir l'application dans votre navigateur Web.
+- Appuyez sur **`r`** pour recharger le code sur les appareils connectés.
+
+---
+
+## 📦 Guide de Compilation & Téléchargement de l'APK Android (`.apk`)
+
+Pour générer une vraie application autonome Android installable sur n'importe quel smartphone et distribuable par **WhatsApp** :
+
+### Étape 1 : Connexion à Expo EAS
+```bash
+cd frontend
+npx eas-cli login
+```
+*(Connectez-vous avec votre compte Expo gratuit).*
+
+### Étape 2 : Lancer la Compilation de l'APK
+```bash
+npx eas-cli build -p android --profile preview
+```
+
+### Étape 3 : Télécharger et Installer l'APK
+1. Dès que la compilation dans le Cloud EAS est terminée, un lien de téléchargement direct ainsi qu'un QR code s'affichent dans le terminal (et sur votre tableau de bord Expo).
+2. Ouvrez le lien sur votre smartphone (ou téléchargez le fichier `.apk` sur votre PC).
+3. **Installation sur le téléphone** :
+   - Ouvrez le fichier `.apk`.
+   - Si Android demande l'autorisation *"Installer des applications inconnues"*, cliquez sur **Paramètres > Autoriser**.
+   - Cliquez sur **Installer**.
+4. **Partage WhatsApp** :
+   - Envoyez directement le fichier `.apk` téléchargé en pièce jointe sur WhatsApp à vos collaborateurs ou amis pour leurs tests !
+
+---
+
+## 📁 Architecture du Code Source
 
 ```text
 epass/
-├── ARCHITECTURE.md                  # Documentation technique & spécifications
-├── README.md                        # Documentation d'accueil et d'exécution
-├── backend/                         # Code source & configuration Backend
-│   ├── ARCHITECTURE.md / configs
-│   ├── requirements.txt             # Dépendances Python (FastAPI, SQLAlchemy, PostGIS, Celery, Redis...)
-│   ├── .env.example & .env          # Configuration des variables d'environnement
-│   ├── main.py                      # Point d'entrée FastAPI avec CORS & WebSockets
-│   ├── docker/
-│   │   ├── Dockerfile               # Image Python 3.11 avec support GDAL/PostGIS
-│   │   └── docker-compose.yml       # Multi-conteneurs (API, Postgres 16/PostGIS, Redis 7, Celery Worker & Beat)
-│   ├── alembic/                     # Migrations de base de données
-│   │   ├── env.py
-│   │   └── versions/
+├── README.md                          # Guide global et instructions de déploiement
+├── ARCHITECTURE.md                    # Architecture technique et modèles de données
+├── docker-compose.yml                 # Multi-conteneurs (API, Postgres/PostGIS, Redis, Celery)
+│
+├── backend/                           # API FastAPI Python (Asynchrone)
 │   ├── app/
-│   │   ├── core/                    # Noyau (Config, Sécurité JWT/AES, DB Async, Redis)
-│   │   ├── models/                  # Modèles relationnels & spatiaux SQLAlchemy 2.0
-│   │   ├── schemas/                 # Schémas DTO Pydantic v2
-│   │   ├── services/                # Logique métier pure (Auth, KYC, Booking, ETA, Recycling...)
-│   │   ├── api/                     # REST Endpoints & WebSockets
-│   │   └── tasks/                   # Tâches asynchrones Celery & Crons Beat
-│   └── tests/                       # Tests unitaires & de conformité
+│   │   ├── api/v1/endpoints/          # Routes REST (Auth, KYC, Trips, Driver, Controller, Admin)
+│   │   ├── core/                      # Sécurité JWT, chiffrement AES-256, DB Async
+│   │   ├── models/                    # Modèles SQLAlchemy 2.0 & PostGIS (Users, Tickets, Fleet...)
+│   │   ├── schemas/                   # Schémas DTO Pydantic v2
+│   │   └── services/                  # Logique métier (Auth, KYC 90j, Réservation, Recyclage)
+│   └── main.py                        # Point d'entrée FastAPI
+│
+└── frontend/                          # Application Mobile React Native (Expo SDK 54)
+    ├── app.json                       # Métadonnées, package (com.crous.epass) et icônes
+    ├── eas.json                       # Profils de compilation EAS (buildType: apk)
+    └── src/
+        ├── config/api.ts              # URLs et endpoints API / Tunnel
+        ├── navigation/                # RootNavigator (RBAC 4 rôles) et TabNavigators
+        ├── screens/
+        │   ├── auth/                  # Connexion (LoginScreen) et Inscription (RegisterScreen)
+        │   ├── student/               # Billetterie, Pass actif, Portefeuille, Suivi, KYC
+        │   ├── driver/                # Poste de conduite, Retards, Manifeste, Scanner QR
+        │   ├── controller/            # Hub d'inspection, PV de fraude, Contrôle assermenté
+        │   └── admin/                 # Audit financier, Modération KYC, Gestion Flotte & Personnel
+        └── theme/                     # Charte graphique & Design System CROUS-UAC
 ```
 
 ---
 
-## 📖 Guides & Documentation
-- 📘 **Guide de Lancement & Tests Rapides** : [backend/GUIDE_LANCEMENT_ET_TESTS.md](file:///mnt/3CCAC8AFCAC866AC/Projet%20global/Repository/epass/backend/GUIDE_LANCEMENT_ET_TESTS.md) *(Instructions pas-à-pas, comptes de test pré-configurés et requêtes cURL)*
-- 📐 **Architecture & Modèle Relationnel** : [ARCHITECTURE.md](file:///mnt/3CCAC8AFCAC866AC/Projet%20global/Repository/epass/ARCHITECTURE.md)
-- 🐍 **Livre d'Apprentissage Python** : `backend/GUIDE_APPRENTISSAGE_PYTHON.md`
-
----
-
-## 👥 Comptes de Test Pré-configurés (Seeders)
-
-| Rôle | Téléphone | Mot de Passe | Nom / Statut |
-| :--- | :--- | :--- | :--- |
-| **SUPERADMIN** | `+22990000000` | `SuperAdmin1234` | Super Admin |
-| **ADMIN_CROUS** | `+22997000000` | `Admin1234` | Directeur CROUS |
-| **DRIVER** | `+22997000001` | `Driver1234` | Chauffeur CROUS |
-| **CONTROLLER** | `+22997000002` | `Controller1234` | Contrôleur CROUS |
-| **STUDENT (1)** | `+22997001122` | `Student1234` | Koffi Alain (Ticket Actif `A7B9-X2M4`) |
-| **STUDENT (2)** | `+22995443322` | `Student1234` | Sena Dossou (Ticket Validé `B8C2-D9E1`) |
-
----
-
-## 🚀 Démarrage Rapide du Backend
-
-### Option A : Démarrage avec Docker Compose (Recommandé)
-
-```bash
-# 1. Démarrer tous les conteneurs (API, PostGIS, Redis, Celery, Auto-seeder)
-docker compose up --build -d
-
-# 2. Consulter les logs de l'API
-docker compose logs -f api
-```
-
-Les services suivants seront automatiquement démarrés :
-- 🌐 **API FastAPI + WebSockets** : [http://localhost:8000](http://localhost:8000)
-- 📖 **Documentation Interactive Swagger UI** : [http://localhost:8000/docs](http://localhost:8000/docs)
-- 📑 **ReDoc** : [http://localhost:8000/redoc](http://localhost:8000/redoc)
-- 🗄️ **PostgreSQL 16 + PostGIS** : `localhost:5432`
-- ⚡ **Redis 7** : `localhost:6379`
-- ⚙️ **Celery Worker & Celery Beat** : Tâches asynchrones et crons en cours d'exécution
-
----
-
-### Option B : Démarrage Local (Sans Docker)
-
-```bash
-cd backend
-
-# 1. Créer et activer un environnement virtuel
-python3 -m venv venv
-source venv/bin/activate
-
-# 2. Installer les dépendances
-pip install -r requirements.txt
-
-# 3. Configurer les variables d'environnement
-cp .env.example .env
-
-# 4. Lancer le serveur de développement avec rechargement à chaud
-uvicorn main:app --host 0.0.0.0 --port 8000 --reload
-```
-
----
-
-## 📡 Contrats d'Intégration Frontend (Pour le Binôme Frontend)
-
-Consultez le fichier [`ARCHITECTURE.md`](file:///mnt/3CCAC8AFCAC866AC/Projet%20global/Repository/epass/ARCHITECTURE.md) pour les contrats JSON détaillés, les modèles de données relationnels et les spécifications complètes.
-
-### Résumé des Endpoints Clés :
-
-#### 1. Authentification & KYC
-- `POST /api/v1/auth/register` : Inscription étudiant / chauffeur / admin
-- `POST /api/v1/auth/login` : Connexion (retourne JWT access + refresh token)
-- `POST /api/v1/auth/refresh` : Rafraîchir le jeton expiré
-- `GET /api/v1/auth/me` : Profil utilisateur connecté
-- `POST /api/v1/kyc/upload` : Téléversement Carte Étudiant UAC + CIP/CNI
-- `GET /api/v1/kyc/pending` *(Admin)* : Liste des demandes KYC en attente
-- `PUT /api/v1/kyc/verify` *(Admin)* : Validation ou rejet avec renouvellement 90 jours
-
-#### 2. Trajets & Réservation
-- `GET /api/v1/trips/available` : Liste des trajets disponibles avec sièges restants
-- `POST /api/v1/trips/{trip_id}/book` : Initialisation réservation avec verrouillage anti-surréservation
-- `POST /api/v1/webhooks/fedapay` & `POST /api/v1/webhooks/kkiapay` : Webhooks de paiement
-
-#### 3. Opérations Chauffeur & Recyclage
-- `POST /api/v1/driver/validate-ticket` : Validation du ticket (Scan QR Code AES ou code SMS)
-- `GET /api/v1/driver/active-trip` : Trajet actuellement assigné au chauffeur
-- `POST /api/v1/recycle/execute` : Recyclage du pass vers un nouveau trajet (Délai strict J+7, max 1 fois)
-
-#### 4. WebSockets Temps Réel
-- `WS /ws/driver/track/{trip_id}` : Flux d'ingestion GPS Chauffeur (toutes les 10s)
-- `WS /ws/student/track/{trip_id}` : Diffusion télémétrie + ETA dynamique aux étudiants
+## 🔒 Sécurité & Anti-Fraude
+- **Horodatage & Validité Dynamique** : Les QR codes intègrent une signature à rotation temporelle pour empêcher les captures d'écran frauduleuses.
+- **Règle de Recyclage Unique (J+7)** : Un billet non utilisé ne peut être recyclé qu'une seule fois dans la limite de 7 jours après l'heure initiale.
+- **Cycle de Recertification KYC 90 jours** : Les statuts étudiants et badges agents font l'objet d'un audit automatique avec notification de rappel avant expiration.
