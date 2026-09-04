@@ -8,7 +8,7 @@ import { colors, radius, spacing, typography } from '../../theme/theme';
 import { useAuth } from '../../context/AuthContext';
 
 const ROWS: { icon: keyof typeof MaterialIcons.glyphMap; label: string; action?: string }[] = [
-  { icon: 'receipt-long', label: "Historique d'achats" },
+  { icon: 'receipt-long', label: "Historique d'achats", action: 'History' },
   { icon: 'verified-user', label: 'Vérification KYC (Documents)', action: 'KycOnboarding' },
   { icon: 'payments', label: 'Moyens de paiement (MTN / Moov)' },
   { icon: 'notifications', label: 'Notifications' },
@@ -57,6 +57,8 @@ export default function ProfileScreen({ navigation }: any) {
               onPress={() => {
                 if (r.action === 'KycOnboarding') {
                   navigation.navigate('KycOnboarding');
+                } else if (r.action === 'History') {
+                  navigation.navigate('History');
                 }
               }}
             >

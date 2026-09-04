@@ -103,7 +103,7 @@ export default function HomeScreen({ navigation }: any) {
             </View>
             <Text style={styles.tileLabel}>Mon profil KYC</Text>
           </Pressable>
-          <Pressable style={styles.tile}>
+          <Pressable style={styles.tile} onPress={() => navigation.navigate('History')}>
             <View style={[styles.tileIcon, { backgroundColor: colors.surfaceContainerHigh }]}>
               <MaterialIcons name="history" size={24} color={colors.onSurfaceVariant} />
             </View>
