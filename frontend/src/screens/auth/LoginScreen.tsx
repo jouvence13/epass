@@ -158,7 +158,7 @@ export default function LoginScreen({ navigation }: any) {
             <MaterialIcons name="phone" size={20} color={colors.outline} style={styles.inputIcon} />
             <TextInput
               style={styles.input}
-              placeholder="+229 97 00 11 22"
+              placeholder="+229 01 97 00 11 22"
               placeholderTextColor={colors.outline}
               keyboardType="phone-pad"
               value={phoneNumber}

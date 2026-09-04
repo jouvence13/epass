@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,8 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
+  Modal,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -15,13 +17,18 @@ import { colors, radius, spacing, typography } from '../../theme/theme';
 import { useAuth } from '../../context/AuthContext';
 
 export default function RegisterScreen({ navigation }: any) {
-  const { register, isLoading } = useAuth();
+  const { register, login, isLoading } = useAuth();
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [matricule, setMatricule] = useState('');
   const [password, setPassword] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // État pour la notification de succès et redirection
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [isRedirecting, setIsRedirecting] = useState(false);
+  const [countdown, setCountdown] = useState(3);
 
   const handleRegister = async () => {
     setErrorMessage(null);
@@ -35,19 +42,51 @@ export default function RegisterScreen({ navigation }: any) {
       return;
     }
 
-    const res = await register({
-      first_name: firstName.trim(),
-      last_name: lastName.trim(),
-      phone_number: phoneNumber.trim(),
-      matricule_uac: matricule.trim(),
-      password: password,
-      role: 'STUDENT',
-    });
+    // Inscription sans auto-login immédiat pour permettre l'affichage de la notification
+    const res = await register(
+      {
+        first_name: firstName.trim(),
+        last_name: lastName.trim(),
+        phone_number: phoneNumber.trim(),
+        matricule_uac: matricule.trim(),
+        password: password,
+        role: 'STUDENT',
+      },
+      false
+    );
 
-    if (!res.success) {
+    if (res.success) {
+      setShowSuccessModal(true);
+      setCountdown(3);
+    } else {
       setErrorMessage(res.error || "Échec de l'inscription.");
     }
   };
+
+  // Gestion de la redirection vers l'accueil étudiant
+  const handleProceedToHome = async () => {
+    if (isRedirecting) return;
+    setIsRedirecting(true);
+    const loginRes = await login(phoneNumber.trim(), password);
+    if (!loginRes.success) {
+      setShowSuccessModal(false);
+      setIsRedirecting(false);
+      setErrorMessage("Compte créé mais erreur lors de la connexion automatique. Veuillez vous connecter manuellement.");
+    }
+  };
+
+  // Compte à rebours avant redirection automatique
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (showSuccessModal && !isRedirecting) {
+      if (countdown > 0) {
+        timer = setTimeout(() => setCountdown((c) => c - 1), 1000);
+      } else {
+        handleProceedToHome();
+      }
+    }
+    return () => clearTimeout(timer);
+  }, [showSuccessModal, countdown, isRedirecting]);
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -114,7 +153,7 @@ export default function RegisterScreen({ navigation }: any) {
             <MaterialIcons name="phone" size={20} color={colors.outline} style={styles.inputIcon} />
             <TextInput
               style={styles.inputField}
-              placeholder="+229 97 00 11 22"
+              placeholder="+229 01 97 00 11 22"
               placeholderTextColor={colors.outline}
               keyboardType="phone-pad"
               value={phoneNumber}
@@ -167,6 +206,72 @@ export default function RegisterScreen({ navigation }: any) {
           </View>
         </Card>
       </ScrollView>
+
+      {/* ========================================================================= */}
+      {/* MODAL / NOTIFICATION DE RÉUSSITE AVEC REDIRECTION ACCUEIL ÉTUDIANT       */}
+      {/* ========================================================================= */}
+      <Modal
+        visible={showSuccessModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {}}
+      >
+        <View style={styles.modalBackdrop}>
+          <Card style={styles.modalContent}>
+            {/* Badge icône succès */}
+            <View style={styles.successIconCircle}>
+              <MaterialIcons name="check-circle" size={54} color="#16a34a" />
+            </View>
+
+            <Text style={styles.successTitle}>Inscription Réussie !</Text>
+            <Text style={styles.successSubtitle}>
+              Félicitations, votre compte étudiant a été créé avec succès.
+            </Text>
+
+            {/* Récapitulatif étudiant */}
+            <View style={styles.recapCard}>
+              <View style={styles.recapRow}>
+                <MaterialIcons name="person" size={18} color={colors.primary} />
+                <Text style={styles.recapLabel}>Étudiant :</Text>
+                <Text style={styles.recapValue}>{firstName} {lastName}</Text>
+              </View>
+              <View style={styles.recapRow}>
+                <MaterialIcons name="badge" size={18} color={colors.primary} />
+                <Text style={styles.recapLabel}>Matricule :</Text>
+                <Text style={styles.recapValue}>{matricule}</Text>
+              </View>
+              <View style={styles.recapRow}>
+                <MaterialIcons name="phone" size={18} color={colors.primary} />
+                <Text style={styles.recapLabel}>Téléphone :</Text>
+                <Text style={styles.recapValue}>{phoneNumber}</Text>
+              </View>
+            </View>
+
+            {/* Information de redirection automatique */}
+            <View style={styles.redirectNotice}>
+              {isRedirecting ? (
+                <View style={styles.redirectingBox}>
+                  <ActivityIndicator size="small" color={colors.primary} />
+                  <Text style={styles.redirectText}>Connexion et ouverture de l'accueil...</Text>
+                </View>
+              ) : (
+                <Text style={styles.redirectText}>
+                  Redirection vers l'accueil des étudiants dans <Text style={styles.countdownText}>{countdown}s</Text>...
+                </Text>
+              )}
+            </View>
+
+            {/* Bouton d'action immédiate */}
+            <PrimaryButton
+              label={isRedirecting ? "Ouverture en cours..." : "Accéder à l'accueil"}
+              icon="arrow-forward"
+              onPress={handleProceedToHome}
+              disabled={isRedirecting}
+              style={{ marginTop: spacing.md, width: '100%' }}
+            />
+          </Card>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -235,4 +340,95 @@ const styles = StyleSheet.create({
   footerLink: { flexDirection: 'row', justifyContent: 'center', marginTop: spacing.lg },
   footerText: { ...typography.bodyMd, color: colors.onSurfaceVariant },
   linkText: { ...typography.bodyMd, color: colors.primary, fontWeight: '700' },
+
+  // Styles Modal Succès
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.lg,
+  },
+  modalContent: {
+    width: '100%',
+    maxWidth: 420,
+    alignItems: 'center',
+    padding: spacing.xl,
+    borderRadius: radius.lg,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: '#dcfce7',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 10,
+  },
+  successIconCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#dcfce7',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.md,
+  },
+  successTitle: {
+    ...typography.displayLg,
+    fontSize: 22,
+    color: '#166534',
+    textAlign: 'center',
+  },
+  successSubtitle: {
+    ...typography.bodyMd,
+    color: colors.onSurfaceVariant,
+    textAlign: 'center',
+    marginTop: spacing.xs,
+    marginBottom: spacing.md,
+  },
+  recapCard: {
+    width: '100%',
+    backgroundColor: '#f8fafc',
+    borderRadius: radius.md,
+    padding: spacing.md,
+    gap: spacing.xs,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    marginBottom: spacing.md,
+  },
+  recapRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  recapLabel: {
+    ...typography.labelCaps,
+    color: colors.onSurfaceVariant,
+    fontSize: 11,
+  },
+  recapValue: {
+    ...typography.bodyMd,
+    fontWeight: '700',
+    color: colors.onSurface,
+    flex: 1,
+    textAlign: 'right',
+  },
+  redirectNotice: {
+    marginVertical: spacing.xs,
+    alignItems: 'center',
+  },
+  redirectingBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  redirectText: {
+    ...typography.bodySm,
+    color: colors.onSurfaceVariant,
+    textAlign: 'center',
+  },
+  countdownText: {
+    fontWeight: '700',
+    color: colors.primary,
+  },
 });

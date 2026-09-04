@@ -156,14 +156,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const register = async (payload: {
-    phone_number: string;
-    password: string;
-    first_name: string;
-    last_name: string;
-    matricule_uac?: string;
-    role?: UserRole;
-  }) => {
+  const register = async (
+    payload: {
+      phone_number: string;
+      password: string;
+      first_name: string;
+      last_name: string;
+      matricule_uac?: string;
+      role?: UserRole;
+    },
+    autoLogin: boolean = false
+  ) => {
     setIsLoading(true);
     try {
       const response = await fetch(ENDPOINTS.REGISTER, {
@@ -184,10 +187,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
       }
 
-      // Auto login after registration
-      const loginRes = await login(payload.phone_number, payload.password);
+      if (autoLogin) {
+        const loginRes = await login(payload.phone_number, payload.password);
+        setIsLoading(false);
+        return loginRes;
+      }
+
       setIsLoading(false);
-      return loginRes;
+      return { success: true, user: data };
     } catch (err: any) {
       setIsLoading(false);
       return {
