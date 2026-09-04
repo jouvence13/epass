@@ -122,19 +122,35 @@ npm run web
 
 ---
 
-## 📱 Comment tester les différents écrans
+## 📱 Comment tester les différents écrans Frontend
 
-### 1. Sélection du Rôle (Écran d'accueil)
-À l'ouverture du Frontend, vous pouvez choisir votre profil :
-- **Espace Étudiant (Student)** :
-  - **Active Ticket** : Affiche le billet actif de Koffi Alain avec son QR Code dynamique, le code SMS `A7B9-X2M4`, la bannière de retard et l'estimation de temps (ETA).
-  - **Book Ticket** : Visualisez les créneaux disponibles (`07:30 - Ligne A`, `32/50 places`) et réservez via MTN / Moov Mobile Money.
-  - **KYC Onboarding** : Formulaire de dépôt de la carte étudiant et de la pièce d'identité (CIP).
-- **Espace Chauffeur (Driver Hub)** :
-  - **Driver Hub** : Vue du bus `#402`, jauge de remplissage passagers en direct.
-  - **Passenger Lookup** : Liste des passagers réservés (Koffi Alain, Sena Dossou) avec filtrage (Tous / En attente / Validés).
-  - **Scan Boarding Pass** : Validation d'un titre de transport par QR Code ou saisie du code SMS `A7B9-X2M4`.
-  - **Report Delay** : Signalement d'un retard (+15 min, bouchons carrefour) diffusé en temps réel aux passagers.
+### 1. Authentification & Connexion Rapide (LoginScreen)
+À l'ouverture du Frontend sur [http://localhost:8081](http://localhost:8081) :
+- **Saisie directe** : Entrez votre numéro (+229...) et mot de passe.
+- **Création de compte (RegisterScreen)** : Cliquez sur *"Créer un compte"* pour inscrire un nouvel étudiant ou chauffeur.
+- **⚡ Connexion Rapide (1-clic)** : Utilisez les boutons de test prédéfinis :
+  - 🎓 **Étudiant** : Connecte *Koffi Alain* (Ticket actif Ligne 4).
+  - 🚌 **Chauffeur** : Connecte *Chauffeur CROUS* (Bus #402, manifeste passagers).
+  - 🛡️ **Contrôleur** : Connecte *Contrôleur CROUS* (Scanner de validation).
+  - 🏛️ **Admin CROUS** : Connecte *Directeur CROUS*.
+
+### 2. Dépôt de Documents KYC (KycOnboardingScreen)
+- Accédez au formulaire KYC (depuis le menu Inscription ou le Profil).
+- **Étape 1** : Saisie du matricule UAC (`UAC-2022-8492`) et année académique (`2025-2026`).
+- **Étape 2** : Sélection ou capture de la **Carte d'Étudiant UAC** (avec prévisualisation immédiate).
+- **Étape 3** : Sélection de la **Pièce d'Identité CIP / CNI** (avec prévisualisation).
+- **Envoi réel** : Cliquez sur *"Finaliser et Soumettre"* pour téléverser les justificatifs en `multipart/form-data` vers le backend.
+
+### 3. Espace Étudiant (StudentTabs)
+- **Active Ticket** : Affiche le billet actif avec QR Code dynamique, code SMS `A7B9-X2M4`, bannière d'alerte et suivi GPS.
+- **Book Ticket** : Réservation de place sur les horaires disponibles avec paiement MTN MoMo / Moov Money.
+- **Profil** : Informations personnelles, statut KYC en direct et bouton de déconnexion.
+
+### 4. Espace Chauffeur & Contrôleur (DriverTabs)
+- **Driver Hub** : Vue du bus `#402`, jauge de remplissage passagers (32/50 places).
+- **Passenger Lookup** : Manifeste des passagers réservés avec recherche et statuts (*En attente / Validé*).
+- **Scan Boarding Pass** : Validation du billet par scan QR ou saisie du code SMS `A7B9-X2M4`.
+- **Report Delay** : Signalement d'un retard (+15 min) avec diffusion temps réel.
 
 ---
 

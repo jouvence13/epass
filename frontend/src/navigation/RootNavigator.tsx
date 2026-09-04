@@ -1,23 +1,69 @@
 import React from 'react';
+import { View, ActivityIndicator } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { useAuth } from '../context/AuthContext';
+import { colors } from '../theme/theme';
+
+// Auth Screens
+import LoginScreen from '../screens/auth/LoginScreen';
+import RegisterScreen from '../screens/auth/RegisterScreen';
 import RoleSelectScreen from '../screens/RoleSelectScreen';
+
+// Student Screens
 import KycOnboardingScreen from '../screens/student/KycOnboardingScreen';
 import StudentTabs from './StudentTabs';
+
+// Driver Screens
 import DriverTabs from './DriverTabs';
 import ReportDelayScreen from '../screens/driver/ReportDelayScreen';
 
 const Stack = createNativeStackNavigator();
 
 export default function RootNavigator() {
+  const { user, isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background }}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="RoleSelect" component={RoleSelectScreen} />
-        <Stack.Screen name="KycOnboarding" component={KycOnboardingScreen} />
-        <Stack.Screen name="StudentTabs" component={StudentTabs} />
-        <Stack.Screen name="DriverTabs" component={DriverTabs} />
-        <Stack.Screen name="ReportDelay" component={ReportDelayScreen} />
+        {!isAuthenticated ? (
+          // ================================================================
+          // STACK NON-AUTHENTIFIÉ (Connexion / Inscription / Choix du profil)
+          // ================================================================
+          <>
+            <Stack.Screen name="Login" component={LoginScreen} />
+            <Stack.Screen name="Register" component={RegisterScreen} />
+            <Stack.Screen name="RoleSelect" component={RoleSelectScreen} />
+          </>
+        ) : user?.role === 'STUDENT' ? (
+          // ================================================================
+          // STACK ÉTUDIANT SÉCURISÉ (RBAC STUDENT)
+          // ================================================================
+          <>
+            <Stack.Screen name="StudentTabs" component={StudentTabs} />
+            <Stack.Screen name="KycOnboarding" component={KycOnboardingScreen} />
+          </>
+        ) : (
+          // ================================================================
+          // STACK CHAUFFEUR & CONTRÔLEUR SÉCURISÉ (RBAC DRIVER / CONTROLLER)
+          // ================================================================
+          <>
+            <Stack.Screen name="DriverTabs" component={DriverTabs} />
+            <Stack.Screen name="ReportDelay" component={ReportDelayScreen} />
+            {/* Permet aux admins de prévisualiser l'espace étudiant si besoin */}
+            {(user?.role === 'ADMIN_CROUS' || user?.role === 'SUPERADMIN') && (
+              <Stack.Screen name="StudentTabs" component={StudentTabs} />
+            )}
+          </>
+        )}
       </Stack.Navigator>
     </NavigationContainer>
   );
