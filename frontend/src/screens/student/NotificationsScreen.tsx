@@ -22,6 +22,10 @@ export default function NotificationsScreen({ navigation }: any) {
   const [filter, setFilter] = useState<'ALL' | 'TRAFFIC' | 'KYC' | 'PAYMENT'>('ALL');
   const [refreshing, setRefreshing] = useState(false);
 
+  useEffect(() => {
+    refreshNotifications();
+  }, []);
+
   const onRefresh = async () => {
     setRefreshing(true);
     await refreshNotifications();

@@ -38,11 +38,16 @@ interface NotificationContextType {
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
 import { ENDPOINTS } from '../config/api';
+import { useAuth } from './AuthContext';
 
 export function NotificationProvider({ children }: { children: React.ReactNode }) {
+  const { user, isAuthenticated, isInitialLoading } = useAuth();
   const [notifications, setNotifications] = useState<GlobalNotification[]>([]);
 
   const fetchNotifications = async () => {
+    if (!isAuthenticated && !user) {
+      return;
+    }
     try {
       const res = await fetch(ENDPOINTS.NOTIFICATIONS, {
         credentials: 'include',
@@ -69,8 +74,12 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   };
 
   useEffect(() => {
-    fetchNotifications();
-  }, []);
+    if (isAuthenticated && !isInitialLoading) {
+      fetchNotifications();
+    } else if (!isAuthenticated && !isInitialLoading) {
+      setNotifications([]);
+    }
+  }, [isAuthenticated, isInitialLoading, user?.user_id]);
 
   // Toast actif pour affichage global en haut de l'écran
   const [activeToast, setActiveToast] = useState<{

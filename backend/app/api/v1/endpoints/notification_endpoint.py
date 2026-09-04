@@ -112,7 +112,7 @@ async def get_my_notifications(
                 title=n.title,
                 message=n.message,
                 time=time_str,
-                read=bool(getattr(n, "read", False) or n.is_sent),
+                read=bool(getattr(n, "read", False)),
                 icon=icon,
                 tone=tone
             )
