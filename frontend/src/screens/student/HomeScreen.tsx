@@ -17,49 +17,22 @@ export default function HomeScreen({ navigation }: any) {
     <SafeAreaView style={styles.safe} edges={['bottom']}>
       <ScrollView contentContainerStyle={styles.scroll}>
         {/* ========================================================================= */}
-        {/* BANNIÈRE DE BIENVENUE ET NOTIFICATION DE SUCCÈS APRÈS INSCRIPTION         */}
+        {/* BANNIÈRE DE BIENVENUE APRÈS INSCRIPTION (Notification éphémère)           */}
         {/* ========================================================================= */}
         {justRegistered && (
           <View style={styles.welcomeBanner}>
             <View style={styles.welcomeHeader}>
               <View style={styles.welcomeIconBadge}>
-                <MaterialIcons name="verified" size={24} color="#16a34a" />
+                <MaterialIcons name="celebration" size={22} color="#16a34a" />
               </View>
               <View style={{ flex: 1 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <MaterialIcons name="celebration" size={20} color="#16a34a" />
-                  <Text style={styles.welcomeTitle}>Inscription Réussie !</Text>
-                </View>
+                <Text style={styles.welcomeTitle}>Inscription réussie !</Text>
                 <Text style={styles.welcomeSubtitle}>
-                  Bienvenue <Text style={styles.bold}>{studentName}</Text> sur l'espace transport UAC-BusPass.
+                  Bienvenue <Text style={styles.bold}>{studentName}</Text> sur votre application UAC-BusPass.
                 </Text>
               </View>
               <Pressable onPress={clearJustRegistered} hitSlop={10} style={styles.closeBannerBtn}>
                 <MaterialIcons name="close" size={20} color="#166534" />
-              </Pressable>
-            </View>
-
-            <View style={styles.welcomeDetailsBox}>
-              <View style={styles.detailItem}>
-                <MaterialIcons name="badge" size={16} color="#166534" />
-                <Text style={styles.detailText}>Matricule : <Text style={styles.bold}>{matricule}</Text></Text>
-              </View>
-              <View style={styles.detailItem}>
-                <MaterialIcons name="phone" size={16} color="#166534" />
-                <Text style={styles.detailText}>Tél : <Text style={styles.bold}>{user?.phone_number}</Text></Text>
-              </View>
-            </View>
-
-            <View style={styles.welcomeActions}>
-              <Pressable
-                style={styles.kycActionBtn}
-                onPress={() => {
-                  clearJustRegistered();
-                  navigation.navigate('KycOnboarding');
-                }}
-              >
-                <MaterialIcons name="upload-file" size={18} color="#ffffff" />
-                <Text style={styles.kycActionText}>Téléverser mes documents KYC</Text>
               </Pressable>
             </View>
           </View>
@@ -67,16 +40,7 @@ export default function HomeScreen({ navigation }: any) {
 
         {/* En-tête Salutation */}
         <View style={styles.greetingWrap}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Text style={styles.greeting}>Bonjour, {user?.first_name || 'Étudiant'}</Text>
-            {user?.kyc_status === 'APPROVED' ? (
-              <Badge label="KYC Validé" tone="success" icon="check-circle" />
-            ) : user?.kyc_status === 'PENDING' ? (
-              <Badge label="KYC En Attente" tone="warning" icon="schedule" />
-            ) : (
-              <Badge label="KYC Non Soumis" tone="neutral" icon="info-outline" />
-            )}
-          </View>
+          <Text style={styles.greeting}>Bonjour, {user?.first_name || 'Étudiant'}</Text>
           <Text style={styles.p}>Bienvenue sur votre espace transit universitaire CROUS-UAC.</Text>
         </View>
 

@@ -7,12 +7,12 @@ import Badge from '../../components/Badge';
 import { colors, radius, spacing, typography } from '../../theme/theme';
 import { useAuth } from '../../context/AuthContext';
 
-const ROWS: { icon: keyof typeof MaterialIcons.glyphMap; label: string; action?: string }[] = [
+const ROWS: { icon: keyof typeof MaterialIcons.glyphMap; label: string; action: string }[] = [
   { icon: 'receipt-long', label: "Historique d'achats", action: 'History' },
   { icon: 'verified-user', label: 'Vérification KYC (Documents)', action: 'KycOnboarding' },
-  { icon: 'payments', label: 'Moyens de paiement (MTN / Moov)' },
-  { icon: 'notifications', label: 'Notifications' },
-  { icon: 'help-outline', label: 'Aide & support CROUS' },
+  { icon: 'payments', label: 'Moyens de paiement (MTN / Moov)', action: 'PaymentMethods' },
+  { icon: 'notifications', label: 'Notifications', action: 'Notifications' },
+  { icon: 'help-outline', label: 'Aide & support CROUS', action: 'Support' },
 ];
 
 export default function ProfileScreen({ navigation }: any) {
@@ -62,10 +62,8 @@ export default function ProfileScreen({ navigation }: any) {
               key={r.label}
               style={[styles.row, i > 0 && styles.rowBorder]}
               onPress={() => {
-                if (r.action === 'KycOnboarding') {
-                  navigation.navigate('KycOnboarding');
-                } else if (r.action === 'History') {
-                  navigation.navigate('History');
+                if (r.action) {
+                  navigation.navigate(r.action);
                 }
               }}
             >

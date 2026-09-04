@@ -13,6 +13,9 @@ import RoleSelectScreen from '../screens/RoleSelectScreen';
 // Student Screens
 import KycOnboardingScreen from '../screens/student/KycOnboardingScreen';
 import HistoryScreen from '../screens/student/HistoryScreen';
+import PaymentMethodsScreen from '../screens/student/PaymentMethodsScreen';
+import NotificationsScreen from '../screens/student/NotificationsScreen';
+import SupportScreen from '../screens/student/SupportScreen';
 import StudentTabs from './StudentTabs';
 
 // Driver Screens
@@ -57,6 +60,9 @@ export default function RootNavigator() {
             <Stack.Screen name="StudentTabs" component={StudentTabs} />
             <Stack.Screen name="KycOnboarding" component={KycOnboardingScreen} />
             <Stack.Screen name="History" component={HistoryScreen} />
+            <Stack.Screen name="PaymentMethods" component={PaymentMethodsScreen} />
+            <Stack.Screen name="Notifications" component={NotificationsScreen} />
+            <Stack.Screen name="Support" component={SupportScreen} />
           </>
         ) : (
           // ================================================================
