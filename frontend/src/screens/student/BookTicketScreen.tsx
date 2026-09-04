@@ -19,19 +19,7 @@ import { colors, radius, spacing, typography } from '../../theme/theme';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
 
-interface Slot {
-  time: string;
-  route: string;
-  seats: string;
-  full: boolean;
-}
 
-const SLOTS: Slot[] = [
-  { time: '07:30 - Rotation Matin', route: 'Ligne A (Calavi ↔ Cotonou)', seats: '32/50 places', full: false },
-  { time: '08:15 - Rotation Express', route: 'Ligne B (Calavi ↔ Godomey)', seats: '50/50 places', full: true },
-  { time: '09:00 - Rotation Campus', route: 'Ligne A (Calavi ↔ Cotonou)', seats: '18/50 places', full: false },
-  { time: '12:30 - Rotation Midi', route: 'Ligne C (Calavi ↔ Akpakpa)', seats: '40/50 places', full: false },
-];
 
 export default function BookTicketScreen({ navigation }: any) {
   const { user, walletBalance, operatorPhoneNumbers, debitWallet, busSlots, purchaseTicket } = useAuth();

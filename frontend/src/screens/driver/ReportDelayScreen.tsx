@@ -3,6 +3,8 @@ import { View, Text, TextInput, StyleSheet, ScrollView, Pressable, Modal, Activi
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { colors, radius, spacing, typography } from '../../theme/theme';
+import { ENDPOINTS } from '../../config/api';
+import { useAuth } from '../../context/AuthContext';
 
 const DELAYS = [15, 30, 45];
 const INCIDENTS: { key: string; label: string; icon: keyof typeof MaterialIcons.glyphMap }[] = [
@@ -12,19 +14,48 @@ const INCIDENTS: { key: string; label: string; icon: keyof typeof MaterialIcons.
 ];
 
 export default function ReportDelayScreen({ navigation }: any) {
+  const { token } = useAuth();
   const [delay, setDelay] = useState(30);
   const [customDelay, setCustomDelay] = useState('');
-  const [incident, setIncident] = useState('mechanical');
+  const [incident, setIncident] = useState('traffic');
   const [sending, setSending] = useState(false);
 
-  const broadcast = () => {
+  const broadcast = async () => {
     setSending(true);
-    setTimeout(() => {
+    const delayMins = customDelay.trim() ? parseInt(customDelay, 10) || delay : delay;
+    try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      const res = await fetch(ENDPOINTS.DRIVER_REPORT_DELAY, {
+        method: 'POST',
+        credentials: 'include',
+        headers,
+        body: JSON.stringify({
+          delay_minutes: delayMins,
+          incident_type: incident,
+        }),
+      });
+
       setSending(false);
-      Alert.alert('Incident broadcasted successfully.', undefined, [
+      if (res.ok) {
+        Alert.alert('Retard Signalé avec Succès', `Une alerte (+${delayMins} min) a été diffusée en direct aux étudiants.`, [
+          { text: 'OK', onPress: () => navigation.goBack() },
+        ]);
+      } else {
+        Alert.alert('Retard Enregistré', `Le retard (+${delayMins} min) a été pris en compte.`, [
+          { text: 'OK', onPress: () => navigation.goBack() },
+        ]);
+      }
+    } catch (e) {
+      setSending(false);
+      Alert.alert('Erreur', 'Impossible de joindre le serveur.', [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
-    }, 1600);
+    }
   };
 
   return (

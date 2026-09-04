@@ -1,18 +1,60 @@
-import React, { useMemo, useState } from 'react';
-import { View, Text, TextInput, StyleSheet, FlatList, Pressable } from 'react-native';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
+import { View, Text, TextInput, StyleSheet, FlatList, Pressable, ActivityIndicator, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import Card from '../../components/Card';
 import Badge from '../../components/Badge';
 import { colors, radius, spacing, typography } from '../../theme/theme';
-import { PASSENGERS, Passenger } from '../../data/passengers';
+import { Passenger } from '../../data/passengers';
+import { ENDPOINTS } from '../../config/api';
+import { useAuth } from '../../context/AuthContext';
 
 type Filter = 'all' | 'pending' | 'checked';
 
 export default function PassengerLookupScreen() {
+  const { token } = useAuth();
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
-  const [passengers, setPassengers] = useState(PASSENGERS);
+  const [passengers, setPassengers] = useState<Passenger[]>([]);
+  const [tripTitle, setTripTitle] = useState('Manifeste Passagers - Rotation Campus');
+  const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchPassengers = useCallback(async () => {
+    try {
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      const res = await fetch(ENDPOINTS.DRIVER_PASSENGERS, {
+        credentials: 'include',
+        headers,
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data && Array.isArray(data.passengers)) {
+          setPassengers(data.passengers);
+          if (data.trip_title) {
+            setTripTitle(data.trip_title);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Error fetching driver passenger manifest:', e);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    fetchPassengers();
+  }, [fetchPassengers]);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchPassengers();
+  };
 
   const counts = useMemo(
     () => ({
@@ -32,17 +74,34 @@ export default function PassengerLookupScreen() {
     });
   }, [passengers, filter, query]);
 
-  const validate = (id: string) => {
+  const validate = async (id: string) => {
+    // Optimistic update
     setPassengers((prev) =>
       prev.map((p) => (p.id === id ? { ...p, status: 'checked', checkedAt: 'Just now' } : p))
     );
+
+    try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      await fetch(ENDPOINTS.DRIVER_MANUAL_VALIDATE(id), {
+        method: 'POST',
+        credentials: 'include',
+        headers,
+      });
+    } catch (e) {
+      console.warn('Error validating ticket:', e);
+    }
   };
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
       <View style={styles.header}>
         <Text style={styles.eyebrow}>CURRENT MANIFEST</Text>
-        <Text style={styles.title}>Trip #4022 - Campus to Cotonou</Text>
+        <Text style={styles.title}>{tripTitle}</Text>
 
         <View style={styles.searchBox}>
           <MaterialIcons name="search" size={20} color={colors.outline} />
@@ -70,12 +129,19 @@ export default function PassengerLookupScreen() {
         </View>
       </View>
 
-      <FlatList
-        data={data}
-        keyExtractor={(p) => p.id}
-        contentContainerStyle={styles.list}
-        renderItem={({ item }) => <PassengerCard passenger={item} onValidate={() => validate(item.id)} />}
-      />
+      {loading ? (
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      ) : (
+        <FlatList
+          data={data}
+          keyExtractor={(p) => p.id}
+          contentContainerStyle={styles.list}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />}
+          renderItem={({ item }) => <PassengerCard passenger={item} onValidate={() => validate(item.id)} />}
+        />
+      )}
     </SafeAreaView>
   );
 }

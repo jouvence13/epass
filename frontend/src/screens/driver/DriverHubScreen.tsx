@@ -1,18 +1,84 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, Pressable, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import Card from '../../components/Card';
 import { colors, radius, spacing, typography } from '../../theme/theme';
 import { useAuth } from '../../context/AuthContext';
+import { ENDPOINTS } from '../../config/api';
 
 export default function DriverHubScreen({ navigation }: any) {
-  const { user, logout } = useAuth();
+  const { user, token, logout } = useAuth();
   const driverName = user ? `${user.first_name} ${user.last_name}` : 'Chauffeur CROUS';
+
+  const [activeTrip, setActiveTrip] = useState<{
+    route_title: string;
+    next_stop_name: string;
+    next_stop_eta_minutes: number;
+    capacity_num: number;
+    capacity_total: number;
+    capacity_percentage: number;
+    bus_code: string;
+    delay_minutes: number;
+  }>({
+    route_title: 'Campus Express Route 4',
+    next_stop_name: 'Science Block',
+    next_stop_eta_minutes: 5,
+    capacity_num: 32,
+    capacity_total: 50,
+    capacity_percentage: 64,
+    bus_code: 'Bus #402',
+    delay_minutes: 0,
+  });
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchActiveTrip = useCallback(async () => {
+    try {
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      const res = await fetch(ENDPOINTS.DRIVER_ACTIVE_TRIP, {
+        credentials: 'include',
+        headers,
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.route_title) {
+          setActiveTrip({
+            route_title: data.route_title,
+            next_stop_name: data.next_stop_name || 'Prochain Arrêt',
+            next_stop_eta_minutes: data.next_stop_eta_minutes ?? 5,
+            capacity_num: data.capacity_num ?? 32,
+            capacity_total: data.capacity_total ?? 50,
+            capacity_percentage: data.capacity_percentage ?? 64,
+            bus_code: data.bus_code || 'Bus CROUS',
+            delay_minutes: data.delay_minutes ?? 0,
+          });
+        }
+      }
+    } catch (e) {
+      console.warn('Error fetching driver active trip:', e);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    fetchActiveTrip();
+  }, [fetchActiveTrip]);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchActiveTrip();
+  };
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />}
+      >
         {/* Top Driver Header */}
         <View style={styles.topBar}>
           <View style={styles.driverInfo}>
@@ -21,7 +87,7 @@ export default function DriverHubScreen({ navigation }: any) {
             </View>
             <View>
               <Text style={styles.driverName}>{driverName}</Text>
-              <Text style={styles.driverRole}>Bus #402 • Ligne 4</Text>
+              <Text style={styles.driverRole}>{activeTrip.bus_code} • {activeTrip.route_title.split(' ')[0]}</Text>
             </View>
           </View>
 
@@ -34,10 +100,12 @@ export default function DriverHubScreen({ navigation }: any) {
         <Card style={styles.routeCard}>
           <View style={styles.routeHeader}>
             <View>
-              <Text style={styles.routeTitle}>Campus Express Route 4</Text>
+              <Text style={styles.routeTitle}>{activeTrip.route_title}</Text>
               <View style={styles.rowCenter}>
                 <MaterialIcons name="schedule" size={16} color={colors.onSurfaceVariant} />
-                <Text style={styles.hint}> Prochain arrêt dans 5 min : Science Block</Text>
+                <Text style={styles.hint}>
+                  {' '}Prochain arrêt dans {activeTrip.next_stop_eta_minutes} min : {activeTrip.next_stop_name}
+                </Text>
               </View>
             </View>
             <View style={styles.livePill}>
@@ -62,11 +130,11 @@ export default function DriverHubScreen({ navigation }: any) {
               <MaterialIcons name="group" size={20} color={colors.outline} />
             </View>
             <View style={styles.capacityRow}>
-              <Text style={styles.capacityNum}>32</Text>
-              <Text style={styles.capacityTotal}>/50</Text>
+              <Text style={styles.capacityNum}>{activeTrip.capacity_num}</Text>
+              <Text style={styles.capacityTotal}>/{activeTrip.capacity_total}</Text>
             </View>
             <View style={styles.progressTrack}>
-              <View style={[styles.progressFill, { width: '64%' }]} />
+              <View style={[styles.progressFill, { width: `${activeTrip.capacity_percentage}%` }]} />
             </View>
             <Pressable style={styles.boardBtn} onPress={() => navigation.navigate('Scan')}>
               <MaterialIcons name="qr-code-scanner" size={20} color={colors.onTertiaryContainer} />
@@ -77,16 +145,18 @@ export default function DriverHubScreen({ navigation }: any) {
           <View style={styles.actionsCol}>
             <Pressable style={styles.reportBtn} onPress={() => navigation.navigate('ReportDelay')}>
               <MaterialIcons name="warning" size={30} color={colors.onError} />
-              <Text style={styles.reportBtnText}>Signaler un Retard / Bouchon</Text>
+              <Text style={styles.reportBtnText}>
+                {activeTrip.delay_minutes > 0 ? `Retard Signalé (+${activeTrip.delay_minutes} min)` : 'Signaler un Retard / Bouchon'}
+              </Text>
             </Pressable>
             <View style={styles.smallRow}>
               <Pressable style={styles.smallBtn} onPress={() => navigation.navigate('Passengers')}>
                 <MaterialIcons name="people" size={26} color={colors.primary} />
                 <Text style={styles.smallBtnLabel}>Passagers</Text>
               </Pressable>
-              <Pressable style={styles.smallBtn}>
-                <MaterialIcons name="local-gas-station" size={26} color={colors.onSurfaceVariant} />
-                <Text style={styles.smallBtnLabel}>Carburant</Text>
+              <Pressable style={styles.smallBtn} onPress={() => navigation.navigate('Alerts')}>
+                <MaterialIcons name="notifications" size={26} color={colors.onSurfaceVariant} />
+                <Text style={styles.smallBtnLabel}>Alertes</Text>
               </Pressable>
             </View>
           </View>

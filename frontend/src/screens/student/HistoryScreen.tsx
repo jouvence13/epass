@@ -31,45 +31,6 @@ interface TicketHistoryItem {
   bus_code?: string;
 }
 
-const MOCK_HISTORY: TicketHistoryItem[] = [
-  {
-    ticket_id: '1',
-    trip_id: 'trip-1',
-    route_name: 'Campus Express Route 4',
-    student_name: 'Koffi Alain',
-    student_id: 'Student ID: UAC-2022-8492',
-    code: 'A7B9-X2M4',
-    status: 'Valid Ticket',
-    raw_status: 'ISSUED',
-    avail_for_label: 'Valide pour 6 jours',
-    bus_code: 'Bus #402',
-  },
-  {
-    ticket_id: '2',
-    trip_id: 'trip-2',
-    route_name: 'Navette Inter-Facultés',
-    student_name: 'Koffi Alain',
-    student_id: 'Student ID: UAC-2022-8492',
-    code: 'B8C2-D9E1',
-    status: 'Validated',
-    raw_status: 'VALIDATED',
-    avail_for_label: 'Utilisé hier à 16:45',
-    bus_code: 'Bus #108',
-  },
-  {
-    ticket_id: '3',
-    trip_id: 'trip-3',
-    route_name: 'Ligne Calavi - Porto-Novo',
-    student_name: 'Koffi Alain',
-    student_id: 'Student ID: UAC-2022-8492',
-    code: 'C3D4-E5F6',
-    status: 'Expired',
-    raw_status: 'EXPIRED',
-    avail_for_label: 'Expiré le 28 Août',
-    bus_code: 'Bus #304',
-  },
-];
-
 export default function HistoryScreen({ navigation }: any) {
   const { token, tickets, user } = useAuth();
   const [serverHistory, setServerHistory] = useState<TicketHistoryItem[]>([]);
@@ -78,15 +39,17 @@ export default function HistoryScreen({ navigation }: any) {
 
   const fetchHistory = async () => {
     try {
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
       const res = await fetch(ENDPOINTS.TICKET_HISTORY, {
         credentials: 'include',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers,
       });
       if (res.ok) {
         const data = await res.json();
-        if (Array.isArray(data) && data.length > 0) {
+        if (Array.isArray(data)) {
           setServerHistory(data);
         }
       }
@@ -100,29 +63,28 @@ export default function HistoryScreen({ navigation }: any) {
 
   useEffect(() => {
     fetchHistory();
-  }, []);
+  }, [token]);
 
   const onRefresh = () => {
     setRefreshing(true);
     fetchHistory();
   };
 
-  // Fusionner les tickets achetés localement en direct avec l'historique
-  const combinedHistory: TicketHistoryItem[] = [
-    ...tickets.map((t) => ({
-      ticket_id: t.id,
-      trip_id: `trip-${t.id}`,
-      route_name: t.route,
-      student_name: user ? `${user.first_name} ${user.last_name}` : 'Étudiant UAC',
-      student_id: `Matricule: ${user?.matricule_uac || 'UAC-2024-XXXX'}`,
-      code: t.code,
-      status: t.status === 'ACTIVE' ? 'Valid Ticket' : t.status === 'USED' ? 'Validated' : 'Expired',
-      raw_status: t.status === 'ACTIVE' ? 'ISSUED' : t.status === 'USED' ? 'VALIDATED' : 'EXPIRED',
-      avail_for_label: t.date,
-      bus_code: t.busId,
-    })),
-    ...(serverHistory.length > 0 ? serverHistory : MOCK_HISTORY.filter(m => !tickets.some(t => t.code === m.code))),
-  ];
+  // Liste des billets synchronisée avec le backend
+  const combinedHistory: TicketHistoryItem[] = serverHistory.length > 0
+    ? serverHistory
+    : tickets.map((t) => ({
+        ticket_id: t.id,
+        trip_id: `trip-${t.id}`,
+        route_name: t.route,
+        student_name: user ? `${user.first_name} ${user.last_name}` : 'Étudiant UAC',
+        student_id: `Matricule: ${user?.matricule_uac || 'UAC-2024-XXXX'}`,
+        code: t.code,
+        status: t.status === 'ACTIVE' ? 'Valid Ticket' : t.status === 'USED' ? 'Validated' : 'Expired',
+        raw_status: t.status === 'ACTIVE' ? 'ISSUED' : t.status === 'USED' ? 'VALIDATED' : 'EXPIRED',
+        avail_for_label: t.date,
+        bus_code: t.busId,
+      }));
 
   const getStatusBadge = (item: TicketHistoryItem) => {
     const isIssued = item.status === 'Valid Ticket' || item.raw_status === 'ISSUED';

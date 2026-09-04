@@ -43,6 +43,7 @@ export const ENDPOINTS = {
   DRIVER_ACTIVE_TRIP: `${API_V1_URL}/driver/active-trip`,
   DRIVER_PASSENGERS: `${API_V1_URL}/driver/passengers`,
   DRIVER_VALIDATE: `${API_V1_URL}/driver/validate-ticket`,
+  DRIVER_MANUAL_VALIDATE: (ticketId: string) => `${API_V1_URL}/driver/tickets/${ticketId}/manual-validate`,
   DRIVER_REPORT_DELAY: `${API_V1_URL}/driver/report-delay`,
   DRIVER_ALERTS: `${API_V1_URL}/driver/alerts`,
 
