@@ -13,5 +13,5 @@ EXPOSE 8081
 EXPOSE 19000
 EXPOSE 19006
 
-# Lancement d'Expo en mode Web
-CMD ["npx", "expo", "start", "--web", "--port", "8081", "--host", "lan"]
+# Lancement d'Expo en mode Web avec vidage du cache Metro
+CMD ["npx", "expo", "start", "--web", "--port", "8081", "--host", "lan", "--clear"]
