@@ -240,17 +240,12 @@ export default function ActiveTicketScreen() {
 
         {/* Carte du Ticket QR */}
         <Card floating style={styles.ticketCard}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-            <View style={styles.validBadge}>
-              <MaterialIcons
-                name={isApproved ? 'check-circle' : user?.kyc_status === 'PENDING' ? 'schedule' : 'info'}
-                size={14}
-                color={colors.onSecondary}
-              />
-              <Text style={styles.validText}>
-                {isApproved ? 'Ticket Valide & Payé' : user?.kyc_status === 'PENDING' ? 'KYC En Attente' : 'KYC Non Soumis'}
-              </Text>
-            </View>
+          <View style={styles.ticketCardBadgesRow}>
+            <Badge
+              label={isApproved ? 'Ticket Valide & Payé (100 F)' : user?.kyc_status === 'PENDING' ? 'KYC En Attente' : 'KYC Non Soumis'}
+              tone={isApproved ? 'success' : 'warning'}
+              icon={isApproved ? 'check-circle' : user?.kyc_status === 'PENDING' ? 'schedule' : 'info'}
+            />
             {isRecycled && (
               <Badge label="Reporté / Recyclé (1/1)" tone="primary" icon="recycling" />
             )}
@@ -650,24 +645,21 @@ const styles = StyleSheet.create({
   alertBody: { ...typography.bodyMd, color: colors.onErrorContainer, opacity: 0.9 },
   ticketCard: {
     alignItems: 'center',
-    paddingTop: spacing.xl,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.lg,
     borderTopWidth: 4,
     borderTopColor: colors.primary,
   },
-  validBadge: {
-    position: 'absolute',
-    top: -14,
+  ticketCardBadgesRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: colors.secondary,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 6,
-    borderRadius: radius.full,
+    justifyContent: 'center',
+    gap: 8,
+    marginBottom: spacing.xs,
+    flexWrap: 'wrap',
   },
-  validText: { ...typography.labelCaps, color: colors.onSecondary },
-  route: { ...typography.headlineMd, color: colors.primary, marginTop: spacing.sm, textAlign: 'center' },
-  studentId: { ...typography.bodyMd, color: colors.onSurfaceVariant, marginBottom: spacing.lg },
+  route: { ...typography.headlineMd, color: colors.primary, marginTop: spacing.xs, textAlign: 'center' },
+  studentId: { ...typography.bodyMd, color: colors.onSurfaceVariant, marginBottom: spacing.lg, textAlign: 'center' },
   qrWrap: { width: 200, height: 200, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.md },
   qrBox: {
     width: 200,
