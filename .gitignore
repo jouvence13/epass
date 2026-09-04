@@ -68,6 +68,10 @@ uploads/
 *.swp
 *.swo
 
+# Celery beat schedule
+celerybeat-schedule*
+backend/celerybeat-schedule*
+
 # Documentation d'apprentissage locale personnelle
 GUIDE_APPRENTISSAGE_PYTHON.md
 docs_pedagogiques/
