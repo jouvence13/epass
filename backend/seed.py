@@ -388,7 +388,7 @@ async def run_seed():
                 user_id=student_sena.user_id,
                 transaction_reference=f"PAY-KKIAPAY-{uuid.uuid4().hex[:6].upper()}",
                 gateway=PaymentGatewayEnum.KKIAPAY,
-                amount=250.00,
+                amount=100.00,
                 phone_number=student_sena.phone_number,
                 status=PaymentStatusEnum.SUCCESSFUL
             )
@@ -411,6 +411,74 @@ async def run_seed():
             db.add(tk_sena)
             await db.flush()
             print(f"   🎫 Ticket Déjà Validé généré pour Sena Dossou | Code SMS: B8C2-D9E1")
+
+        # Ticket Aminata Sylla
+        student_aminata = users_map["+22961229988"]
+        tk_aminata = (await db.execute(
+            select(Tickets).where(Tickets.user_id == student_aminata.user_id)
+        )).scalars().first()
+
+        if not tk_aminata:
+            pay_aminata = Payments(
+                user_id=student_aminata.user_id,
+                transaction_reference=f"PAY-FEDAPAY-{uuid.uuid4().hex[:6].upper()}",
+                gateway=PaymentGatewayEnum.FEDAPAY,
+                amount=100.00,
+                phone_number=student_aminata.phone_number,
+                status=PaymentStatusEnum.SUCCESSFUL
+            )
+            db.add(pay_aminata)
+            await db.flush()
+
+            tk_aminata = Tickets(
+                user_id=student_aminata.user_id,
+                trip_id=trip_1.trip_id,
+                payment_id=pay_aminata.payment_id,
+                qr_code_token="CROUS-UAC-TICKET-C3D4E5F6",
+                sms_backup_code="C3D4E5F6",
+                status=TicketStatusEnum.ISSUED,
+                recycle_count=0,
+                initial_expiration_date=trip_1.departure_time,
+                final_expiration_date=trip_1.departure_time + timedelta(days=6)
+            )
+            db.add(tk_aminata)
+            await db.flush()
+            print(f"   🎫 Ticket Actif généré pour Aminata Sylla | Code SMS: C3D4-E5F6")
+
+        # Ticket Marius Adjovi
+        student_marius = users_map["+22966123456"]
+        tk_marius = (await db.execute(
+            select(Tickets).where(Tickets.user_id == student_marius.user_id)
+        )).scalars().first()
+
+        if not tk_marius:
+            pay_marius = Payments(
+                user_id=student_marius.user_id,
+                transaction_reference=f"PAY-FEDAPAY-{uuid.uuid4().hex[:6].upper()}",
+                gateway=PaymentGatewayEnum.FEDAPAY,
+                amount=100.00,
+                phone_number=student_marius.phone_number,
+                status=PaymentStatusEnum.SUCCESSFUL
+            )
+            db.add(pay_marius)
+            await db.flush()
+
+            tk_marius = Tickets(
+                user_id=student_marius.user_id,
+                trip_id=trip_1.trip_id,
+                payment_id=pay_marius.payment_id,
+                qr_code_token="CROUS-UAC-TICKET-D7E8F9A0",
+                sms_backup_code="D7E8F9A0",
+                status=TicketStatusEnum.VALIDATED,
+                validated_at=now,
+                validated_by_driver_id=driver_user.user_id,
+                recycle_count=0,
+                initial_expiration_date=trip_1.departure_time,
+                final_expiration_date=trip_1.departure_time + timedelta(days=6)
+            )
+            db.add(tk_marius)
+            await db.flush()
+            print(f"   🎫 Ticket Validé généré pour Marius Adjovi | Code SMS: D7E8-F9A0")
 
         # ----------------------------------------------------------------------
         # LOG GPS EN TEMPS RÉEL (GPS LOGS)
