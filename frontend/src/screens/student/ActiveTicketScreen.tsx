@@ -44,7 +44,7 @@ interface BusLineConfig {
   stops: RouteStop[];
 }
 
-export default function ActiveTicketScreen() {
+export default function ActiveTicketScreen({ navigation }: any) {
   const { user, tickets, activeTicket, setActiveTicket, busSlots, recycleTicket } = useAuth();
   const { showToast } = useNotifications();
 
@@ -163,6 +163,7 @@ export default function ActiveTicketScreen() {
   });
 
   const isApproved = user?.kyc_status === 'APPROVED';
+  const isPending = user?.kyc_status === 'PENDING';
   const isRecycled = Boolean(activeTicket?.recycleCount && activeTicket.recycleCount >= 1);
 
   const handleOpenRecycleModal = () => {
@@ -206,6 +207,65 @@ export default function ActiveTicketScreen() {
       Alert.alert('Erreur de Recyclage', res.error || 'Impossible de recycler le ticket.');
     }
   };
+
+  // VERROUILLAGE KYC : Si le KYC n'est pas validé, accès bloqué
+  if (!isApproved) {
+    return (
+      <SafeAreaView style={styles.safe} edges={['bottom']}>
+        <ScrollView contentContainerStyle={styles.scroll}>
+          <Card floating style={styles.kycLockCard}>
+            <View style={[styles.kycLockIconBox, isPending ? styles.kycPendingBox : styles.kycRestrictedBox]}>
+              <MaterialIcons
+                name={isPending ? 'pending-actions' : 'lock-outline'}
+                size={48}
+                color={isPending ? '#d97706' : colors.error}
+              />
+            </View>
+
+            <Badge
+              label={isPending ? 'Validation Académique en Cours' : 'Accès Billets Verrouillé'}
+              tone={isPending ? 'warning' : 'error'}
+              icon={isPending ? 'schedule' : 'lock'}
+            />
+
+            <Text style={styles.kycLockTitle}>
+              {isPending
+                ? 'Dossier Étudiant en Examen'
+                : 'Certification Étudiante Requise'}
+            </Text>
+
+            <Text style={styles.kycLockDesc}>
+              {isPending
+                ? 'Votre dossier académique est en cours de vérification par les agents du CROUS-UAC. Dès approbation, vos billets actifs, QR code de validation et outils de suivi GPS s’afficheront ici.'
+                : 'Conformément aux règles du CROUS-Bénin, l’émission des titres de transport universitaires, le QR code de contrôle et le suivi GPS des bus en temps réel nécessitent un profil étudiant certifié.'}
+            </Text>
+
+            {!isPending && (
+              <View style={styles.kycRequirementsCard}>
+                <Text style={styles.kycRequirementsTitle}>Documents requis :</Text>
+                <View style={styles.kycReqItem}>
+                  <MaterialIcons name="check-circle" size={16} color={colors.primary} />
+                  <Text style={styles.kycReqText}>Carte d’Étudiant UAC (valide)</Text>
+                </View>
+                <View style={styles.kycReqItem}>
+                  <MaterialIcons name="check-circle" size={16} color={colors.primary} />
+                  <Text style={styles.kycReqText}>Certificat d’Identification Personnelle (CIP) ou CNI</Text>
+                </View>
+              </View>
+            )}
+
+            <PrimaryButton
+              label={isPending ? 'Vérifier l’État de mon Dossier' : 'Certifier mon Profil Étudiant (KYC)'}
+              icon={isPending ? 'visibility' : 'verified-user'}
+              variant={isPending ? 'outline' : 'primary'}
+              onPress={() => navigation?.navigate('KycOnboarding')}
+              style={{ width: '100%', marginTop: spacing.md }}
+            />
+          </Card>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
@@ -1203,5 +1263,65 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colors.onSurfaceVariant,
     marginTop: 1,
+  },
+  kycLockCard: {
+    padding: spacing.xl,
+    alignItems: 'center',
+    textAlign: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
+  kycLockIconBox: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.xs,
+  },
+  kycPendingBox: {
+    backgroundColor: '#fef3c7',
+  },
+  kycRestrictedBox: {
+    backgroundColor: '#fee2e2',
+  },
+  kycLockTitle: {
+    ...typography.headlineSm,
+    color: colors.onSurface,
+    textAlign: 'center',
+    marginTop: spacing.xs,
+  },
+  kycLockDesc: {
+    ...typography.bodyMd,
+    color: colors.onSurfaceVariant,
+    textAlign: 'center',
+    lineHeight: 22,
+    marginVertical: spacing.xs,
+  },
+  kycRequirementsCard: {
+    width: '100%',
+    backgroundColor: colors.surfaceContainerLowest,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.outlineVariant,
+    marginVertical: spacing.sm,
+    gap: spacing.xs,
+  },
+  kycRequirementsTitle: {
+    ...typography.bodySm,
+    fontWeight: '700',
+    color: colors.onSurface,
+    marginBottom: 4,
+  },
+  kycReqItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  kycReqText: {
+    ...typography.bodySm,
+    color: colors.onSurfaceVariant,
+    flex: 1,
   },
 });

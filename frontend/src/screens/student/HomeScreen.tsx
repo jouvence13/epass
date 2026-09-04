@@ -46,6 +46,19 @@ export default function HomeScreen({ navigation }: any) {
   const [isProcessing, setIsProcessing] = useState(false);
 
   const handleOpenDeparture = (slot: BusSlot) => {
+    if (user?.kyc_status !== 'APPROVED') {
+      const isPending = user?.kyc_status === 'PENDING';
+      showToast({
+        title: isPending ? 'Dossier KYC en cours' : 'Certification Requise',
+        message: isPending
+          ? 'Votre dossier est en cours de validation par le CROUS.'
+          : 'Certifiez votre statut étudiant pour débloquer les départs subventionnés.',
+        type: 'warning',
+        category: 'KYC',
+      });
+      navigation.navigate('KycOnboarding');
+      return;
+    }
     setSelectedDeparture(slot);
     setPaymentOp('WALLET');
     setPhone(operatorPhoneNumbers.MTN || '+2290157774305');
@@ -292,10 +305,45 @@ export default function HomeScreen({ navigation }: any) {
             <MaterialIcons name="confirmation-number" size={22} color={colors.primary} />
             <Text style={styles.sectionHeaderTitle}>Mes Tickets Payés & Actifs</Text>
           </View>
-          <Badge label={`${activeTicketsList.length} Valide(s)`} tone="success" />
+          <Badge
+            label={
+              user?.kyc_status !== 'APPROVED'
+                ? user?.kyc_status === 'PENDING'
+                  ? 'KYC En Attente'
+                  : 'KYC Verrouillé'
+                : `${activeTicketsList.length} Valide(s)`
+            }
+            tone={user?.kyc_status === 'APPROVED' ? 'success' : user?.kyc_status === 'PENDING' ? 'warning' : 'error'}
+          />
         </View>
 
-        {activeTicketsList.length > 0 ? (
+        {user?.kyc_status !== 'APPROVED' ? (
+          /* KYC non approuvé -> Affichage du verrouillage explicite */
+          <Card style={styles.noTicketCard}>
+            <MaterialIcons
+              name={user?.kyc_status === 'PENDING' ? 'pending-actions' : 'lock-outline'}
+              size={36}
+              color={user?.kyc_status === 'PENDING' ? '#d97706' : colors.error}
+            />
+            <Text style={styles.noTicketTitle}>
+              {user?.kyc_status === 'PENDING' ? 'Validation Académique en Cours' : 'Accès aux Billets Verrouillé'}
+            </Text>
+            <Text style={styles.noTicketSub}>
+              {user?.kyc_status === 'PENDING'
+                ? 'Vos pièces justificatives sont en cours d’examen par le CROUS. Vos titres s’afficheront dès approbation.'
+                : 'Faites certifier votre compte étudiant avec votre carte UAC et CIP pour acheter des tickets subventionnés à 100 FCFA.'}
+            </Text>
+            <Pressable
+              style={[styles.buyTicketActionBtn, user?.kyc_status === 'PENDING' && { backgroundColor: '#d97706' }]}
+              onPress={() => navigation.navigate('KycOnboarding')}
+            >
+              <MaterialIcons name={user?.kyc_status === 'PENDING' ? 'visibility' : 'verified-user'} size={18} color="#ffffff" />
+              <Text style={styles.buyTicketActionText}>
+                {user?.kyc_status === 'PENDING' ? 'Suivre mon Dossier KYC' : 'Faire Certifier mon Compte (KYC)'}
+              </Text>
+            </Pressable>
+          </Card>
+        ) : activeTicketsList.length > 0 ? (
           <View style={{ gap: spacing.md }}>
             {activeTicketsList.map((t, idx) => (
               <Card key={t.id} floating style={styles.activeTicketCard}>
@@ -359,13 +407,31 @@ export default function HomeScreen({ navigation }: any) {
         {/* GRILLE DE NAVIGATION PRINCIPALE                                           */}
         {/* ========================================================================= */}
         <View style={styles.grid}>
-          <Pressable style={styles.tile} onPress={() => navigation.navigate('Booking')}>
+          <Pressable
+            style={styles.tile}
+            onPress={() => {
+              if (user?.kyc_status !== 'APPROVED') {
+                navigation.navigate('KycOnboarding');
+              } else {
+                navigation.navigate('Booking');
+              }
+            }}
+          >
             <View style={[styles.tileIcon, { backgroundColor: colors.primaryFixed }]}>
               <MaterialIcons name="confirmation-number" size={24} color={colors.primary} />
             </View>
             <Text style={styles.tileLabel}>Réserver / Payer</Text>
           </Pressable>
-          <Pressable style={styles.tile} onPress={() => navigation.navigate('Tickets')}>
+          <Pressable
+            style={styles.tile}
+            onPress={() => {
+              if (user?.kyc_status !== 'APPROVED') {
+                navigation.navigate('KycOnboarding');
+              } else {
+                navigation.navigate('Tickets');
+              }
+            }}
+          >
             <View style={[styles.tileIcon, { backgroundColor: colors.secondaryContainer }]}>
               <MaterialIcons name="near-me" size={24} color={colors.onSecondaryContainer} />
             </View>

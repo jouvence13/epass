@@ -217,6 +217,67 @@ export default function BookTicketScreen({ navigation }: any) {
     }, 1000);
   };
 
+  const isKycApproved = user?.kyc_status === 'APPROVED';
+  const isKycPending = user?.kyc_status === 'PENDING';
+
+  if (!isKycApproved) {
+    return (
+      <SafeAreaView style={styles.safe} edges={['bottom']}>
+        <ScrollView contentContainerStyle={styles.scroll}>
+          <Card floating style={styles.kycLockCard}>
+            <View style={[styles.kycLockIconBox, isKycPending ? styles.kycPendingBox : styles.kycRestrictedBox]}>
+              <MaterialIcons
+                name={isKycPending ? 'pending-actions' : 'lock-outline'}
+                size={48}
+                color={isKycPending ? '#d97706' : colors.error}
+              />
+            </View>
+
+            <Badge
+              label={isKycPending ? 'Dossier en cours d’examen' : 'Tarif CROUS Verrouillé'}
+              tone={isKycPending ? 'warning' : 'error'}
+              icon={isKycPending ? 'schedule' : 'lock'}
+            />
+
+            <Text style={styles.kycLockTitle}>
+              {isKycPending
+                ? 'Validation Académique en Cours'
+                : 'Certification Étudiante Requise'}
+            </Text>
+
+            <Text style={styles.kycLockDesc}>
+              {isKycPending
+                ? 'Vos documents (Carte d’Étudiant UAC & Pièce d’identité CIP/CNI) ont bien été transmis au CROUS. Dès approbation par nos services, vous pourrez commander vos tickets à tarif subventionné (100 FCFA) et scanner les QR codes à bord.'
+                : 'Conformément aux directives du CROUS-Bénin, l’achat de titres de transport subventionnés à 100 FCFA et le scan de bornes sont exclusivement réservés aux étudiants dont le profil académique a été certifié.'}
+            </Text>
+
+            {!isKycPending && (
+              <View style={styles.kycRequirementsCard}>
+                <Text style={styles.kycRequirementsTitle}>Pièces à fournir :</Text>
+                <View style={styles.kycReqItem}>
+                  <MaterialIcons name="check-circle" size={16} color={colors.primary} />
+                  <Text style={styles.kycReqText}>Carte d’Étudiant UAC (année en cours)</Text>
+                </View>
+                <View style={styles.kycReqItem}>
+                  <MaterialIcons name="check-circle" size={16} color={colors.primary} />
+                  <Text style={styles.kycReqText}>Certificat d’Identification Personnelle (CIP) ou CNI</Text>
+                </View>
+              </View>
+            )}
+
+            <PrimaryButton
+              label={isKycPending ? 'Consulter mon Dossier' : 'Faire Certifier mon Compte (KYC)'}
+              icon={isKycPending ? 'visibility' : 'verified-user'}
+              variant={isKycPending ? 'outline' : 'primary'}
+              onPress={() => navigation.navigate('KycOnboarding')}
+              style={{ width: '100%', marginTop: spacing.md }}
+            />
+          </Card>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
       <ScrollView contentContainerStyle={styles.scroll}>
@@ -796,5 +857,65 @@ const styles = StyleSheet.create({
     ...typography.bodyLg,
     color: colors.onSurface,
     backgroundColor: colors.surface,
+  },
+  kycLockCard: {
+    padding: spacing.xl,
+    alignItems: 'center',
+    textAlign: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
+  kycLockIconBox: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.xs,
+  },
+  kycPendingBox: {
+    backgroundColor: '#fef3c7',
+  },
+  kycRestrictedBox: {
+    backgroundColor: '#fee2e2',
+  },
+  kycLockTitle: {
+    ...typography.headlineSm,
+    color: colors.onSurface,
+    textAlign: 'center',
+    marginTop: spacing.xs,
+  },
+  kycLockDesc: {
+    ...typography.bodyMd,
+    color: colors.onSurfaceVariant,
+    textAlign: 'center',
+    lineHeight: 22,
+    marginVertical: spacing.xs,
+  },
+  kycRequirementsCard: {
+    width: '100%',
+    backgroundColor: colors.surfaceContainerLowest,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.outlineVariant,
+    marginVertical: spacing.sm,
+    gap: spacing.xs,
+  },
+  kycRequirementsTitle: {
+    ...typography.bodySm,
+    fontWeight: '700',
+    color: colors.onSurface,
+    marginBottom: 4,
+  },
+  kycReqItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  kycReqText: {
+    ...typography.bodySm,
+    color: colors.onSurfaceVariant,
+    flex: 1,
   },
 });

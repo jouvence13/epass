@@ -8,6 +8,7 @@ import ProfileScreen from '../screens/student/ProfileScreen';
 import TopBar from '../components/TopBar';
 import { colors, typography } from '../theme/theme';
 import { useAuth } from '../context/AuthContext';
+import { useNotifications } from '../context/NotificationContext';
 
 const Tab = createBottomTabNavigator();
 
@@ -32,8 +33,9 @@ const TITLES: Record<string, string> = {
   Profile: 'Mon Profil Étudiant',
 };
 
-export default function StudentTabs() {
-  const { logout } = useAuth();
+export default function StudentTabs({ navigation }: any) {
+  const { user, logout } = useAuth();
+  const { unreadCount } = useNotifications();
 
   return (
     <Tab.Navigator
@@ -41,6 +43,10 @@ export default function StudentTabs() {
         header: () => (
           <TopBar
             title={TITLES[route.name]}
+            unreadCount={unreadCount}
+            onNotificationPress={() => navigation.navigate('Notifications')}
+            onProfilePress={() => navigation.navigate('Profile')}
+            userInitial={user?.first_name ? user.first_name[0].toUpperCase() : 'E'}
             rightIcon="logout"
             onRightPress={logout}
           />
