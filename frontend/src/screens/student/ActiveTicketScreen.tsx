@@ -17,7 +17,7 @@ import Card from '../../components/Card';
 import Badge from '../../components/Badge';
 import PrimaryButton from '../../components/PrimaryButton';
 import { colors, radius, spacing, typography } from '../../theme/theme';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth, StudentTicket } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
 
 interface RouteStop {
@@ -106,14 +106,43 @@ const BUS_LINES: Record<string, BusLineConfig> = {
 export default function ActiveTicketScreen() {
   const { user, tickets, activeTicket, setActiveTicket, busSlots, recycleTicket } = useAuth();
   const { showToast } = useNotifications();
-  const [selectedLineKey, setSelectedLineKey] = useState<'LIGNE_A' | 'LIGNE_B' | 'LIGNE_C'>('LIGNE_A');
+
+  // Billets actifs de l'étudiant
+  const userActiveTickets = tickets.filter((t) => t.status === 'ACTIVE');
+
+  // Déterminer la ligne associée à un billet
+  const getLineKeyForTicket = (t?: StudentTicket | null): 'LIGNE_A' | 'LIGNE_B' | 'LIGNE_C' => {
+    if (!t) return 'LIGNE_A';
+    const text = `${t.line || ''} ${t.route || ''}`.toLowerCase();
+    if (text.includes('godomey') || text.includes('ligne b')) return 'LIGNE_B';
+    if (text.includes('akpakpa') || text.includes('ligne c')) return 'LIGNE_C';
+    return 'LIGNE_A';
+  };
+
+  const [selectedLineKey, setSelectedLineKey] = useState<'LIGNE_A' | 'LIGNE_B' | 'LIGNE_C'>(
+    getLineKeyForTicket(activeTicket)
+  );
+
+  // Synchronisation automatique de la ligne suivie lorsque le ticket actif change
+  useEffect(() => {
+    if (activeTicket) {
+      setSelectedLineKey(getLineKeyForTicket(activeTicket));
+    }
+  }, [activeTicket?.id]);
+
+  // Ensemble des lignes pour lesquelles l'étudiant possède un billet actif
+  const myActiveLineKeys = Array.from(
+    new Set(userActiveTickets.map((t) => getLineKeyForTicket(t)))
+  ) as ('LIGNE_A' | 'LIGNE_B' | 'LIGNE_C')[];
+
+  const availableLineKeys = myActiveLineKeys.length > 0 ? myActiveLineKeys : (['LIGNE_A'] as ('LIGNE_A' | 'LIGNE_B' | 'LIGNE_C')[]);
 
   // État du Modal de Recyclage
   const [recycleModalVisible, setRecycleModalVisible] = useState(false);
   const [selectedTargetSlotId, setSelectedTargetSlotId] = useState<string>('slot-2');
   const [isRecycling, setIsRecycling] = useState(false);
 
-  const activeLine = BUS_LINES[selectedLineKey];
+  const activeLine = BUS_LINES[selectedLineKey] || BUS_LINES['LIGNE_A'];
 
   // Animations
   const pulse = useRef(new Animated.Value(0)).current;
@@ -205,15 +234,18 @@ export default function ActiveTicketScreen() {
     <SafeAreaView style={styles.safe} edges={['bottom']}>
       <ScrollView contentContainerStyle={styles.scroll}>
         {/* Sélecteur de Ticket si l'étudiant en possède plusieurs */}
-        {tickets.length > 1 && (
+        {userActiveTickets.length > 1 && (
           <View style={styles.ticketSwitcherRow}>
-            {tickets.map((t, idx) => {
+            {userActiveTickets.map((t, idx) => {
               const isSelected = activeTicket?.id === t.id;
               return (
                 <Pressable
                   key={t.id}
                   style={[styles.ticketSwitcherTab, isSelected && styles.ticketSwitcherTabActive]}
-                  onPress={() => setActiveTicket(t)}
+                  onPress={() => {
+                    setActiveTicket(t);
+                    setSelectedLineKey(getLineKeyForTicket(t));
+                  }}
                 >
                   <MaterialIcons
                     name="confirmation-number"
@@ -289,14 +321,16 @@ export default function ActiveTicketScreen() {
         </Card>
 
         {/* ========================================================================= */}
-        {/* SUIVI GPS EN DIRECT & TRAJET SUR LA CARTE                                 */}
+        {/* SUIVI GPS EN DIRECT & TRAJET SUR LA CARTE (FILTRÉ AUX BILLETS DE L'ÉTUDIANT) */}
         {/* ========================================================================= */}
         <Card style={styles.mapCard}>
           {/* Header de la carte avec sélecteur de ligne */}
           <View style={styles.mapHeader}>
-            <View>
+            <View style={{ flex: 1 }}>
               <Text style={styles.mapTitle}>Suivi GPS & Trajet en Temps Réel</Text>
-              <Text style={styles.hint}>{activeLine.busNumber} • Remplissage : {activeLine.occupancy}</Text>
+              <Text style={styles.hint}>
+                {activeLine.busNumber} ({activeLine.name}) • Remplissage : {activeLine.occupancy}
+              </Text>
             </View>
             <View style={{ alignItems: 'flex-end' }}>
               <Text style={styles.eta}>{activeLine.nextStopEta}</Text>
@@ -304,33 +338,34 @@ export default function ActiveTicketScreen() {
             </View>
           </View>
 
-          {/* Onglets de sélection de ligne */}
-          <View style={styles.lineTabs}>
-            <Pressable
-              style={[styles.lineTab, selectedLineKey === 'LIGNE_A' && styles.lineTabActive]}
-              onPress={() => setSelectedLineKey('LIGNE_A')}
-            >
-              <Text style={[styles.lineTabText, selectedLineKey === 'LIGNE_A' && styles.lineTabTextActive]}>
-                Ligne A (Calavi ↔ Cotonou)
-              </Text>
-            </Pressable>
-            <Pressable
-              style={[styles.lineTab, selectedLineKey === 'LIGNE_B' && styles.lineTabActive]}
-              onPress={() => setSelectedLineKey('LIGNE_B')}
-            >
-              <Text style={[styles.lineTabText, selectedLineKey === 'LIGNE_B' && styles.lineTabTextActive]}>
-                Ligne B (Godomey)
-              </Text>
-            </Pressable>
-            <Pressable
-              style={[styles.lineTab, selectedLineKey === 'LIGNE_C' && styles.lineTabActive]}
-              onPress={() => setSelectedLineKey('LIGNE_C')}
-            >
-              <Text style={[styles.lineTabText, selectedLineKey === 'LIGNE_C' && styles.lineTabTextActive]}>
-                Ligne C (Akpakpa)
-              </Text>
-            </Pressable>
+          {/* Bandeau d'exclusivité du bus suivi */}
+          <View style={styles.exclusiveTrackBadge}>
+            <MaterialIcons name="radar" size={16} color={colors.primary} />
+            <Text style={styles.exclusiveTrackText}>
+              Suivi en direct du bus réservé pour votre ticket ({activeTicket?.code || 'Actif'})
+            </Text>
           </View>
+
+          {/* Onglets de sélection de ligne : Uniquement si l'étudiant a plusieurs tickets sur des lignes distinctes */}
+          {availableLineKeys.length > 1 && (
+            <View style={styles.lineTabs}>
+              {availableLineKeys.map((key) => {
+                const lineInfo = BUS_LINES[key];
+                const isActive = selectedLineKey === key;
+                return (
+                  <Pressable
+                    key={key}
+                    style={[styles.lineTab, isActive && styles.lineTabActive]}
+                    onPress={() => setSelectedLineKey(key)}
+                  >
+                    <Text style={[styles.lineTabText, isActive && styles.lineTabTextActive]}>
+                      {lineInfo.code}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
 
           {/* Aire de la carte stylisée */}
           <View style={styles.mapArea}>
@@ -703,6 +738,22 @@ const styles = StyleSheet.create({
   hint: { ...typography.bodySm, color: colors.onSurfaceVariant },
   eta: { ...typography.headlineMd, fontSize: 24, color: colors.secondary, fontWeight: '700' },
   etaLabel: { ...typography.labelCaps, color: colors.outline },
+  exclusiveTrackBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.surfaceContainer,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.surfaceVariant,
+  },
+  exclusiveTrackText: {
+    ...typography.labelCaps,
+    fontSize: 11,
+    color: colors.primary,
+    fontWeight: '700',
+  },
   lineTabs: {
     flexDirection: 'row',
     backgroundColor: colors.surfaceContainerLowest,

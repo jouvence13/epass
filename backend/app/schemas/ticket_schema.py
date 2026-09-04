@@ -45,6 +45,7 @@ class ActiveTicketScreenOutSchema(BaseModel):
     code: str                                 # Formatted SMS backup code: "A7B9-X2M4"
     status: str                               # "Valid Ticket", "Validated", "Expired"
     raw_status: TicketStatusEnum
+    recycle_count: int = 0                    # Number of times recycled (max 1)
     available_for_days: int                   # e.g. 6 (days remaining in J+7 window)
     avail_for_label: str                      # e.g. "Available for 6 more days"
     

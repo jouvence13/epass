@@ -143,7 +143,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Liste dynamique des titres de transport achetés par l'étudiant (support multi-tickets)
   const [tickets, setTickets] = useState<StudentTicket[]>([
     {
-      id: 't-102',
+      id: '61a2be79-d843-4f9b-b869-e5838a6a84dc',
       code: 'A7B9-K8N5',
       line: 'Campus Express • Ligne A',
       route: 'Calavi Campus → Cotonou Étoile Rouge',
@@ -156,7 +156,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       recycleCount: 0,
     },
     {
-      id: 't-101',
+      id: '4134b24d-f3f7-4e08-a996-f87452033095',
       code: 'A7B9-X2M4',
       line: 'Campus Express • Ligne A',
       route: 'Calavi Campus → Cotonou Étoile Rouge',
@@ -171,7 +171,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   ]);
 
   const [activeTicket, setActiveTicket] = useState<StudentTicket | null>({
-    id: 't-102',
+    id: '61a2be79-d843-4f9b-b869-e5838a6a84dc',
     code: 'A7B9-K8N5',
     line: 'Campus Express • Ligne A',
     route: 'Calavi Campus → Cotonou Étoile Rouge',
@@ -243,6 +243,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             status: tk.raw_status === 'VALIDATED' ? 'USED' : 'ACTIVE',
             paymentMethod: 'Portefeuille CROUS',
             timeSlot: 'Rotation Garantie',
+            recycleCount: typeof tk.recycle_count === 'number' ? tk.recycle_count : 0,
           }));
           setTickets(mappedTickets);
           const active = mappedTickets.find((t) => t.status === 'ACTIVE') || mappedTickets[0];
@@ -419,28 +420,53 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         headers['Authorization'] = `Bearer ${token}`;
       }
 
+      // UUID de ticket réel correspondant
+      const targetDbTicketId =
+        ticketId.length > 20 && ticketId.includes('-')
+          ? ticketId
+          : currentTicket.code === 'A7B9-X2M4'
+          ? '4134b24d-f3f7-4e08-a996-f87452033095'
+          : '61a2be79-d843-4f9b-b869-e5838a6a84dc';
+
+      // UUID de trajet valide
+      const targetDbTripId =
+        newSlotId.length > 20 && newSlotId.includes('-')
+          ? newSlotId
+          : '7a6ad347-c0fb-472d-80c7-7830ed61cdad';
+
       const res = await fetch(ENDPOINTS.RECYCLE_TICKET, {
         method: 'POST',
         credentials: 'include',
         headers,
         body: JSON.stringify({
-          ticket_id: ticketId.length > 20 && ticketId.includes('-') ? ticketId : '4134b24d-f3f7-4e08-a996-f87452033095',
-          new_trip_id: newSlotId.length > 20 && newSlotId.includes('-') ? newSlotId : '7a6ad347-c0fb-472d-80c7-7830ed61cdad',
+          ticket_id: targetDbTicketId,
+          new_trip_id: targetDbTripId,
         }),
       });
 
       if (res.ok) {
         const recycleData = await res.json();
+        const nextRecycleCount = recycleData.recycle_count ?? 1;
+        let codeFormatted = updatedTicket.code;
         if (recycleData.sms_backup_code) {
-          const codeFormatted =
+          codeFormatted =
             recycleData.sms_backup_code.length === 8
               ? `${recycleData.sms_backup_code.slice(0, 4)}-${recycleData.sms_backup_code.slice(4)}`
               : recycleData.sms_backup_code;
-          updatedTicket.code = codeFormatted;
-          setTickets((prev) => prev.map((t) => (t.id === ticketId ? { ...t, code: codeFormatted } : t)));
-          if (activeTicket?.id === ticketId) {
-            setActiveTicket((prev) => (prev ? { ...prev, code: codeFormatted } : updatedTicket));
-          }
+        }
+        updatedTicket.code = codeFormatted;
+        updatedTicket.recycleCount = nextRecycleCount;
+        setTickets((prev) =>
+          prev.map((t) =>
+            t.id === ticketId
+              ? { ...t, code: codeFormatted, recycleCount: nextRecycleCount }
+              : t
+          )
+        );
+        if (activeTicket?.id === ticketId) {
+          setActiveTicket((prev) =>
+            prev ? { ...prev, code: codeFormatted, recycleCount: nextRecycleCount } : updatedTicket
+          );
         }
       }
       refreshTrips();
