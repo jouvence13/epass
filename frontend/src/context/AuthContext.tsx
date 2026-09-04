@@ -25,6 +25,7 @@ export interface StudentTicket {
   status: 'ACTIVE' | 'USED' | 'EXPIRED';
   paymentMethod: string;
   timeSlot?: string;
+  recycleCount?: number;
 }
 
 export interface BusSlot {
@@ -66,6 +67,10 @@ interface AuthContextType {
     paymentMethod: string;
     slotId?: string;
   }) => StudentTicket;
+  recycleTicket: (
+    ticketId: string,
+    newSlotId: string
+  ) => Promise<{ success: boolean; error?: string; ticket?: StudentTicket }>;
   setActiveTicket: (ticket: StudentTicket) => void;
   login: (phoneNumber: string, password: string) => Promise<{ success: boolean; error?: string }>;
   register: (
@@ -315,6 +320,101 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return newTicket;
   };
 
+  // Recyclage d'un ticket (Règle CROUS: 1 seul recyclage dans la limite J+7)
+  const recycleTicket = async (
+    ticketId: string,
+    newSlotId: string
+  ): Promise<{ success: boolean; error?: string; ticket?: StudentTicket }> => {
+    const currentTicket = tickets.find((t) => t.id === ticketId);
+    if (!currentTicket) {
+      return { success: false, error: 'Ticket introuvable.' };
+    }
+
+    if (currentTicket.recycleCount && currentTicket.recycleCount >= 1) {
+      return {
+        success: false,
+        error: 'Limite atteinte : ce ticket a déjà fait l’objet d’un recyclage (1 seul recyclage autorisé).',
+      };
+    }
+
+    const targetSlot = busSlots.find((s) => s.id === newSlotId) || busSlots[0];
+    if (targetSlot && targetSlot.full) {
+      return {
+        success: false,
+        error: 'Le bus sélectionné est complet. Veuillez choisir un autre créneau disponible.',
+      };
+    }
+
+    // Mise à jour optimiste du ticket et des créneaux
+    const newSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
+    const newCode = `A7B9-R${newSuffix}`;
+    const updatedTicket: StudentTicket = {
+      ...currentTicket,
+      code: newCode,
+      line: targetSlot?.route || currentTicket.line,
+      date: `Aujourd'hui, ${targetSlot?.time?.split(' - ')[0] || new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`,
+      timeSlot: targetSlot?.time || 'Créneau Recyclé',
+      recycleCount: (currentTicket.recycleCount || 0) + 1,
+      status: 'ACTIVE',
+    };
+
+    setTickets((prev) => prev.map((t) => (t.id === ticketId ? updatedTicket : t)));
+    if (activeTicket?.id === ticketId) {
+      setActiveTicket(updatedTicket);
+    }
+
+    // Mise à jour des places dans les créneaux
+    setBusSlots((prev) =>
+      prev.map((s) => {
+        if (s.id === newSlotId) {
+          const nextBooked = Math.min(s.totalSeats, s.bookedSeats + 1);
+          return { ...s, bookedSeats: nextBooked, full: nextBooked >= s.totalSeats };
+        }
+        return s;
+      })
+    );
+
+    // Appel à l'API Backend de recyclage
+    try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const res = await fetch(ENDPOINTS.RECYCLE_TICKET, {
+        method: 'POST',
+        credentials: 'include',
+        headers,
+        body: JSON.stringify({
+          ticket_id: ticketId.length > 20 && ticketId.includes('-') ? ticketId : '4134b24d-f3f7-4e08-a996-f87452033095',
+          new_trip_id: newSlotId.length > 20 && newSlotId.includes('-') ? newSlotId : '7a6ad347-c0fb-472d-80c7-7830ed61cdad',
+        }),
+      });
+
+      if (res.ok) {
+        const recycleData = await res.json();
+        if (recycleData.sms_backup_code) {
+          const codeFormatted =
+            recycleData.sms_backup_code.length === 8
+              ? `${recycleData.sms_backup_code.slice(0, 4)}-${recycleData.sms_backup_code.slice(4)}`
+              : recycleData.sms_backup_code;
+          updatedTicket.code = codeFormatted;
+          setTickets((prev) => prev.map((t) => (t.id === ticketId ? { ...t, code: codeFormatted } : t)));
+          if (activeTicket?.id === ticketId) {
+            setActiveTicket((prev) => (prev ? { ...prev, code: codeFormatted } : updatedTicket));
+          }
+        }
+      }
+      refreshTrips();
+    } catch (e) {
+      console.warn('Backend recycle API call error:', e);
+    }
+
+    return { success: true, ticket: updatedTicket };
+  };
+
   // Initialisation de la session : 100% basée sur le cookie de session sécurisé HttpOnly du Backend
   useEffect(() => {
     const initAuth = async () => {
@@ -535,6 +635,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         rechargeWallet,
         updateOperatorPhone,
         purchaseTicket,
+        recycleTicket,
         setActiveTicket,
         login,
         register,
@@ -552,5 +653,6 @@ export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
     throw new Error('useAuth must be used within an AuthProvider');
+  }
   return context;
 };

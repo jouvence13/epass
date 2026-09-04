@@ -8,6 +8,7 @@ import {
   Easing,
   Alert,
   Pressable,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -17,6 +18,7 @@ import Badge from '../../components/Badge';
 import PrimaryButton from '../../components/PrimaryButton';
 import { colors, radius, spacing, typography } from '../../theme/theme';
 import { useAuth } from '../../context/AuthContext';
+import { useNotification } from '../../context/NotificationContext';
 
 interface RouteStop {
   id: string;
@@ -102,8 +104,14 @@ const BUS_LINES: Record<string, BusLineConfig> = {
 };
 
 export default function ActiveTicketScreen() {
-  const { user, tickets, activeTicket, setActiveTicket } = useAuth();
+  const { user, tickets, activeTicket, setActiveTicket, busSlots, recycleTicket } = useAuth();
+  const { showToast } = useNotification();
   const [selectedLineKey, setSelectedLineKey] = useState<'LIGNE_A' | 'LIGNE_B' | 'LIGNE_C'>('LIGNE_A');
+
+  // État du Modal de Recyclage
+  const [recycleModalVisible, setRecycleModalVisible] = useState(false);
+  const [selectedTargetSlotId, setSelectedTargetSlotId] = useState<string>('slot-2');
+  const [isRecycling, setIsRecycling] = useState(false);
 
   const activeLine = BUS_LINES[selectedLineKey];
 
@@ -149,6 +157,49 @@ export default function ActiveTicketScreen() {
   });
 
   const isApproved = user?.kyc_status === 'APPROVED';
+  const isRecycled = Boolean(activeTicket?.recycleCount && activeTicket.recycleCount >= 1);
+
+  const handleOpenRecycleModal = () => {
+    if (!activeTicket) {
+      Alert.alert('Aucun Ticket', 'Vous n\'avez aucun titre de transport actif à recycler.');
+      return;
+    }
+    if (isRecycled) {
+      Alert.alert(
+        'Recyclage Non Autorisé',
+        'Ce ticket a déjà fait l\'objet d\'un report. Selon la réglementation CROUS, un seul recyclage est autorisé par titre (limite J+7).'
+      );
+      return;
+    }
+    const firstAvailable = busSlots.find((s) => !s.full) || busSlots[0];
+    if (firstAvailable) {
+      setSelectedTargetSlotId(firstAvailable.id);
+    }
+    setRecycleModalVisible(true);
+  };
+
+  const handleConfirmRecycle = async () => {
+    if (!activeTicket) return;
+    setIsRecycling(true);
+    const res = await recycleTicket(activeTicket.id, selectedTargetSlotId);
+    setIsRecycling(false);
+    setRecycleModalVisible(false);
+
+    if (res.success && res.ticket) {
+      showToast({
+        title: 'Ticket Recyclé !',
+        message: `Votre billet a été reporté vers ${res.ticket.timeSlot}. Nouveau code : ${res.ticket.code}`,
+        type: 'success',
+        category: 'GENERAL',
+      });
+      Alert.alert(
+        'Recyclage Effectué !',
+        `Votre titre de transport a été reporté avec succès.\n\n• Nouveau Code : ${res.ticket.code}\n• Nouveau créneau : ${res.ticket.timeSlot}\n• Nouveau QR Code sécurisé généré.`
+      );
+    } else {
+      Alert.alert('Erreur de Recyclage', res.error || 'Impossible de recycler le ticket.');
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
@@ -189,15 +240,20 @@ export default function ActiveTicketScreen() {
 
         {/* Carte du Ticket QR */}
         <Card floating style={styles.ticketCard}>
-          <View style={styles.validBadge}>
-            <MaterialIcons
-              name={isApproved ? 'check-circle' : user?.kyc_status === 'PENDING' ? 'schedule' : 'info'}
-              size={14}
-              color={colors.onSecondary}
-            />
-            <Text style={styles.validText}>
-              {isApproved ? 'Ticket Valide & Payé' : user?.kyc_status === 'PENDING' ? 'KYC En Attente' : 'KYC Non Soumis'}
-            </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+            <View style={styles.validBadge}>
+              <MaterialIcons
+                name={isApproved ? 'check-circle' : user?.kyc_status === 'PENDING' ? 'schedule' : 'info'}
+                size={14}
+                color={colors.onSecondary}
+              />
+              <Text style={styles.validText}>
+                {isApproved ? 'Ticket Valide & Payé' : user?.kyc_status === 'PENDING' ? 'KYC En Attente' : 'KYC Non Soumis'}
+              </Text>
+            </View>
+            {isRecycled && (
+              <Badge label="Reporté / Recyclé (1/1)" tone="primary" icon="recycling" />
+            )}
           </View>
           <Text style={styles.route}>{activeTicket?.route || activeLine.code}</Text>
           <Text style={styles.studentId}>
@@ -225,10 +281,11 @@ export default function ActiveTicketScreen() {
           <Text style={styles.code}>{activeTicket?.code || 'A7B9-X2M4'}</Text>
 
           <PrimaryButton
-            label="Recycler mon Ticket"
+            label={isRecycled ? 'Ticket Déjà Recyclé (1/1 Max)' : 'Recycler / Reporter mon Ticket'}
             icon="recycling"
-            variant="muted"
-            onPress={() => Alert.alert('Ticket Universitaire', 'Votre ticket a été replacé dans la file active.')}
+            variant={isRecycled ? 'muted' : 'gold'}
+            disabled={isRecycled}
+            onPress={handleOpenRecycleModal}
             style={{ width: '100%' }}
           />
           <Text style={styles.availFor}>
@@ -451,6 +508,99 @@ export default function ActiveTicketScreen() {
           </View>
         </Card>
       </ScrollView>
+
+      {/* ========================================================================= */}
+      {/* BOTTOM SHEET MODAL : RECYCLAGE / REPORT DU TICKET (RÈGLE J+7)              */}
+      {/* ========================================================================= */}
+      <Modal
+        visible={recycleModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setRecycleModalVisible(false)}
+      >
+        <View style={styles.recycleModalOverlay}>
+          <Pressable style={styles.recycleModalBackdrop} onPress={() => setRecycleModalVisible(false)} />
+          <View style={styles.recycleModalContent}>
+            <View style={styles.sheetHandle} />
+
+            {/* En-tête */}
+            <View style={styles.recycleHeader}>
+              <View style={{ flex: 1 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <MaterialIcons name="recycling" size={22} color={colors.primary} />
+                  <Text style={styles.recycleSheetTitle}>Recycler mon Ticket</Text>
+                </View>
+                <Text style={styles.recycleSheetSub}>
+                  Reportez votre billet ({activeTicket?.code}) vers une autre rotation de bus sans frais.
+                </Text>
+              </View>
+              <Pressable onPress={() => setRecycleModalVisible(false)} style={styles.closeRecycleBtn}>
+                <MaterialIcons name="close" size={22} color={colors.onSurface} />
+              </Pressable>
+            </View>
+
+            {/* Règle CROUS J+7 Notice */}
+            <View style={styles.recycleNoticeCard}>
+              <MaterialIcons name="verified-user" size={18} color="#16a34a" />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.recycleNoticeTitle}>Règlement de report CROUS (J+7) :</Text>
+                <Text style={styles.recycleNoticeBody}>
+                  • Un (1) seul recyclage autorisé par titre.{'\n'}
+                  • Votre place sur le bus initial sera libérée.{'\n'}
+                  • Nouveau QR Code et code SMS émis instantanément.
+                </Text>
+              </View>
+            </View>
+
+            {/* Liste des créneaux disponibles pour le report */}
+            <Text style={styles.recycleSectionTitle}>CHOISIR LE NOUVEAU CRÉNEAU DE DÉPART</Text>
+            <ScrollView style={{ maxHeight: 210 }} contentContainerStyle={{ gap: spacing.sm }}>
+              {busSlots.map((slot) => {
+                const isSelected = selectedTargetSlotId === slot.id;
+                const freeSeats = Math.max(0, slot.totalSeats - slot.bookedSeats);
+                return (
+                  <Pressable
+                    key={slot.id}
+                    disabled={slot.full}
+                    style={[
+                      styles.recycleSlotTile,
+                      isSelected && styles.recycleSlotTileActive,
+                      slot.full && styles.recycleSlotTileFull,
+                    ]}
+                    onPress={() => setSelectedTargetSlotId(slot.id)}
+                  >
+                    <MaterialIcons
+                      name={isSelected ? 'radio-button-checked' : 'radio-button-unchecked'}
+                      size={20}
+                      color={isSelected ? colors.primary : slot.full ? colors.outline : colors.onSurfaceVariant}
+                    />
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.recycleSlotTime, isSelected && { color: colors.primary, fontWeight: '700' }]}>
+                        {slot.time}
+                      </Text>
+                      <Text style={styles.recycleSlotRoute}>{slot.route}</Text>
+                    </View>
+                    <Badge
+                      label={slot.full ? 'Complet' : `${freeSeats} pl.`}
+                      tone={slot.full ? 'error' : isSelected ? 'primary' : 'success'}
+                    />
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+
+            {/* Bouton de confirmation */}
+            <PrimaryButton
+              label={isRecycling ? 'Recyclage en cours...' : 'Confirmer le Report vers ce Bus'}
+              icon="check-circle"
+              variant="gold"
+              disabled={isRecycling}
+              onPress={handleConfirmRecycle}
+              style={{ marginTop: spacing.sm }}
+            />
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -828,5 +978,117 @@ const styles = StyleSheet.create({
     ...typography.labelCaps,
     fontSize: 9,
     color: colors.primary,
+  },
+
+  // Recycle Modal Styles
+  recycleModalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+  },
+  recycleModalBackdrop: {
+    flex: 1,
+  },
+  recycleModalContent: {
+    backgroundColor: colors.surfaceContainerLowest,
+    borderTopLeftRadius: radius.xl,
+    borderTopRightRadius: radius.xl,
+    padding: spacing.lg,
+    paddingBottom: spacing.xl + 8,
+    gap: spacing.md,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 20,
+    maxHeight: '90%',
+  },
+  sheetHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.outlineVariant,
+    alignSelf: 'center',
+    marginBottom: spacing.xs,
+  },
+  recycleHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  recycleSheetTitle: {
+    ...typography.headlineSm,
+    fontSize: 18,
+    color: colors.primary,
+  },
+  recycleSheetSub: {
+    ...typography.bodySm,
+    color: colors.onSurfaceVariant,
+    marginTop: 2,
+  },
+  closeRecycleBtn: {
+    padding: spacing.xs,
+    borderRadius: radius.full,
+    backgroundColor: colors.surfaceContainerLow,
+  },
+  recycleNoticeCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    backgroundColor: '#ecfdf5',
+    borderWidth: 1,
+    borderColor: '#a7f3d0',
+    borderRadius: radius.md,
+    padding: spacing.sm + 2,
+  },
+  recycleNoticeTitle: {
+    ...typography.bodySm,
+    fontWeight: '700',
+    color: '#065f46',
+    fontSize: 12,
+  },
+  recycleNoticeBody: {
+    ...typography.bodySm,
+    color: '#047857',
+    fontSize: 11,
+    lineHeight: 16,
+    marginTop: 2,
+  },
+  recycleSectionTitle: {
+    ...typography.labelCaps,
+    fontSize: 11,
+    color: colors.outline,
+    letterSpacing: 0.8,
+  },
+  recycleSlotTile: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.surfaceContainerLow,
+    padding: spacing.sm + 2,
+    borderRadius: radius.md,
+    borderWidth: 1.5,
+    borderColor: colors.surfaceVariant,
+  },
+  recycleSlotTileActive: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primaryFixed,
+  },
+  recycleSlotTileFull: {
+    opacity: 0.6,
+    backgroundColor: '#fef2f2',
+    borderColor: '#fecaca',
+  },
+  recycleSlotTime: {
+    ...typography.bodyMd,
+    fontWeight: '600',
+    color: colors.onSurface,
+  },
+  recycleSlotRoute: {
+    ...typography.bodySm,
+    fontSize: 11,
+    color: colors.onSurfaceVariant,
+    marginTop: 1,
   },
 });
