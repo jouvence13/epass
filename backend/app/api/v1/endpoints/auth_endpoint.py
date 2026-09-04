@@ -169,9 +169,22 @@ async def login_user(
     user_query = await db.execute(
         select(Users).where(Users.phone_number.in_(phone_variants))
     )
-    user = user_query.scalars().first()
+    candidates = user_query.scalars().all()
 
-    if not user or not verify_password(payload.password, user.password_hash):
+    user = None
+    # 1. Check exact match first
+    for u in candidates:
+        if u.phone_number == phone_clean and verify_password(payload.password, u.password_hash):
+            user = u
+            break
+    # 2. Check any variant if no exact match
+    if not user:
+        for u in candidates:
+            if verify_password(payload.password, u.password_hash):
+                user = u
+                break
+
+    if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Numéro de téléphone ou mot de passe incorrect."

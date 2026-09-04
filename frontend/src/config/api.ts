@@ -35,6 +35,8 @@ export const ENDPOINTS = {
   ACTIVE_TICKET: `${API_V1_URL}/trips/student/active-ticket`,
   TICKET_HISTORY: `${API_V1_URL}/trips/student/history`,
   BOOK_TRIP: (tripId: string) => `${API_V1_URL}/trips/${tripId}/book`,
+  BOOK_TRIP_INSTANT: (tripId: string) => `${API_V1_URL}/trips/${tripId}/instant-purchase`,
+  INSTANT_PURCHASE: `${API_V1_URL}/trips/instant-purchase`,
   RECYCLE_TICKET: `${API_V1_URL}/recycle/execute`,
 
   // Chauffeur & Contrôle

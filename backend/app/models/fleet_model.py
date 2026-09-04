@@ -76,6 +76,26 @@ class Stops(Base, TimestampMixin):
         index=True
     )
 
+    @property
+    def latitude(self) -> float:
+        if self.geolocation is not None:
+            try:
+                from geoalchemy2.shape import to_shape
+                return float(to_shape(self.geolocation).y)
+            except Exception:
+                return 6.4474
+        return 6.4474
+
+    @property
+    def longitude(self) -> float:
+        if self.geolocation is not None:
+            try:
+                from geoalchemy2.shape import to_shape
+                return float(to_shape(self.geolocation).x)
+            except Exception:
+                return 2.3557
+        return 2.3557
+
     # Relationships
     origin_routes: Mapped[List["Routes"]] = relationship(
         "Routes",

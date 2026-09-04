@@ -52,8 +52,8 @@ class StopOutSchema(BaseModel):
 
     stop_id: uuid.UUID
     stop_name: str
-    latitude: float
-    longitude: float
+    latitude: Optional[float] = 6.4474
+    longitude: Optional[float] = 2.3557
     created_at: datetime
 
 

@@ -1,5 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Platform } from 'react-native';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { ENDPOINTS } from '../config/api';
 
 export type UserRole = 'STUDENT' | 'DRIVER' | 'CONTROLLER' | 'ADMIN_CROUS' | 'SUPERADMIN';
@@ -54,6 +53,8 @@ interface AuthContextType {
   tickets: StudentTicket[];
   activeTicket: StudentTicket | null;
   busSlots: BusSlot[];
+  refreshTrips: () => Promise<void>;
+  refreshTickets: () => Promise<void>;
   debitWallet: (amount: number) => boolean;
   rechargeWallet: (amount: number, operator: string, phone: string) => void;
   updateOperatorPhone: (operator: 'MTN' | 'MOOV' | 'CELTIIS', phone: string) => void;
@@ -94,196 +95,144 @@ const formatApiError = (detail: any, defaultMsg: string): string => {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Stockage sécurisé / persistant compatible Web & Mobile
-const saveAuthData = (token: string, user: User) => {
-  if (Platform.OS === 'web' && typeof window !== 'undefined') {
-    try {
-      localStorage.setItem('epass_token', token);
-      localStorage.setItem('epass_user', JSON.stringify(user));
-    } catch (e) {
-      console.warn('Storage error:', e);
-    }
-  }
-};
-
-const clearAuthData = () => {
-  if (Platform.OS === 'web' && typeof window !== 'undefined') {
-    try {
-      localStorage.removeItem('epass_token');
-      localStorage.removeItem('epass_user');
-    } catch (e) {
-      console.warn('Storage error:', e);
-    }
-  }
-};
-
-const getStoredAuthData = (): { token: string | null; user: User | null } => {
-  if (Platform.OS === 'web' && typeof window !== 'undefined') {
-    try {
-      const token = localStorage.getItem('epass_token');
-      const userStr = localStorage.getItem('epass_user');
-      const user = userStr ? JSON.parse(userStr) : null;
-      return { token, user };
-    } catch (e) {
-      return { token: null, user: null };
-    }
-  }
-  return { token: null, user: null };
-};
-
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // Tout est conservé en mémoire dynamique React (aucune persistance locale dans le navigateur)
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [justRegistered, setJustRegistered] = useState(false);
 
-  // État du Portefeuille Universitaire CROUS
-  const [walletBalance, setWalletBalance] = useState<number>(() => {
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      const saved = localStorage.getItem('epass_wallet_balance');
-      if (saved) {
-        const val = parseInt(saved, 10);
-        if (!isNaN(val)) return val;
-      }
-    }
-    return 2500;
-  });
+  // Solde dynamique du Portefeuille Universitaire CROUS
+  const [walletBalance, setWalletBalance] = useState<number>(2500);
 
-  // Numéros de Mobile Money enregistrés par opérateur (compacts, tout collé)
+  // Numéros Mobile Money enregistrés (compacts, tout collé)
   const [operatorPhoneNumbers, setOperatorPhoneNumbers] = useState<{
     MTN: string;
     MOOV: string;
     CELTIIS: string;
-  }>(() => {
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      const saved = localStorage.getItem('epass_operator_phones');
-      if (saved) {
-        try {
-          return JSON.parse(saved);
-        } catch (e) {}
-      }
-    }
-    return {
-      MTN: '+2290157774305',
-      MOOV: '+2290199134633',
-      CELTIIS: '+2290143272822',
-    };
+  }>({
+    MTN: '+2290157774305',
+    MOOV: '+2290199134633',
+    CELTIIS: '+2290143272822',
   });
 
+  // Liste dynamique des créneaux & rotations de bus
+  const [busSlots, setBusSlots] = useState<BusSlot[]>([
+    { id: 'slot-1', time: '07:30 - Rotation Matin', route: 'Ligne A (Calavi ↔ Cotonou)', bookedSeats: 32, totalSeats: 50, full: false },
+    { id: 'slot-2', time: '08:15 - Rotation Express', route: 'Ligne B (Calavi ↔ Godomey)', bookedSeats: 50, totalSeats: 50, full: true },
+    { id: 'slot-3', time: '09:00 - Rotation Campus', route: 'Ligne A (Calavi ↔ Cotonou)', bookedSeats: 18, totalSeats: 50, full: false },
+    { id: 'slot-4', time: '12:30 - Rotation Midi', route: 'Ligne C (Calavi ↔ Akpakpa)', bookedSeats: 40, totalSeats: 50, full: false },
+  ]);
+
+  // Liste dynamique des titres de transport achetés par l'étudiant
+  const [tickets, setTickets] = useState<StudentTicket[]>([
+    {
+      id: 't-101',
+      code: 'A7B9-X2M4',
+      line: 'Campus Express • Ligne A',
+      route: 'Calavi Campus → Cotonou Étoile Rouge',
+      busId: 'Bus CROUS #402',
+      price: 100,
+      date: "Aujourd'hui, 07:30",
+      status: 'ACTIVE',
+      paymentMethod: 'Portefeuille CROUS',
+      timeSlot: '07:30 - Rotation Matin',
+    },
+  ]);
+
+  const [activeTicket, setActiveTicket] = useState<StudentTicket | null>(null);
+
+  // Synchronisation dynamique des départs depuis le Backend API
+  const refreshTrips = useCallback(async () => {
+    try {
+      const res = await fetch(ENDPOINTS.AVAILABLE_TRIPS, {
+        credentials: 'include',
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          const mappedSlots: BusSlot[] = data.map((t: any, index: number) => {
+            const booked = t.total_seats - (t.available_seats ?? 0);
+            return {
+              id: t.trip_id || `slot-${index + 1}`,
+              time: t.formatted_time || `${new Date(t.departure_time).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })} - Rotation`,
+              route: t.route?.route_name || `Ligne A (${t.origin_name || 'Calavi'} ↔ ${t.destination_name || 'Cotonou'})`,
+              bookedSeats: booked,
+              totalSeats: t.total_seats || 50,
+              full: (t.available_seats ?? 0) <= 0 || t.full,
+            };
+          });
+          setBusSlots(mappedSlots);
+        }
+      }
+    } catch (e) {
+      console.warn('Trips fetch error:', e);
+    }
+  }, []);
+
+  // Synchronisation dynamique des billets de l'étudiant depuis le Backend API
+  const refreshTickets = useCallback(async () => {
+    try {
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const res = await fetch(ENDPOINTS.TICKET_HISTORY, {
+        credentials: 'include',
+        headers,
+      });
+
+      if (res.ok) {
+        const historyData = await res.json();
+        if (Array.isArray(historyData) && historyData.length > 0) {
+          const mappedTickets: StudentTicket[] = historyData.map((tk: any) => ({
+            id: tk.ticket_id,
+            code: tk.code,
+            line: tk.route_name || 'Campus Express • Ligne A',
+            route: tk.route_name?.includes('Godomey')
+              ? 'Calavi Campus → Échangeur Godomey'
+              : tk.route_name?.includes('Akpakpa')
+              ? 'Calavi Campus → Akpakpa Sacré-Cœur'
+              : 'Calavi Campus → Cotonou Étoile Rouge',
+            busId: tk.bus_code || 'Bus CROUS #402',
+            price: 100,
+            date: "Aujourd'hui, 07:30",
+            status: tk.raw_status === 'VALIDATED' ? 'USED' : 'ACTIVE',
+            paymentMethod: 'Portefeuille CROUS',
+            timeSlot: 'Rotation Garantie',
+          }));
+          setTickets(mappedTickets);
+          const active = mappedTickets.find((t) => t.status === 'ACTIVE') || mappedTickets[0];
+          setActiveTicket(active);
+        }
+      }
+    } catch (e) {
+      console.warn('Student tickets fetch error:', e);
+    }
+  }, [token]);
+
+  // Débit dynamique du portefeuille
   const debitWallet = (amount: number): boolean => {
     if (walletBalance < amount) return false;
-    const next = walletBalance - amount;
-    setWalletBalance(next);
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      localStorage.setItem('epass_wallet_balance', next.toString());
-    }
+    setWalletBalance((prev) => prev - amount);
     return true;
   };
 
+  // Rechargement dynamique du portefeuille
   const rechargeWallet = (amount: number, _operator: string, _phone: string) => {
-    const next = walletBalance + amount;
-    setWalletBalance(next);
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      localStorage.setItem('epass_wallet_balance', next.toString());
-    }
+    setWalletBalance((prev) => prev + amount);
   };
 
+  // Mise à jour dynamique du numéro Mobile Money par opérateur
   const updateOperatorPhone = (operator: 'MTN' | 'MOOV' | 'CELTIIS', phone: string) => {
     const cleanPhone = phone.replace(/\s+/g, '').replace(/-/g, '');
     const compactPhone = cleanPhone.startsWith('+229') ? cleanPhone : `+229${cleanPhone}`;
-    setOperatorPhoneNumbers((prev) => {
-      const updated = { ...prev, [operator]: compactPhone };
-      if (Platform.OS === 'web' && typeof window !== 'undefined') {
-        localStorage.setItem('epass_operator_phones', JSON.stringify(updated));
-      }
-      return updated;
-    });
+    setOperatorPhoneNumbers((prev) => ({ ...prev, [operator]: compactPhone }));
   };
 
-  // Liste des rotations et places disponibles en direct
-  const [busSlots, setBusSlots] = useState<BusSlot[]>(() => {
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      const saved = localStorage.getItem('epass_bus_slots');
-      if (saved) {
-        try {
-          return JSON.parse(saved);
-        } catch (e) {}
-      }
-    }
-    return [
-      { id: 'slot-1', time: '07:30 - Rotation Matin', route: 'Ligne A (Calavi ↔ Cotonou)', bookedSeats: 32, totalSeats: 50, full: false },
-      { id: 'slot-2', time: '08:15 - Rotation Express', route: 'Ligne B (Calavi ↔ Godomey)', bookedSeats: 50, totalSeats: 50, full: true },
-      { id: 'slot-3', time: '09:00 - Rotation Campus', route: 'Ligne A (Calavi ↔ Cotonou)', bookedSeats: 18, totalSeats: 50, full: false },
-      { id: 'slot-4', time: '12:30 - Rotation Midi', route: 'Ligne C (Calavi ↔ Akpakpa)', bookedSeats: 40, totalSeats: 50, full: false },
-    ];
-  });
-
-  // Liste des titres de transport achetés par l'étudiant
-  const [tickets, setTickets] = useState<StudentTicket[]>(() => {
-    const defaultTickets: StudentTicket[] = [
-      {
-        id: 't-101',
-        code: 'A7B9-X2M4',
-        line: 'Campus Express • Ligne A',
-        route: 'Calavi Campus → Cotonou Étoile Rouge',
-        busId: 'Bus CROUS #402',
-        price: 100,
-        date: "Aujourd'hui, 07:30",
-        status: 'ACTIVE',
-        paymentMethod: 'Portefeuille CROUS',
-        timeSlot: '07:30 - Rotation Matin',
-      },
-    ];
-
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      const saved = localStorage.getItem('epass_student_tickets');
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            return parsed;
-          }
-        } catch (e) {}
-      }
-
-      // Si le solde est à 2 300 F (200 F débités = 2 tickets achetés), on initialise les 2 tickets
-      const balanceStr = localStorage.getItem('epass_wallet_balance');
-      const bal = balanceStr ? parseInt(balanceStr, 10) : 2500;
-      if (bal <= 2300) {
-        return [
-          {
-            id: 't-102',
-            code: 'A7B9-K8N5',
-            line: 'Campus Express • Ligne A',
-            route: 'Calavi Campus → Cotonou Étoile Rouge',
-            busId: 'Bus CROUS #402',
-            price: 100,
-            date: "Aujourd'hui, 07:45",
-            status: 'ACTIVE',
-            paymentMethod: 'Portefeuille CROUS',
-            timeSlot: '07:30 - Rotation Matin',
-          },
-          ...defaultTickets,
-        ];
-      }
-    }
-    return defaultTickets;
-  });
-
-  const [activeTicket, setActiveTicket] = useState<StudentTicket | null>(() => {
-    return tickets.find((t) => t.status === 'ACTIVE') || tickets[0] || null;
-  });
-
-  // Maintenir activeTicket à jour si tickets change
-  useEffect(() => {
-    if (tickets.length > 0) {
-      if (!activeTicket || !tickets.some((t) => t.id === activeTicket.id)) {
-        setActiveTicket(tickets[0]);
-      }
-    }
-  }, [tickets]);
-
+  // Réservation et achat d'un titre : Envoi direct au backend et mise à jour dynamique
   const purchaseTicket = (params: {
     line: string;
     route: string;
@@ -292,10 +241,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     paymentMethod: string;
     slotId?: string;
   }): StudentTicket => {
-    // 1. Mise à jour dynamique du nombre de places pour le créneau
+    // 1. Mise à jour immédiate du créneau en mémoire
     const targetSlotId = params.slotId || 'slot-1';
-    setBusSlots((prev) => {
-      const updated = prev.map((s) => {
+    setBusSlots((prev) =>
+      prev.map((s) => {
         if (s.id === targetSlotId || s.route.includes(params.line) || (targetSlotId === 'slot-1' && s.id === 'slot-1')) {
           const nextBooked = Math.min(s.totalSeats, s.bookedSeats + 1);
           return {
@@ -305,14 +254,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           };
         }
         return s;
-      });
-      if (Platform.OS === 'web' && typeof window !== 'undefined') {
-        localStorage.setItem('epass_bus_slots', JSON.stringify(updated));
-      }
-      return updated;
-    });
+      })
+    );
 
-    // 2. Génération du nouveau ticket payé avec un code et ID uniques
+    // 2. Génération du nouveau ticket payé
     const randomSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
     const newCode = `A7B9-${randomSuffix}`;
     const newTicket: StudentTicket = {
@@ -328,28 +273,58 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       timeSlot: params.slotId ? 'Réservation Garantie' : 'Rotation Immédiate',
     };
 
-    setTickets((prev) => {
-      const updated = [newTicket, ...prev];
-      if (Platform.OS === 'web' && typeof window !== 'undefined') {
-        localStorage.setItem('epass_student_tickets', JSON.stringify(updated));
-      }
-      return updated;
-    });
-
+    setTickets((prev) => [newTicket, ...prev]);
     setActiveTicket(newTicket);
+
+    // 3. Appel asynchrone au Backend API pour enregistrer la transaction et le ticket dans PostgreSQL
+    (async () => {
+      try {
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+        };
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+
+        const res = await fetch(ENDPOINTS.INSTANT_PURCHASE, {
+          method: 'POST',
+          credentials: 'include',
+          headers,
+          body: JSON.stringify({
+            trip_id: params.slotId && params.slotId.includes('-') && params.slotId.length > 20 ? params.slotId : undefined,
+            payment_method: params.paymentMethod,
+            amount: params.price,
+          }),
+        });
+
+        if (res.ok) {
+          const backendTicket = await res.json();
+          if (backendTicket && backendTicket.code) {
+            setTickets((prev) =>
+              prev.map((t) => (t.id === newTicket.id ? { ...t, code: backendTicket.code, id: backendTicket.ticket_id } : t))
+            );
+          }
+        }
+        // Rafraîchir les départs depuis le backend
+        refreshTrips();
+      } catch (e) {
+        console.warn('Backend instant purchase async error:', e);
+      }
+    })();
+
     return newTicket;
   };
 
+  // Initialisation de la session : 100% basée sur le cookie de session sécurisé HttpOnly du Backend
   useEffect(() => {
     const initAuth = async () => {
       try {
-        // Tentative de récupération directe de la session via le Cookie HttpOnly
-        const cookieRes = await fetch(ENDPOINTS.MY_PROFILE, {
+        const profileRes = await fetch(ENDPOINTS.MY_PROFILE, {
           credentials: 'include',
         });
 
-        if (cookieRes.ok) {
-          const p = await cookieRes.json();
+        if (profileRes.ok) {
+          const p = await profileRes.json();
           const userData: User = {
             user_id: p.user_id,
             phone_number: p.phone_number,
@@ -361,30 +336,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           };
           setUser(userData);
           setToken('cookie_session');
-          saveAuthData('cookie_session', userData);
-          setIsInitialLoading(false);
-          return;
         }
       } catch (e) {
-        console.warn('Cookie session check error:', e);
-      }
-
-      // Fallback sur stockage local si cookie indisponible
-      try {
-        const stored = getStoredAuthData();
-        if (stored.token && stored.user) {
-          setToken(stored.token);
-          setUser(stored.user);
-        }
-      } catch (e) {
-        console.warn('Init auth load error:', e);
+        console.warn('Backend session verification error:', e);
       } finally {
         setIsInitialLoading(false);
       }
     };
 
     initAuth();
-  }, []);
+    refreshTrips();
+  }, [refreshTrips]);
+
+  // Re-synchronisation des billets quand l'utilisateur change
+  useEffect(() => {
+    if (user) {
+      refreshTickets();
+    }
+  }, [user, refreshTickets]);
 
   const clearJustRegistered = () => {
     setJustRegistered(false);
@@ -396,7 +365,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const response = await fetch(ENDPOINTS.LOGIN, {
         method: 'POST',
-        credentials: 'include', // Envoi et réception automatique des Cookies de session
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -416,7 +385,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
       }
 
-      // Récupération du profil utilisateur (avec Cookie de session)
+      // Récupération dynamique du profil depuis le backend
       const profileRes = await fetch(ENDPOINTS.MY_PROFILE, {
         credentials: 'include',
         headers: {
@@ -449,8 +418,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       setToken(data.access_token);
       setUser(userData);
-      saveAuthData(data.access_token, userData);
       setIsLoading(false);
+
+      // Recharger départs et billets en direct depuis le backend
+      refreshTrips();
+      refreshTickets();
 
       return { success: true };
     } catch (err: any) {
@@ -475,7 +447,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const response = await fetch(ENDPOINTS.REGISTER, {
         method: 'POST',
-        credentials: 'include', // Dépôt du Cookie de session à l'inscription
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -495,7 +467,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
       }
 
-      // Auto-connexion directe et activation du flag justRegistered
       const loginRes = await login(cleanPhone, payload.password);
       if (loginRes.success) {
         setJustRegistered(true);
@@ -523,7 +494,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(null);
     setToken(null);
     setJustRegistered(false);
-    clearAuthData();
   };
 
   const quickLogin = async (roleKey: 'STUDENT' | 'DRIVER' | 'CONTROLLER' | 'ADMIN_CROUS') => {
@@ -540,11 +510,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const updateUserKycStatus = (status: KycStatus) => {
     if (user) {
-      const updated = { ...user, kyc_status: status };
-      setUser(updated);
-      if (token) {
-        saveAuthData(token, updated);
-      }
+      setUser({ ...user, kyc_status: status });
     }
   };
 
@@ -553,7 +519,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       value={{
         user,
         token,
-        isAuthenticated: !!user && !!token,
+        isAuthenticated: !!user,
         isLoading,
         isInitialLoading,
         justRegistered,
@@ -563,6 +529,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         tickets,
         activeTicket,
         busSlots,
+        refreshTrips,
+        refreshTickets,
         debitWallet,
         rechargeWallet,
         updateOperatorPhone,
@@ -584,6 +552,5 @@ export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
     throw new Error('useAuth must be used within an AuthProvider');
-  }
   return context;
 };

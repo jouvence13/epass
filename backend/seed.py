@@ -158,8 +158,11 @@ async def run_seed():
                 users_map[u_data["phone_number"]] = user_obj
                 print(f"   👤 Créé : {u_data['role'].value.ljust(12)} | {u_data['phone_number']} | {u_data['first_name']} {u_data['last_name']}")
             else:
+                existing.password_hash = hash_password(u_data["password"])
+                existing.is_active = True
+                existing.kyc_status = u_data["kyc_status"]
                 users_map[u_data["phone_number"]] = existing
-                print(f"   ℹ️ Existant : {existing.role.value.ljust(12)} | {existing.phone_number} | {existing.first_name} {existing.last_name}")
+                print(f"   ℹ️ Mis à jour : {existing.role.value.ljust(12)} | {existing.phone_number} | {existing.first_name} {existing.last_name}")
 
         # ----------------------------------------------------------------------
         # ARRÊTS SPATIAUX POSTGIS (STOPS)
@@ -388,11 +391,9 @@ async def run_seed():
             gps_log = GpsLogs(
                 trip_id=trip_1.trip_id,
                 bus_id=bus_1.bus_id,
-                latitude=6.4474,
-                longitude=2.3557,
+                position="SRID=4326;POINT(2.3557 6.4474)",
                 speed_kmh=38.5,
-                heading_degrees=145.0,
-                accuracy_meters=4.2,
+                bearing_degrees=145.0,
                 recorded_at=now
             )
             db.add(gps_log)
