@@ -1,21 +1,23 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, ScrollView, Pressable, Modal, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, TextInput, StyleSheet, ScrollView, Pressable, Modal, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { colors, radius, spacing, typography } from '../../theme/theme';
 import { ENDPOINTS } from '../../config/api';
 import { useAuth } from '../../context/AuthContext';
+import { useNotifications } from '../../context/NotificationContext';
 
 const DELAYS = [15, 30, 45];
 const INCIDENTS: { key: string; label: string; icon: keyof typeof MaterialIcons.glyphMap }[] = [
-  { key: 'traffic', label: 'Heavy Traffic', icon: 'traffic' },
-  { key: 'mechanical', label: 'Mechanical Issue', icon: 'build' },
-  { key: 'roadblock', label: 'Roadblock / Detour', icon: 'block' },
+  { key: 'traffic', label: 'Trafic Dense / Embouteillage', icon: 'traffic' },
+  { key: 'mechanical', label: 'Problème Mécanique / Panne', icon: 'build' },
+  { key: 'roadblock', label: 'Déviation / Route Bloquée', icon: 'block' },
 ];
 
 export default function ReportDelayScreen({ navigation }: any) {
   const { token } = useAuth();
-  const [delay, setDelay] = useState(30);
+  const { showToast } = useNotifications();
+  const [delay, setDelay] = useState(15);
   const [customDelay, setCustomDelay] = useState('');
   const [incident, setIncident] = useState('traffic');
   const [sending, setSending] = useState(false);
@@ -42,73 +44,92 @@ export default function ReportDelayScreen({ navigation }: any) {
 
       setSending(false);
       if (res.ok) {
-        Alert.alert('Retard Signalé avec Succès', `Une alerte (+${delayMins} min) a été diffusée en direct aux étudiants.`, [
-          { text: 'OK', onPress: () => navigation.goBack() },
-        ]);
+        showToast({
+          title: 'Retard Diffusé avec Succès',
+          message: `Une alerte de +${delayMins} min a été transmise en direct aux étudiants.`,
+          type: 'success',
+          category: 'TRIP',
+        });
+        navigation.goBack();
       } else {
-        Alert.alert('Retard Enregistré', `Le retard (+${delayMins} min) a été pris en compte.`, [
-          { text: 'OK', onPress: () => navigation.goBack() },
-        ]);
+        const errData = await res.json().catch(() => null);
+        showToast({
+          title: 'Erreur de Transmission',
+          message: errData?.detail || 'Impossible de diffuser le retard pour ce trajet.',
+          type: 'error',
+          category: 'TRIP',
+        });
       }
     } catch (e) {
       setSending(false);
-      Alert.alert('Erreur', 'Impossible de joindre le serveur.', [
-        { text: 'OK', onPress: () => navigation.goBack() },
-      ]);
+      showToast({
+        title: 'Erreur Réseau',
+        message: 'Impossible de joindre le serveur.',
+        type: 'error',
+        category: 'GENERAL',
+      });
     }
   };
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
+      {/* TopBar */}
       <View style={styles.topBar}>
         <Pressable onPress={() => navigation.goBack()} hitSlop={10} style={styles.backBtn}>
           <MaterialIcons name="arrow-back" size={22} color={colors.onPrimary} />
         </Pressable>
-        <Text style={styles.topBarTitle}>Report Delay</Text>
+        <Text style={styles.topBarTitle}>Signaler un Retard</Text>
         <View style={styles.emergencyBtn}>
           <MaterialIcons name="warning" size={14} color={colors.onError} />
-          <Text style={styles.emergencyText}>EMERGENCY</Text>
+          <Text style={styles.emergencyText}>URGENCE</Text>
         </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll}>
+        {/* Banner */}
         <View style={styles.banner}>
           <MaterialIcons name="campaign" size={28} color={colors.onTertiaryFixedVariant} style={{ marginTop: 2 }} />
           <View style={{ flex: 1 }}>
-            <Text style={styles.bannerTitle}>Instant Notification</Text>
+            <Text style={styles.bannerTitle}>Diffusion Instantanée</Text>
             <Text style={styles.bannerBody}>
-              Selecting an option below will instantly notify all <Text style={{ fontWeight: '700' }}>50 passengers</Text> currently tracking Route 42. Please report accurately.
+              En confirmant ci-dessous, une alerte push et une mise à jour d'horaire seront immédiatement transmises à tous les passagers de la navette.
             </Text>
           </View>
         </View>
 
+        {/* Delay Selector */}
         <Text style={styles.sectionTitle}>
-          <MaterialIcons name="schedule" size={18} color={colors.primary} /> Estimated Delay
+          <MaterialIcons name="schedule" size={18} color={colors.primary} /> Retard Estimé
         </Text>
         <View style={styles.delayRow}>
           {DELAYS.map((d) => (
             <Pressable
               key={d}
-              onPress={() => setDelay(d)}
-              style={[styles.delayChip, delay === d && styles.delayChipActive]}
+              onPress={() => {
+                setDelay(d);
+                setCustomDelay('');
+              }}
+              style={[styles.delayChip, delay === d && !customDelay && styles.delayChipActive]}
             >
-              <Text style={[styles.delayNum, delay === d && styles.delayNumActive]}>+{d}</Text>
+              <Text style={[styles.delayNum, delay === d && !customDelay && styles.delayNumActive]}>+{d}</Text>
               <Text style={styles.delayUnit}>MIN</Text>
             </Pressable>
           ))}
         </View>
-        <Text style={styles.inputLabel}>Custom Delay (Minutes)</Text>
+
+        <Text style={styles.inputLabel}>Autre Durée (en minutes)</Text>
         <TextInput
           value={customDelay}
           onChangeText={setCustomDelay}
-          placeholder="e.g. 60"
+          placeholder="Ex: 20, 60..."
           placeholderTextColor={colors.outline}
           keyboardType="number-pad"
           style={styles.input}
         />
 
+        {/* Incident Type */}
         <Text style={[styles.sectionTitle, { marginTop: spacing.lg }]}>
-          <MaterialIcons name="report" size={18} color={colors.primary} /> Incident Type
+          <MaterialIcons name="report" size={18} color={colors.primary} /> Motif de l'Incident
         </Text>
         <View style={{ gap: spacing.sm }}>
           {INCIDENTS.map((inc) => {
@@ -128,23 +149,25 @@ export default function ReportDelayScreen({ navigation }: any) {
           })}
         </View>
 
+        {/* Action Buttons */}
         <View style={styles.actions}>
           <Pressable style={styles.cancelBtn} onPress={() => navigation.goBack()}>
-            <Text style={styles.cancelText}>Cancel</Text>
+            <Text style={styles.cancelText}>Annuler</Text>
           </Pressable>
           <Pressable style={styles.broadcastBtn} onPress={broadcast}>
             <MaterialIcons name="send" size={18} color={colors.onTertiaryContainer} />
-            <Text style={styles.broadcastText}>Broadcast Delay</Text>
+            <Text style={styles.broadcastText}>Diffuser l'Alerte</Text>
           </Pressable>
         </View>
       </ScrollView>
 
+      {/* Loading Modal */}
       <Modal transparent visible={sending} animationType="fade">
         <View style={styles.overlay}>
           <View style={styles.overlayCard}>
             <ActivityIndicator size="large" color={colors.secondary} />
-            <Text style={styles.overlayTitle}>Broadcasting...</Text>
-            <Text style={styles.overlayBody}>Notifying 50 passengers tracking Route 42.</Text>
+            <Text style={styles.overlayTitle}>Diffusion en cours...</Text>
+            <Text style={styles.overlayBody}>Transmission de l'alerte aux passagers en temps réel.</Text>
           </View>
         </View>
       </Modal>

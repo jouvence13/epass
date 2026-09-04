@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, FlatList, ActivityIndicator, RefreshControl } f
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import Card from '../../components/Card';
-import { colors, spacing, typography } from '../../theme/theme';
+import { colors, spacing, typography, radius } from '../../theme/theme';
 import { ENDPOINTS } from '../../config/api';
 import { useAuth } from '../../context/AuthContext';
 
@@ -17,7 +17,7 @@ export interface DriverAlertItem {
 }
 
 export default function AlertsScreen() {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const [alerts, setAlerts] = useState<DriverAlertItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -55,10 +55,15 @@ export default function AlertsScreen() {
     fetchAlerts();
   };
 
+  const isController = user?.role === 'CONTROLLER';
+
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
       <View style={styles.header}>
-        <Text style={styles.title}>Alertes Conducteur</Text>
+        <Text style={styles.eyebrow}>CENTRE DE NOTIFICATIONS</Text>
+        <Text style={styles.title}>
+          {isController ? 'Alertes Contrôleur CROUS' : 'Alertes Chauffeur CROUS'}
+        </Text>
       </View>
       {loading ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
@@ -82,6 +87,12 @@ export default function AlertsScreen() {
               </View>
             </Card>
           )}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <MaterialIcons name="notifications-none" size={48} color={colors.outline} />
+              <Text style={styles.emptyText}>Aucune alerte opérationnelle pour le moment.</Text>
+            </View>
+          }
         />
       )}
     </SafeAreaView>
@@ -90,12 +101,15 @@ export default function AlertsScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
-  header: { padding: spacing.containerMargin },
+  header: { padding: spacing.containerMargin, gap: 4 },
+  eyebrow: { ...typography.labelCaps, color: colors.onSurfaceVariant },
   title: { ...typography.headlineMd, color: colors.primary },
   list: { paddingHorizontal: spacing.containerMargin, paddingBottom: spacing.xl, gap: spacing.md },
-  card: { flexDirection: 'row', gap: spacing.md, alignItems: 'flex-start' },
+  card: { flexDirection: 'row', gap: spacing.md, alignItems: 'flex-start', backgroundColor: colors.surfaceContainer },
   icon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   alertTitle: { ...typography.headlineSm, fontSize: 15, color: colors.onSurface },
   alertBody: { ...typography.bodyMd, color: colors.onSurfaceVariant, marginTop: 2 },
   alertTime: { ...typography.labelCaps, color: colors.outline, marginTop: 4 },
+  emptyContainer: { alignItems: 'center', justifyContent: 'center', padding: spacing.xl, gap: spacing.sm },
+  emptyText: { ...typography.bodyMd, color: colors.outline, textAlign: 'center' },
 });

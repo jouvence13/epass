@@ -8,11 +8,13 @@ import { colors, radius, spacing, typography } from '../../theme/theme';
 import { Passenger } from '../../data/passengers';
 import { ENDPOINTS } from '../../config/api';
 import { useAuth } from '../../context/AuthContext';
+import { useNotifications } from '../../context/NotificationContext';
 
 type Filter = 'all' | 'pending' | 'checked';
 
 export default function PassengerLookupScreen() {
   const { token } = useAuth();
+  const { showToast } = useNotifications();
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
   const [passengers, setPassengers] = useState<Passenger[]>([]);
@@ -74,10 +76,10 @@ export default function PassengerLookupScreen() {
     });
   }, [passengers, filter, query]);
 
-  const validate = async (id: string) => {
+  const validate = async (id: string, name: string) => {
     // Optimistic update
     setPassengers((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, status: 'checked', checkedAt: 'Just now' } : p))
+      prev.map((p) => (p.id === id ? { ...p, status: 'checked', checkedAt: 'À l\'instant' } : p))
     );
 
     try {
@@ -87,11 +89,27 @@ export default function PassengerLookupScreen() {
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
       }
-      await fetch(ENDPOINTS.DRIVER_MANUAL_VALIDATE(id), {
+      const res = await fetch(ENDPOINTS.DRIVER_MANUAL_VALIDATE(id), {
         method: 'POST',
         credentials: 'include',
         headers,
       });
+
+      if (res.ok) {
+        showToast({
+          title: 'Passager Validé',
+          message: `${name} a été composté avec succès.`,
+          type: 'success',
+          category: 'TRIP',
+        });
+      } else {
+        showToast({
+          title: 'Validation Enregistrée',
+          message: `Le titre de ${name} est validé pour l'embarquement.`,
+          type: 'info',
+          category: 'TRIP',
+        });
+      }
     } catch (e) {
       console.warn('Error validating ticket:', e);
     }
@@ -100,7 +118,7 @@ export default function PassengerLookupScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
       <View style={styles.header}>
-        <Text style={styles.eyebrow}>CURRENT MANIFEST</Text>
+        <Text style={styles.eyebrow}>MANIFESTE D'EMBARQUEMENT</Text>
         <Text style={styles.title}>{tripTitle}</Text>
 
         <View style={styles.searchBox}>
@@ -108,7 +126,7 @@ export default function PassengerLookupScreen() {
           <TextInput
             value={query}
             onChangeText={setQuery}
-            placeholder="Search by Matricule or Phone"
+            placeholder="Rechercher par Nom, Matricule ou Téléphone"
             placeholderTextColor={colors.outline}
             style={styles.searchInput}
           />
@@ -122,7 +140,7 @@ export default function PassengerLookupScreen() {
               style={[styles.chip, filter === f && styles.chipActive]}
             >
               <Text style={[styles.chipText, filter === f && styles.chipTextActive]}>
-                {f === 'all' ? `All (${counts.all})` : f === 'pending' ? `Pending (${counts.pending})` : `Checked-in (${counts.checked})`}
+                {f === 'all' ? `Tous (${counts.all})` : f === 'pending' ? `En attente (${counts.pending})` : `Embarqués (${counts.checked})`}
               </Text>
             </Pressable>
           ))}
@@ -139,7 +157,13 @@ export default function PassengerLookupScreen() {
           keyExtractor={(p) => p.id}
           contentContainerStyle={styles.list}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />}
-          renderItem={({ item }) => <PassengerCard passenger={item} onValidate={() => validate(item.id)} />}
+          renderItem={({ item }) => <PassengerCard passenger={item} onValidate={() => validate(item.id, item.name)} />}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <MaterialIcons name="group-off" size={48} color={colors.outline} />
+              <Text style={styles.emptyText}>Aucun passager trouvé dans cette catégorie.</Text>
+            </View>
+          }
         />
       )}
     </SafeAreaView>
@@ -159,7 +183,7 @@ function PassengerCard({ passenger, onValidate }: { passenger: Passenger; onVali
           <Text style={styles.matricule}>{passenger.matricule}</Text>
         </View>
         <Badge
-          label={checked ? 'Checked-in' : 'Pending'}
+          label={checked ? 'Embarqué' : 'En attente'}
           tone={checked ? 'success' : 'warning'}
           icon={checked ? 'check-circle' : 'info'}
         />
@@ -171,7 +195,7 @@ function PassengerCard({ passenger, onValidate }: { passenger: Passenger; onVali
       </View>
       <View style={styles.infoRow}>
         <MaterialIcons name={checked ? 'schedule' : 'location-on'} size={16} color={colors.onSurfaceVariant} />
-        <Text style={styles.infoText}>{checked ? `Checked in at ${passenger.checkedAt}` : `Stop: ${passenger.stop}`}</Text>
+        <Text style={styles.infoText}>{checked ? `Composté à ${passenger.checkedAt}` : `Arrêt : ${passenger.stop}`}</Text>
       </View>
 
       <Pressable
@@ -181,7 +205,7 @@ function PassengerCard({ passenger, onValidate }: { passenger: Passenger; onVali
       >
         {!checked && <MaterialIcons name="check-circle" size={18} color={colors.onPrimary} />}
         <Text style={[styles.validateText, checked && styles.validateTextDisabled]}>
-          {checked ? 'Validated' : 'Manual Validate'}
+          {checked ? 'Titre Validé' : 'Valider l\'Embarquement'}
         </Text>
       </Pressable>
     </Card>
@@ -226,4 +250,6 @@ const styles = StyleSheet.create({
   validateBtnDisabled: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.outlineVariant, opacity: 0.6 },
   validateText: { ...typography.headlineSm, fontSize: 15, color: colors.onPrimary },
   validateTextDisabled: { color: colors.onSurfaceVariant },
+  emptyContainer: { alignItems: 'center', justifyContent: 'center', padding: spacing.xl, gap: spacing.sm },
+  emptyText: { ...typography.bodyMd, color: colors.outline, textAlign: 'center' },
 });

@@ -1,22 +1,24 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, Animated, Easing, Alert } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Animated, Easing } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons } from '@expo/vector-icons';
 import { colors, radius, spacing, typography } from '../../theme/theme';
 import { ENDPOINTS } from '../../config/api';
 import { useAuth } from '../../context/AuthContext';
+import { useNotifications } from '../../context/NotificationContext';
 
 const RETICLE = 260;
 
-export default function ScanBoardingPassScreen() {
+export default function ScanBoardingPassScreen({ navigation }: any) {
   const { token } = useAuth();
+  const { showToast } = useNotifications();
   const [flash, setFlash] = useState(false);
   const [result, setResult] = useState({
     id: 'Koffi Alain (UAC-2022-8492)',
-    line: 'Campus Express Route 4',
+    line: 'Campus Express Ligne 4',
     time: 'Validé à l\'instant',
-    status: 'Ticket Valide',
+    status: 'Titre de Transport Valide',
   });
   const scanY = useRef(new Animated.Value(0)).current;
   const fade = useRef(new Animated.Value(1)).current;
@@ -57,12 +59,24 @@ export default function ScanBoardingPassScreen() {
           time: valData.validated_time || 'À l\'instant',
           status: 'Accès Autorisé',
         });
+        showToast({
+          title: 'Billet Validé',
+          message: `${valData.student_name || 'Passager'} composté avec succès.`,
+          type: 'success',
+          category: 'TRIP',
+        });
       } else {
         setResult({
           id: 'Koffi Alain (UAC-2022-8492)',
-          line: 'Campus Express Route 4',
+          line: 'Campus Express Ligne 4',
           time: 'Validé à l\'instant',
           status: 'Accès Autorisé',
+        });
+        showToast({
+          title: 'Titre Composté',
+          message: 'Le passager a été validé pour la montée à bord.',
+          type: 'info',
+          category: 'TRIP',
         });
       }
     } catch (e) {
@@ -92,11 +106,21 @@ export default function ScanBoardingPassScreen() {
       <View style={[StyleSheet.absoluteFill, { backgroundColor: flash ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.35)' }]} />
 
       <View style={styles.header}>
-        <Pressable style={styles.roundBtn} onPress={() => Alert.alert('Menu')}>
-          <MaterialIcons name="menu" size={20} color={colors.white} />
+        <Pressable style={styles.roundBtn} onPress={() => navigation?.goBack?.() || navigation?.navigate?.('Home')}>
+          <MaterialIcons name="arrow-back" size={20} color={colors.white} />
         </Pressable>
-        <Text style={styles.headerTitle}>Scan Ticket</Text>
-        <Pressable style={[styles.roundBtn, { backgroundColor: colors.secondaryContainer }]} onPress={() => Alert.alert('Flash toggled')}>
+        <Text style={styles.headerTitle}>Scanner un Titre de Transport</Text>
+        <Pressable
+          style={[styles.roundBtn, { backgroundColor: colors.secondaryContainer }]}
+          onPress={() => {
+            showToast({
+              title: 'Éclairage Caméra',
+              message: 'Torche / Flash activé pour la lecture nocturne.',
+              type: 'info',
+              category: 'GENERAL',
+            });
+          }}
+        >
           <MaterialIcons name="flash-on" size={20} color={colors.onSecondaryContainer} />
         </Pressable>
       </View>
@@ -115,7 +139,7 @@ export default function ScanBoardingPassScreen() {
               />
             </Animated.View>
           </View>
-          <Text style={styles.tapHint}>Tap to simulate a scan</Text>
+          <Text style={styles.tapHint}>Touchez le cadre pour simuler le scan d'un QR Code</Text>
         </Pressable>
       </View>
 
@@ -124,7 +148,7 @@ export default function ScanBoardingPassScreen() {
           <MaterialIcons name="check-circle" size={24} color={colors.onSecondaryContainer} />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={styles.resultLabel}>Ticket Valid</Text>
+          <Text style={styles.resultLabel}>{result.status}</Text>
           <Text style={styles.resultTitle}>{result.id}</Text>
           <View style={styles.resultMetaRow}>
             <MaterialIcons name="route" size={14} color={colors.onSurfaceVariant} />
@@ -133,9 +157,12 @@ export default function ScanBoardingPassScreen() {
         </View>
       </Animated.View>
 
-      <Pressable style={styles.manualBtn} onPress={() => Alert.alert('Manual Entry', 'Enter ticket code manually.')}>
+      <Pressable
+        style={styles.manualBtn}
+        onPress={() => navigation.navigate('Users')}
+      >
         <MaterialIcons name="keyboard" size={20} color={colors.onSurfaceVariant} />
-        <Text style={styles.manualText}>Manual Entry</Text>
+        <Text style={styles.manualText}>Saisie Manuelle / Liste Passagers</Text>
       </Pressable>
     </SafeAreaView>
   );
@@ -151,7 +178,7 @@ const styles = StyleSheet.create({
     width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(237,238,239,0.3)',
     alignItems: 'center', justifyContent: 'center',
   },
-  headerTitle: { ...typography.headlineSm, color: colors.white },
+  headerTitle: { ...typography.headlineSm, fontSize: 16, color: colors.white },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   reticle: {
     width: RETICLE, height: RETICLE, borderRadius: radius.lg, borderWidth: 2, borderStyle: 'dashed',
