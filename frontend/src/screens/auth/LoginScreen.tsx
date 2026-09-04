@@ -6,7 +6,6 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
-  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -15,12 +14,43 @@ import PrimaryButton from '../../components/PrimaryButton';
 import { colors, radius, spacing, typography } from '../../theme/theme';
 import { useAuth, UserRole } from '../../context/AuthContext';
 
+type LoginRole = 'STUDENT' | 'DRIVER' | 'CONTROLLER';
+
+const ROLE_PRESETS: Record<LoginRole, { phone: string; pass: string; label: string; hint: string }> = {
+  STUDENT: {
+    phone: '+22997001122',
+    pass: 'Student1234',
+    label: 'Étudiant',
+    hint: 'Accès tickets, QR Code & suivi GPS',
+  },
+  DRIVER: {
+    phone: '+22997000001',
+    pass: 'Driver1234',
+    label: 'Chauffeur',
+    hint: 'Bus #402, manifeste passagers & retards',
+  },
+  CONTROLLER: {
+    phone: '+22997000002',
+    pass: 'Controller1234',
+    label: 'Contrôleur',
+    hint: 'Scan et validation des titres à bord',
+  },
+};
+
 export default function LoginScreen({ navigation }: any) {
-  const { login, quickLogin, isLoading } = useAuth();
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [password, setPassword] = useState('');
+  const { login, isLoading } = useAuth();
+  const [selectedRole, setSelectedRole] = useState<LoginRole>('STUDENT');
+  const [phoneNumber, setPhoneNumber] = useState(ROLE_PRESETS.STUDENT.phone);
+  const [password, setPassword] = useState(ROLE_PRESETS.STUDENT.pass);
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const handleRoleChange = (role: LoginRole) => {
+    setSelectedRole(role);
+    setPhoneNumber(ROLE_PRESETS[role].phone);
+    setPassword(ROLE_PRESETS[role].pass);
+    setErrorMessage(null);
+  };
 
   const handleLogin = async () => {
     setErrorMessage(null);
@@ -35,11 +65,6 @@ export default function LoginScreen({ navigation }: any) {
     }
   };
 
-  const handleQuickLogin = async (role: 'STUDENT' | 'DRIVER' | 'CONTROLLER' | 'ADMIN_CROUS') => {
-    setErrorMessage(null);
-    await quickLogin(role);
-  };
-
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
@@ -49,7 +74,7 @@ export default function LoginScreen({ navigation }: any) {
             <MaterialIcons name="directions-bus" size={36} color={colors.onPrimary} />
           </View>
           <Text style={styles.brand}>CROUS-UAC</Text>
-          <Text style={styles.tagline}>Connexion à votre espace transport</Text>
+          <Text style={styles.tagline}>Plateforme de transit universitaire</Text>
         </View>
 
         {/* Message d'erreur */}
@@ -60,12 +85,75 @@ export default function LoginScreen({ navigation }: any) {
           </View>
         )}
 
-        {/* Formulaire de Connexion */}
+        {/* Conteneur Formulaire & Inputs de Connexion */}
         <Card style={styles.formCard}>
-          <Text style={styles.cardTitle}>Identifiants</Text>
+          <Text style={styles.cardTitle}>Connexion</Text>
+
+          {/* SÉLECTEUR DE RÔLE INTÉGRÉ DANS LE CONTENEUR (ADMIN EXCLU) */}
+          <Text style={styles.roleHeaderLabel}>Sélectionnez votre rôle :</Text>
+          <View style={styles.roleSelector}>
+            <Pressable
+              style={[styles.roleOption, selectedRole === 'STUDENT' && styles.roleOptionActive]}
+              onPress={() => handleRoleChange('STUDENT')}
+            >
+              <MaterialIcons
+                name="school"
+                size={18}
+                color={selectedRole === 'STUDENT' ? colors.onPrimary : colors.onSurfaceVariant}
+              />
+              <Text
+                style={[
+                  styles.roleText,
+                  selectedRole === 'STUDENT' && { color: colors.onPrimary, fontWeight: '700' },
+                ]}
+              >
+                Étudiant
+              </Text>
+            </Pressable>
+
+            <Pressable
+              style={[styles.roleOption, selectedRole === 'DRIVER' && styles.roleOptionActive]}
+              onPress={() => handleRoleChange('DRIVER')}
+            >
+              <MaterialIcons
+                name="local-shipping"
+                size={18}
+                color={selectedRole === 'DRIVER' ? colors.onPrimary : colors.onSurfaceVariant}
+              />
+              <Text
+                style={[
+                  styles.roleText,
+                  selectedRole === 'DRIVER' && { color: colors.onPrimary, fontWeight: '700' },
+                ]}
+              >
+                Chauffeur
+              </Text>
+            </Pressable>
+
+            <Pressable
+              style={[styles.roleOption, selectedRole === 'CONTROLLER' && styles.roleOptionActive]}
+              onPress={() => handleRoleChange('CONTROLLER')}
+            >
+              <MaterialIcons
+                name="qr-code-scanner"
+                size={18}
+                color={selectedRole === 'CONTROLLER' ? colors.onPrimary : colors.onSurfaceVariant}
+              />
+              <Text
+                style={[
+                  styles.roleText,
+                  selectedRole === 'CONTROLLER' && { color: colors.onPrimary, fontWeight: '700' },
+                ]}
+              >
+                Contrôleur
+              </Text>
+            </Pressable>
+          </View>
+
+          <Text style={styles.roleHint}>{ROLE_PRESETS[selectedRole].hint}</Text>
 
           {/* Numéro de téléphone */}
-          <Text style={styles.label}>Numéro de téléphone</Text>
+          <Text style={[styles.label, { marginTop: spacing.md }]}>Numéro de téléphone</Text>
           <View style={styles.inputWrap}>
             <MaterialIcons name="phone" size={20} color={colors.outline} style={styles.inputIcon} />
             <TextInput
@@ -102,7 +190,7 @@ export default function LoginScreen({ navigation }: any) {
 
           {/* Bouton de Connexion */}
           <PrimaryButton
-            label={isLoading ? 'Connexion en cours...' : 'Se connecter'}
+            label={isLoading ? 'Connexion en cours...' : `Se connecter (${ROLE_PRESETS[selectedRole].label})`}
             icon="login"
             onPress={handleLogin}
             disabled={isLoading}
@@ -117,50 +205,6 @@ export default function LoginScreen({ navigation }: any) {
             </Pressable>
           </View>
         </Card>
-
-        {/* Sélecteur de Connexion Rapide (Mode Test) */}
-        <View style={styles.quickSection}>
-          <Text style={styles.quickTitle}>⚡ Connexion Rapide (Comptes de Test)</Text>
-          <Text style={styles.quickSub}>Testez immédiatement chaque rôle en 1 clic :</Text>
-
-          <View style={styles.quickGrid}>
-            <Pressable
-              style={styles.quickChip}
-              onPress={() => handleQuickLogin('STUDENT')}
-              disabled={isLoading}
-            >
-              <MaterialIcons name="school" size={22} color={colors.primary} />
-              <View>
-                <Text style={styles.chipTitle}>Étudiant</Text>
-                <Text style={styles.chipSub}>Koffi Alain (Ticket Actif)</Text>
-              </View>
-            </Pressable>
-
-            <Pressable
-              style={styles.quickChip}
-              onPress={() => handleQuickLogin('DRIVER')}
-              disabled={isLoading}
-            >
-              <MaterialIcons name="local-shipping" size={22} color={colors.primary} />
-              <View>
-                <Text style={styles.chipTitle}>Chauffeur</Text>
-                <Text style={styles.chipSub}>Chauffeur CROUS (Bus 402)</Text>
-              </View>
-            </Pressable>
-
-            <Pressable
-              style={styles.quickChip}
-              onPress={() => handleQuickLogin('CONTROLLER')}
-              disabled={isLoading}
-            >
-              <MaterialIcons name="qr-code-scanner" size={22} color={colors.primary} />
-              <View>
-                <Text style={styles.chipTitle}>Contrôleur</Text>
-                <Text style={styles.chipSub}>Validation des titres</Text>
-              </View>
-            </Pressable>
-          </View>
-        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -193,7 +237,27 @@ const styles = StyleSheet.create({
   },
   errorText: { ...typography.bodyMd, color: colors.onErrorContainer, flex: 1 },
   formCard: { width: '100%', borderWidth: 1, borderColor: colors.surfaceVariant, padding: spacing.lg },
-  cardTitle: { ...typography.headlineSm, color: colors.primary, marginBottom: spacing.md },
+  cardTitle: { ...typography.headlineSm, color: colors.primary, marginBottom: spacing.sm },
+  roleHeaderLabel: { ...typography.labelCaps, color: colors.onSurfaceVariant, marginBottom: spacing.xs },
+  roleSelector: {
+    flexDirection: 'row',
+    backgroundColor: colors.surfaceContainer,
+    borderRadius: radius.lg,
+    padding: 4,
+    marginBottom: spacing.xs,
+  },
+  roleOption: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md,
+    gap: 4,
+  },
+  roleOptionActive: { backgroundColor: colors.primary },
+  roleText: { ...typography.bodySm, color: colors.onSurfaceVariant },
+  roleHint: { ...typography.bodySm, fontSize: 12, color: colors.onSurfaceVariant, marginBottom: spacing.xs },
   label: { ...typography.labelCaps, color: colors.onSurfaceVariant, marginBottom: spacing.xs },
   inputWrap: {
     flexDirection: 'row',
@@ -211,20 +275,4 @@ const styles = StyleSheet.create({
   footerLink: { flexDirection: 'row', justifyContent: 'center', marginTop: spacing.lg },
   footerText: { ...typography.bodyMd, color: colors.onSurfaceVariant },
   linkText: { ...typography.bodyMd, color: colors.primary, fontWeight: '700' },
-  quickSection: { width: '100%', marginTop: spacing.xl },
-  quickTitle: { ...typography.titleMd, color: colors.onSurface, fontWeight: '700' },
-  quickSub: { ...typography.bodySm, color: colors.onSurfaceVariant, marginBottom: spacing.md },
-  quickGrid: { width: '100%', gap: spacing.sm },
-  quickChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surfaceContainerLowest,
-    borderWidth: 1,
-    borderColor: colors.surfaceVariant,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    gap: spacing.md,
-  },
-  chipTitle: { ...typography.headlineSm, fontSize: 16, color: colors.onSurface },
-  chipSub: { ...typography.bodySm, color: colors.onSurfaceVariant },
 });
