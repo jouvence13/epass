@@ -141,6 +141,19 @@ async def register_user(
     await db.commit()
     await db.refresh(new_user)
 
+    # Émission et persistance de la notification d'accueil
+    from app.services.notification_service import notification_service
+    await notification_service.create_user_notification(
+        db=db,
+        user_id=new_user.user_id,
+        title="Compte Étudiant Créé",
+        message=f"Bienvenue {new_user.first_name} ! Veuillez soumettre vos pièces justificatives (Carte UAC & CIP) dans l'onglet KYC pour activer vos tarifs subventionnés.",
+        category="KYC",
+        tone="info",
+        channel="PUSH",
+        is_sent=True
+    )
+
     # Génération automatique du token de session et dépôt du cookie
     access_token = create_access_token(subject=str(new_user.user_id), role=new_user.role.value)
     refresh_token = create_refresh_token(subject=str(new_user.user_id), role=new_user.role.value)

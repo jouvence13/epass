@@ -103,6 +103,19 @@ async def execute_ticket_recycling(
     await db.commit()
     await db.refresh(ticket)
 
+    # Enregistrement persistant de la notification de recyclage
+    from app.services.notification_service import notification_service
+    await notification_service.create_user_notification(
+        db=db,
+        user_id=user_id,
+        title="Titre de transport recyclé",
+        message=f"Votre ticket #{ticket.sms_backup_code} a été réassigné avec succès à votre nouveau trajet.",
+        category="GENERAL",
+        tone="info",
+        channel="PUSH",
+        is_sent=True
+    )
+
     return {
         "message": "Recyclage effectué avec succès. Votre nouveau pass a été généré.",
         "ticket_id": ticket.ticket_id,

@@ -25,39 +25,103 @@ async def save_kyc_file_to_storage(file: UploadFile) -> str:
     return file_path
 
 
-async def submit_user_kyc(
+async def submit_driver_kyc(
     user: Users,
-    student_card_file: UploadFile,
+    driver_license_file: UploadFile,
+    medical_cert_file: UploadFile,
     identity_file: UploadFile,
-    academic_year: str,
     db: AsyncSession
-) -> Tuple[KycDocuments, KycDocuments]:
-    """Store submitted KYC documents and update user status to PENDING."""
-    student_card_url = await save_kyc_file_to_storage(student_card_file)
+) -> List[KycDocuments]:
+    """Store submitted Driver KYC documents (Permis D, Certificat Médical, CIP) and update status to PENDING."""
+    license_url = await save_kyc_file_to_storage(driver_license_file)
+    medical_url = await save_kyc_file_to_storage(medical_cert_file)
     identity_url = await save_kyc_file_to_storage(identity_file)
 
-    doc_student = KycDocuments(
+    doc_license = KycDocuments(
         user_id=user.user_id,
-        document_type=DocumentTypeEnum.STUDENT_CARD,
-        document_url=student_card_url,
+        document_type=DocumentTypeEnum.DRIVER_LICENSE,
+        document_url=license_url,
         verification_status=KycStatusEnum.PENDING,
-        academic_year=academic_year
+        academic_year="2025-2026"
     )
-    
+    doc_medical = KycDocuments(
+        user_id=user.user_id,
+        document_type=DocumentTypeEnum.MEDICAL_CERTIFICATE,
+        document_url=medical_url,
+        verification_status=KycStatusEnum.PENDING,
+        academic_year="2025-2026"
+    )
     doc_identity = KycDocuments(
         user_id=user.user_id,
         document_type=DocumentTypeEnum.CIP_IDENTITY,
         document_url=identity_url,
         verification_status=KycStatusEnum.PENDING,
-        academic_year=academic_year
+        academic_year="2025-2026"
     )
 
-    db.add_all([doc_student, doc_identity])
+    db.add_all([doc_license, doc_medical, doc_identity])
     user.kyc_status = KycStatusEnum.PENDING
     await db.commit()
     await db.refresh(user)
-    
-    return doc_student, doc_identity
+
+    from app.services.notification_service import notification_service
+    await notification_service.create_user_notification(
+        db=db,
+        user_id=user.user_id,
+        title="Dossier Chauffeur Soumis",
+        message="Vos pièces (Permis D, Certificat Médical, CIP) ont été transmises. Examen en cours par l'administration CROUS.",
+        category="KYC",
+        tone="info",
+        channel="PUSH",
+        is_sent=True
+    )
+
+    return [doc_license, doc_medical, doc_identity]
+
+
+async def submit_controller_kyc(
+    user: Users,
+    controller_badge_file: UploadFile,
+    identity_file: UploadFile,
+    db: AsyncSession
+) -> List[KycDocuments]:
+    """Store submitted Controller KYC documents (Badge CROUS, CIP) and update status to PENDING."""
+    badge_url = await save_kyc_file_to_storage(controller_badge_file)
+    identity_url = await save_kyc_file_to_storage(identity_file)
+
+    doc_badge = KycDocuments(
+        user_id=user.user_id,
+        document_type=DocumentTypeEnum.CONTROLLER_BADGE,
+        document_url=badge_url,
+        verification_status=KycStatusEnum.PENDING,
+        academic_year="2025-2026"
+    )
+    doc_identity = KycDocuments(
+        user_id=user.user_id,
+        document_type=DocumentTypeEnum.CIP_IDENTITY,
+        document_url=identity_url,
+        verification_status=KycStatusEnum.PENDING,
+        academic_year="2025-2026"
+    )
+
+    db.add_all([doc_badge, doc_identity])
+    user.kyc_status = KycStatusEnum.PENDING
+    await db.commit()
+    await db.refresh(user)
+
+    from app.services.notification_service import notification_service
+    await notification_service.create_user_notification(
+        db=db,
+        user_id=user.user_id,
+        title="Dossier Contrôleur Soumis",
+        message="Votre accréditation d'agent et votre CIP ont été transmis. Examen en cours par l'administration CROUS.",
+        category="KYC",
+        tone="info",
+        channel="PUSH",
+        is_sent=True
+    )
+
+    return [doc_badge, doc_identity]
 
 
 async def moderate_kyc(
@@ -98,4 +162,31 @@ async def moderate_kyc(
 
     await db.commit()
     await db.refresh(user)
+
+    # Enregistrement persistant de la notification de décision administrative en base de données
+    from app.services.notification_service import notification_service
+    if action == KycStatusEnum.APPROVED:
+        await notification_service.create_user_notification(
+            db=db,
+            user_id=user.user_id,
+            title="Dossier KYC Validé",
+            message="Félicitations ! Vos pièces justificatives ont été vérifiées par le CROUS. Vous bénéficiez du tarif subventionné à 100 FCFA.",
+            category="KYC",
+            tone="success",
+            channel="PUSH",
+            is_sent=True
+        )
+    elif action == KycStatusEnum.REJECTED:
+        reason_text = f" Motif : {rejection_reason}" if rejection_reason else ""
+        await notification_service.create_user_notification(
+            db=db,
+            user_id=user.user_id,
+            title="Dossier KYC Rejeté",
+            message=f"Votre dossier a été refusé.{reason_text} Veuillez soumettre à nouveau des pièces lisibles.",
+            category="KYC",
+            tone="warning",
+            channel="PUSH",
+            is_sent=True
+        )
+
     return user

@@ -288,6 +288,19 @@ async def recharge_wallet(
     await db.commit()
     await db.refresh(payment)
 
+    # 3. Record persistent notification in PostgreSQL
+    from app.services.notification_service import notification_service
+    await notification_service.create_user_notification(
+        db=db,
+        user_id=current_user.user_id,
+        title="Recharge Portefeuille Validée",
+        message=f"Votre portefeuille CROUS a été crédité de {payload.amount:.0f} FCFA via {payload.operator}.",
+        category="WALLET",
+        tone="success",
+        channel="PUSH",
+        is_sent=True
+    )
+
     return RechargeHistoryOutSchema(
         id=str(payment.payment_id),
         amount=float(payment.amount),

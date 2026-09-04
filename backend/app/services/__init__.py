@@ -4,7 +4,8 @@ from app.services.auth_service import (
 )
 from app.services.kyc_service import (
     save_kyc_file_to_storage,
-    submit_user_kyc,
+    submit_driver_kyc,
+    submit_controller_kyc,
     moderate_kyc,
 )
 from app.services.payment_service import payment_service
@@ -26,7 +27,8 @@ __all__ = [
     "get_current_authenticated_user",
     "require_roles",
     "save_kyc_file_to_storage",
-    "submit_user_kyc",
+    "submit_driver_kyc",
+    "submit_controller_kyc",
     "moderate_kyc",
     "payment_service",
     "generate_secure_sms_otp",

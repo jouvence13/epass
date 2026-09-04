@@ -30,43 +30,6 @@ async def get_my_notifications(
     """
     notifs = await notification_service.get_user_notifications(db, current_user.user_id)
 
-    # Si l'utilisateur est nouvellement inscrit et n'a pas encore de notifications
-    if not notifs:
-        init_notifs = [
-            Notifications(
-                user_id=current_user.user_id,
-                title="Vérification Académique Requise",
-                message=f"Bienvenue {current_user.first_name} ! Veuillez téléverser votre Carte d’Étudiant UAC et votre CIP pour débloquer les billets subventionnés à 100 FCFA.",
-                category="KYC",
-                tone="warning",
-                is_sent=False,
-                read=False,
-            ),
-            Notifications(
-                user_id=current_user.user_id,
-                title="Portefeuille Universitaire Activé",
-                message="Votre compte étudiant est initialisé. Vous pouvez enregistrer vos numéros MTN, Moov ou Celtiis pour recharger votre solde en 1 clic.",
-                category="WALLET",
-                tone="info",
-                is_sent=False,
-                read=False,
-            ),
-            Notifications(
-                user_id=current_user.user_id,
-                title="Réseau Bus CROUS Actif",
-                message="Navettes Campus Calavi ↔ Cotonou & Porto-Novo en circulation normale. Départs réguliers assurés.",
-                category="TRAFFIC",
-                tone="success",
-                is_sent=True,
-                read=False,
-            ),
-        ]
-        db.add_all(init_notifs)
-        await db.commit()
-        for n in init_notifs:
-            await db.refresh(n)
-        notifs = init_notifs
-
     items = []
     now = datetime.now(timezone.utc)
 

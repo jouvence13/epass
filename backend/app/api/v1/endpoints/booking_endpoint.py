@@ -191,22 +191,26 @@ async def instant_ticket_purchase(
     await db.commit()
     await db.refresh(ticket)
 
-    # 5. Enregistrement de la notification de confirmation dans PostgreSQL
-    from app.models.notification_model import Notifications
-    ticket_notif = Notifications(
+    # 5. Formatage du code SMS (e.g. A7B9-X2M4)
+    if len(sms_otp) == 8:
+        formatted_code = f"{sms_otp[:4]}-{sms_otp[4:]}"
+    else:
+        formatted_code = sms_otp
+
+    # 6. Enregistrement de la notification d'achat persistant dans PostgreSQL
+    from app.services.notification_service import notification_service
+    await notification_service.create_user_notification(
+        db=db,
         user_id=current_user.user_id,
-        ticket_id=ticket.ticket_id,
         title="Achat de Pass Campus Validé",
         message=f"Votre ticket {formatted_code} a été débité ({payload.amount:.0f} FCFA) via {payload.payment_method}.",
+        category="PAYMENT",
+        tone="success",
         channel="PUSH",
-        is_sent=True,
-        scheduled_for=now,
-        sent_at=now
+        is_sent=True
     )
-    db.add(ticket_notif)
-    await db.commit()
 
-    # 6. Récupération de la télémétrie GPS depuis PostgreSQL
+    # 7. Récupération de la télémétrie GPS depuis PostgreSQL
     from app.models.trip_model import GpsLogs
     from geoalchemy2.functions import ST_X, ST_Y
     gps_query = await db.execute(
@@ -218,12 +222,6 @@ async def instant_ticket_purchase(
     live_lat = float(gps_row.lat) if (gps_row and gps_row.lat is not None) else 6.4474
     live_lon = float(gps_row.lon) if (gps_row and gps_row.lon is not None) else 2.3557
     live_speed = float(gps_row[0].speed_kmh) if (gps_row and gps_row[0].speed_kmh is not None) else 38.0
-
-    # Formatage du code SMS (e.g. A7B9-X2M4)
-    if len(sms_otp) == 8:
-        formatted_code = f"{sms_otp[:4]}-{sms_otp[4:]}"
-    else:
-        formatted_code = sms_otp
 
     route_name = trip.route.route_name if trip.route else "Campus Express • Ligne A"
     bus_label = trip.bus.bus_code if trip.bus else "Bus CROUS #402"
