@@ -101,6 +101,25 @@ const BUS_LINES: Record<string, BusLineConfig> = {
       { id: 'c5', name: 'Akpakpa Sacré-Cœur (Terminus)', status: 'upcoming', time: '07:55', etaMinutes: 21 },
     ],
   },
+  LIGNE_PORTO_NOVO: {
+    id: 'LIGNE_PORTO_NOVO',
+    name: 'Inter-Villes Porto-Novo',
+    code: 'Ligne Calavi - Porto-Novo',
+    busNumber: 'Bus CROUS #301',
+    occupancy: '22/30 places (73%)',
+    speed: '55 km/h',
+    currentLocation: 'PK 10 Route de Porto-Novo',
+    nextStop: 'Gare Routière Ouando',
+    nextStopEta: '8 min',
+    totalEta: '35 min',
+    stops: [
+      { id: 'p1', name: 'Campus UAC Calavi', status: 'passed', time: '07:00' },
+      { id: 'p2', name: 'Carrefour Le Bélier', status: 'passed', time: '07:20' },
+      { id: 'p3', name: 'PK 10 Route Porto-Novo', status: 'current', time: '07:45', etaMinutes: 8 },
+      { id: 'p4', name: 'Gare Routière Ouando', status: 'upcoming', time: '08:05', etaMinutes: 20 },
+      { id: 'p5', name: 'Porto-Novo Gare (Terminus)', status: 'upcoming', time: '08:25', etaMinutes: 40 },
+    ],
+  },
 };
 
 export default function ActiveTicketScreen() {
@@ -111,15 +130,16 @@ export default function ActiveTicketScreen() {
   const userActiveTickets = tickets.filter((t) => t.status === 'ACTIVE');
 
   // Déterminer la ligne associée à un billet
-  const getLineKeyForTicket = (t?: StudentTicket | null): 'LIGNE_A' | 'LIGNE_B' | 'LIGNE_C' => {
+  const getLineKeyForTicket = (t?: StudentTicket | null): 'LIGNE_A' | 'LIGNE_B' | 'LIGNE_C' | 'LIGNE_PORTO_NOVO' => {
     if (!t) return 'LIGNE_A';
     const text = `${t.line || ''} ${t.route || ''}`.toLowerCase();
+    if (text.includes('porto-novo') || text.includes('porto novo')) return 'LIGNE_PORTO_NOVO';
     if (text.includes('godomey') || text.includes('ligne b')) return 'LIGNE_B';
     if (text.includes('akpakpa') || text.includes('ligne c')) return 'LIGNE_C';
     return 'LIGNE_A';
   };
 
-  const [selectedLineKey, setSelectedLineKey] = useState<'LIGNE_A' | 'LIGNE_B' | 'LIGNE_C'>(
+  const [selectedLineKey, setSelectedLineKey] = useState<'LIGNE_A' | 'LIGNE_B' | 'LIGNE_C' | 'LIGNE_PORTO_NOVO'>(
     getLineKeyForTicket(activeTicket)
   );
 
@@ -133,9 +153,9 @@ export default function ActiveTicketScreen() {
   // Ensemble des lignes pour lesquelles l'étudiant possède un billet actif
   const myActiveLineKeys = Array.from(
     new Set(userActiveTickets.map((t) => getLineKeyForTicket(t)))
-  ) as ('LIGNE_A' | 'LIGNE_B' | 'LIGNE_C')[];
+  ) as ('LIGNE_A' | 'LIGNE_B' | 'LIGNE_C' | 'LIGNE_PORTO_NOVO')[];
 
-  const availableLineKeys = myActiveLineKeys.length > 0 ? myActiveLineKeys : (['LIGNE_A'] as ('LIGNE_A' | 'LIGNE_B' | 'LIGNE_C')[]);
+  const availableLineKeys = myActiveLineKeys.length > 0 ? myActiveLineKeys : (['LIGNE_A'] as ('LIGNE_A' | 'LIGNE_B' | 'LIGNE_C' | 'LIGNE_PORTO_NOVO')[]);
 
   // État du Modal de Recyclage
   const [recycleModalVisible, setRecycleModalVisible] = useState(false);
@@ -233,31 +253,65 @@ export default function ActiveTicketScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
       <ScrollView contentContainerStyle={styles.scroll}>
-        {/* Sélecteur de Ticket si l'étudiant en possède plusieurs */}
+        {/* Sélecteur de Ticket dynamique (Scrollable horizontalement pour supporter 2, 5, 10+ tickets) */}
         {userActiveTickets.length > 1 && (
-          <View style={styles.ticketSwitcherRow}>
-            {userActiveTickets.map((t, idx) => {
-              const isSelected = activeTicket?.id === t.id;
-              return (
-                <Pressable
-                  key={t.id}
-                  style={[styles.ticketSwitcherTab, isSelected && styles.ticketSwitcherTabActive]}
-                  onPress={() => {
-                    setActiveTicket(t);
-                    setSelectedLineKey(getLineKeyForTicket(t));
-                  }}
-                >
-                  <MaterialIcons
-                    name="confirmation-number"
-                    size={16}
-                    color={isSelected ? colors.onPrimary : colors.onSurfaceVariant}
-                  />
-                  <Text style={[styles.ticketSwitcherText, isSelected && styles.ticketSwitcherTextActive]}>
-                    Ticket #{idx + 1} ({t.code})
-                  </Text>
-                </Pressable>
-              );
-            })}
+          <View style={styles.ticketSwitcherContainer}>
+            <View style={styles.ticketSwitcherHeader}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <MaterialIcons name="confirmation-number" size={16} color={colors.primary} />
+                <Text style={styles.ticketSwitcherTitle}>
+                  Mes Titres Disponibles ({userActiveTickets.length})
+                </Text>
+              </View>
+              <Text style={styles.ticketSwitcherCounter}>
+                Affichage : {userActiveTickets.findIndex((t) => t.id === activeTicket?.id) + 1} / {userActiveTickets.length}
+              </Text>
+            </View>
+
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.ticketSwitcherScroll}
+            >
+              {userActiveTickets.map((t, idx) => {
+                const isSelected = activeTicket?.id === t.id;
+                const isItemRecycled = Boolean(t.recycleCount && t.recycleCount >= 1);
+                return (
+                  <Pressable
+                    key={t.id}
+                    style={[styles.ticketSwitcherTab, isSelected && styles.ticketSwitcherTabActive]}
+                    onPress={() => {
+                      setActiveTicket(t);
+                      setSelectedLineKey(getLineKeyForTicket(t));
+                    }}
+                  >
+                    <MaterialIcons
+                      name={isItemRecycled ? 'recycling' : 'confirmation-number'}
+                      size={16}
+                      color={isSelected ? colors.onPrimary : colors.primary}
+                    />
+                    <View style={{ flexShrink: 1 }}>
+                      <Text style={[styles.ticketSwitcherText, isSelected && styles.ticketSwitcherTextActive]}>
+                        Ticket #{idx + 1} ({t.code})
+                      </Text>
+                      <Text
+                        style={[styles.ticketSwitcherSubtext, isSelected && styles.ticketSwitcherSubtextActive]}
+                        numberOfLines={1}
+                      >
+                        {t.line.replace('Campus Express • ', '')}
+                      </Text>
+                    </View>
+                    {isItemRecycled && (
+                      <View style={[styles.recycledPill, isSelected && styles.recycledPillActive]}>
+                        <Text style={[styles.recycledPillText, isSelected && styles.recycledPillTextActive]}>
+                          Reporté
+                        </Text>
+                      </View>
+                    )}
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
           </View>
         )}
 
@@ -638,35 +692,94 @@ export default function ActiveTicketScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   scroll: { padding: spacing.containerMargin, paddingBottom: spacing.xl, gap: spacing.lg },
-  ticketSwitcherRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
+  ticketSwitcherContainer: {
     backgroundColor: colors.surfaceContainerLowest,
-    padding: 4,
+    padding: spacing.sm,
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.outlineVariant,
+    gap: spacing.xs,
   },
-  ticketSwitcherTab: {
-    flex: 1,
+  ticketSwitcherHeader: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 8,
-    paddingHorizontal: 6,
-    borderRadius: radius.md,
+    paddingHorizontal: 4,
+    marginBottom: 4,
   },
-  ticketSwitcherTabActive: {
-    backgroundColor: colors.primary,
+  ticketSwitcherTitle: {
+    ...typography.labelCaps,
+    fontSize: 12,
+    color: colors.primary,
+    fontWeight: '800',
   },
-  ticketSwitcherText: {
+  ticketSwitcherCounter: {
     ...typography.labelCaps,
     fontSize: 11,
     color: colors.onSurfaceVariant,
-    fontWeight: '700',
+    fontWeight: '600',
+  },
+  ticketSwitcherScroll: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    paddingVertical: 2,
+    paddingHorizontal: 2,
+  },
+  ticketSwitcherTab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 8,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceContainer,
+    borderWidth: 1,
+    borderColor: colors.outlineVariant,
+    minWidth: 165,
+  },
+  ticketSwitcherTabActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  ticketSwitcherText: {
+    ...typography.labelCaps,
+    fontSize: 12,
+    color: colors.onSurface,
+    fontWeight: '800',
   },
   ticketSwitcherTextActive: {
+    color: colors.onPrimary,
+  },
+  ticketSwitcherSubtext: {
+    fontSize: 10,
+    color: colors.onSurfaceVariant,
+    fontWeight: '500',
+    maxWidth: 110,
+  },
+  ticketSwitcherSubtextActive: {
+    color: 'rgba(255,255,255,0.85)',
+  },
+  recycledPill: {
+    backgroundColor: 'rgba(26, 86, 219, 0.15)',
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginLeft: 'auto',
+  },
+  recycledPillActive: {
+    backgroundColor: 'rgba(255,255,255,0.25)',
+  },
+  recycledPillText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  recycledPillTextActive: {
     color: colors.onPrimary,
   },
   alertBanner: {

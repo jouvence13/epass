@@ -236,7 +236,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               ? 'Calavi Campus → Échangeur Godomey'
               : tk.route_name?.includes('Akpakpa')
               ? 'Calavi Campus → Akpakpa Sacré-Cœur'
-              : 'Calavi Campus → Cotonou Étoile Rouge',
+              : tk.route_name?.includes('Porto-Novo') || tk.route_name?.includes('Porto Novo')
+              ? 'Calavi Campus → Porto-Novo Gare'
+              : tk.route_name?.includes('Express') || tk.route_name?.includes('Ligne A')
+              ? 'Calavi Campus → Cotonou Étoile Rouge'
+              : tk.route_name || 'Calavi Campus → Cotonou Étoile Rouge',
             busId: tk.bus_code || 'Bus CROUS #402',
             price: 100,
             date: "Aujourd'hui, 07:30",
