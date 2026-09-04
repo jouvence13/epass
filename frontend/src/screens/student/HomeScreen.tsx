@@ -67,21 +67,60 @@ export default function HomeScreen({ navigation }: any) {
 
         {/* En-tête Salutation */}
         <View style={styles.greetingWrap}>
-          <Text style={styles.greeting}>Bonjour, {user?.first_name || 'Étudiant'}</Text>
-          <Text style={styles.p}>Bienvenue sur votre espace transit universitaire.</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Text style={styles.greeting}>Bonjour, {user?.first_name || 'Étudiant'}</Text>
+            {user?.kyc_status === 'APPROVED' ? (
+              <Badge label="KYC Validé" tone="success" icon="check-circle" />
+            ) : user?.kyc_status === 'PENDING' ? (
+              <Badge label="KYC En Attente" tone="warning" icon="schedule" />
+            ) : (
+              <Badge label="KYC Non Soumis" tone="neutral" icon="info-outline" />
+            )}
+          </View>
+          <Text style={styles.p}>Bienvenue sur votre espace transit universitaire CROUS-UAC.</Text>
         </View>
 
-        {/* Ticket Actif Card */}
-        <Card floating style={styles.heroCard}>
-          <View style={{ flex: 1 }}>
-            <Badge label="Verified" tone="success" icon="check-circle" />
-            <Text style={styles.heroTitle}>Ticket actif</Text>
-            <Text style={styles.heroSub}>Campus Express Route 4 • A7B9-X2M4</Text>
-          </View>
-          <Pressable style={styles.heroBtn} onPress={() => navigation.navigate('Tickets')}>
-            <MaterialIcons name="qr-code-2" size={28} color={colors.onPrimary} />
-          </Pressable>
-        </Card>
+        {/* Ticket Actif Card / Statut Pass */}
+        {user?.kyc_status === 'APPROVED' ? (
+          <Card floating style={styles.heroCard}>
+            <View style={{ flex: 1 }}>
+              <Badge label="Pass Universitaire Actif" tone="success" icon="check-circle" />
+              <Text style={styles.heroTitle}>Ticket Campus Express</Text>
+              <Text style={styles.heroSub}>Ligne A (Calavi Campus ↔ Cotonou) • Valide</Text>
+            </View>
+            <Pressable style={styles.heroBtn} onPress={() => navigation.navigate('Tickets')}>
+              <MaterialIcons name="qr-code-2" size={28} color={colors.onPrimary} />
+            </Pressable>
+          </Card>
+        ) : user?.kyc_status === 'PENDING' ? (
+          <Card style={[styles.heroCard, { backgroundColor: '#fffbeb', borderColor: '#fde68a', borderWidth: 1 }]}>
+            <View style={{ flex: 1 }}>
+              <Badge label="KYC En Attente de Validation" tone="warning" icon="schedule" />
+              <Text style={[styles.heroTitle, { color: '#92400e' }]}>Dossier en cours d'examen</Text>
+              <Text style={[styles.heroSub, { color: '#b45309' }]}>Vos justificatifs sont en cours de modération par le CROUS.</Text>
+            </View>
+            <Pressable
+              style={[styles.heroBtn, { backgroundColor: '#d97706' }]}
+              onPress={() => navigation.navigate('KycOnboarding')}
+            >
+              <MaterialIcons name="hourglass-top" size={26} color="#ffffff" />
+            </Pressable>
+          </Card>
+        ) : (
+          <Card style={[styles.heroCard, { backgroundColor: '#fef2f2', borderColor: '#fecaca', borderWidth: 1 }]}>
+            <View style={{ flex: 1 }}>
+              <Badge label="KYC Non Soumis" tone="neutral" icon="warning" />
+              <Text style={[styles.heroTitle, { color: '#991b1b' }]}>Activez votre tarif étudiant</Text>
+              <Text style={[styles.heroSub, { color: '#b91c1c' }]}>Téléversez votre carte étudiant et CIP pour débloquer vos tickets.</Text>
+            </View>
+            <Pressable
+              style={[styles.heroBtn, { backgroundColor: '#dc2626' }]}
+              onPress={() => navigation.navigate('KycOnboarding')}
+            >
+              <MaterialIcons name="upload-file" size={26} color="#ffffff" />
+            </Pressable>
+          </Card>
+        )}
 
         {/* Grille de Navigation */}
         <View style={styles.grid}>

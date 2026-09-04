@@ -26,6 +26,7 @@ class UserRoleEnum(str, enum.Enum):
 
 
 class KycStatusEnum(str, enum.Enum):
+    NOT_SUBMITTED = "NOT_SUBMITTED"
     PENDING = "PENDING"
     APPROVED = "APPROVED"
     REJECTED = "REJECTED"

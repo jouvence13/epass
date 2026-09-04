@@ -100,7 +100,7 @@ async def register_user(
         last_name=payload.last_name.strip(),
         password_hash=hash_password(payload.password),
         role=user_role,
-        kyc_status=KycStatusEnum.PENDING,
+        kyc_status=KycStatusEnum.NOT_SUBMITTED,
         is_active=True
     )
     db.add(new_user)

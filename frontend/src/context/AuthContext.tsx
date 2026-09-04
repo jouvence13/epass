@@ -3,7 +3,7 @@ import { Platform } from 'react-native';
 import { ENDPOINTS } from '../config/api';
 
 export type UserRole = 'STUDENT' | 'DRIVER' | 'CONTROLLER' | 'ADMIN_CROUS' | 'SUPERADMIN';
-export type KycStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'EXPIRED';
+export type KycStatus = 'NOT_SUBMITTED' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'EXPIRED';
 
 export interface User {
   user_id: string;

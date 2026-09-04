@@ -19,6 +19,7 @@ import { useAuth } from '../../context/AuthContext';
 import { ENDPOINTS } from '../../config/api';
 
 const STEPS = ['Matricule', 'Carte Étudiant', 'Pièce d’Identité (CIP)'];
+const ACADEMIC_YEARS = ['2025-2026', '2024-2025', '2023-2024', '2022-2023'];
 
 export default function KycOnboardingScreen({ navigation }: any) {
   const { user, token, updateUserKycStatus } = useAuth();
@@ -35,6 +36,19 @@ export default function KycOnboardingScreen({ navigation }: any) {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const handlePrev = () => {
+    setErrorMessage(null);
+    if (step > 0) {
+      setStep(step - 1);
+    } else {
+      if (navigation.canGoBack()) {
+        navigation.goBack();
+      } else {
+        navigation.navigate('StudentTabs');
+      }
+    }
+  };
 
   // Fonction universelle de sélection de fichier (Web & Mobile)
   const pickFile = (docType: 'STUDENT_CARD' | 'CIP_IDENTITY') => {
@@ -141,7 +155,7 @@ export default function KycOnboardingScreen({ navigation }: any) {
   const handleNext = () => {
     setErrorMessage(null);
     if (step === 0) {
-      if (!matricule) {
+      if (!matricule.trim()) {
         setErrorMessage('Veuillez renseigner votre matricule étudiant.');
         return;
       }
@@ -181,13 +195,17 @@ export default function KycOnboardingScreen({ navigation }: any) {
               <Text style={styles.summaryVal}>{academicYear}</Text>
             </View>
             <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Statut dossier :</Text>
+              <Text style={[styles.summaryVal, { color: colors.tertiary }]}>KYC En Attente</Text>
+            </View>
+            <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Délai de traitement :</Text>
               <Text style={styles.summaryVal}>Moins de 24h</Text>
             </View>
           </Card>
 
           <PrimaryButton
-            label="Accéder à mes Tickets"
+            label="Accéder à l'Accueil"
             icon="arrow-forward"
             onPress={() => navigation.navigate('StudentTabs')}
             style={{ width: '100%', marginTop: spacing.xl }}
@@ -200,9 +218,17 @@ export default function KycOnboardingScreen({ navigation }: any) {
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <ScrollView contentContainerStyle={styles.scroll}>
+        {/* En-tête avec bouton Précédent */}
         <View style={styles.header}>
+          <Pressable
+            style={styles.backBtn}
+            onPress={handlePrev}
+            accessibilityLabel="Retour en arrière"
+          >
+            <MaterialIcons name="arrow-back" size={24} color={colors.onSurface} />
+          </Pressable>
           <View style={styles.avatar}>
-            <MaterialIcons name="school" size={22} color={colors.onSurfaceVariant} />
+            <MaterialIcons name="school" size={22} color={colors.primary} />
           </View>
           <Text style={styles.brand}>CROUS-UAC</Text>
         </View>
@@ -277,6 +303,10 @@ export default function KycOnboardingScreen({ navigation }: any) {
           {step === 0 ? (
             <>
               <Text style={styles.cardTitle}>Identifiant Universitaire</Text>
+              <Text style={styles.uploadSub}>
+                Renseignez votre matricule et sélectionnez l'année académique de votre inscription.
+              </Text>
+
               <Text style={styles.inputLabel}>Numéro de Matricule UAC *</Text>
               <TextInput
                 value={matricule}
@@ -284,23 +314,53 @@ export default function KycOnboardingScreen({ navigation }: any) {
                 placeholder="ex: UAC-2022-8492"
                 placeholderTextColor={colors.outline}
                 style={styles.input}
+                autoCapitalize="characters"
               />
 
-              <Text style={[styles.inputLabel, { marginTop: spacing.md }]}>Année Académique</Text>
-              <TextInput
-                value={academicYear}
-                onChangeText={setAcademicYear}
-                placeholder="2025-2026"
-                placeholderTextColor={colors.outline}
-                style={styles.input}
-              />
+              <Text style={[styles.inputLabel, { marginTop: spacing.lg }]}>
+                Année Académique en cours *
+              </Text>
+              <View style={styles.yearGrid}>
+                {ACADEMIC_YEARS.map((yr) => {
+                  const isSelected = academicYear === yr;
+                  return (
+                    <Pressable
+                      key={yr}
+                      style={[
+                        styles.yearChip,
+                        isSelected && styles.yearChipActive,
+                      ]}
+                      onPress={() => setAcademicYear(yr)}
+                    >
+                      <MaterialIcons
+                        name={isSelected ? 'check-circle' : 'radio-button-unchecked'}
+                        size={18}
+                        color={isSelected ? colors.primary : colors.outline}
+                      />
+                      <Text
+                        style={[
+                          styles.yearChipText,
+                          isSelected && styles.yearChipTextActive,
+                        ]}
+                      >
+                        {yr}
+                      </Text>
+                      {yr === '2025-2026' && (
+                        <View style={styles.currentBadge}>
+                          <Text style={styles.currentBadgeText}>Actuelle</Text>
+                        </View>
+                      )}
+                    </Pressable>
+                  );
+                })}
+              </View>
             </>
           ) : step === 1 ? (
             /* Étape 2 : Carte Étudiant */
             <>
               <Text style={styles.cardTitle}>Photo de la Carte Étudiant UAC</Text>
               <Text style={styles.uploadSub}>
-                Téléversez une photo nette ou le scan de votre carte d'étudiant valide pour l'année en cours.
+                Téléversez une photo nette ou le scan de votre carte d'étudiant valide pour l'année {academicYear}.
               </Text>
 
               {studentCardPreview ? (
@@ -357,19 +417,48 @@ export default function KycOnboardingScreen({ navigation }: any) {
             </>
           )}
 
-          <PrimaryButton
-            label={
-              isUploading
-                ? 'Transmission en cours...'
-                : step === STEPS.length - 1
-                ? 'Finaliser et Soumettre'
-                : 'Continuer'
-            }
-            icon={step === STEPS.length - 1 ? 'cloud-upload' : 'arrow-forward'}
-            onPress={handleNext}
-            disabled={isUploading}
-            style={{ marginTop: spacing.lg }}
-          />
+          {/* Boutons d'action : Précédent & Suivant */}
+          <View style={styles.actionsContainer}>
+            {step > 0 ? (
+              <View style={styles.twoButtonsRow}>
+                <Pressable
+                  style={styles.prevBtn}
+                  onPress={handlePrev}
+                  disabled={isUploading}
+                >
+                  <MaterialIcons name="arrow-back" size={20} color={colors.onSurface} />
+                  <Text style={styles.prevBtnText}>Précédent</Text>
+                </Pressable>
+
+                <View style={{ flex: 1 }}>
+                  <PrimaryButton
+                    label={
+                      isUploading
+                        ? 'Envoi...'
+                        : step === STEPS.length - 1
+                        ? 'Finaliser et Soumettre'
+                        : 'Continuer'
+                    }
+                    icon={step === STEPS.length - 1 ? 'cloud-upload' : 'arrow-forward'}
+                    onPress={handleNext}
+                    disabled={isUploading}
+                  />
+                </View>
+              </View>
+            ) : (
+              <View style={{ width: '100%', gap: spacing.sm }}>
+                <PrimaryButton
+                  label="Continuer vers l'étape 2"
+                  icon="arrow-forward"
+                  onPress={handleNext}
+                  disabled={isUploading}
+                />
+                <Pressable style={styles.cancelLink} onPress={() => navigation.goBack()}>
+                  <Text style={styles.cancelLinkText}>Remplir plus tard (Retour à l'accueil)</Text>
+                </Pressable>
+              </View>
+            )}
+          </View>
         </Card>
       </ScrollView>
     </SafeAreaView>
@@ -379,15 +468,22 @@ export default function KycOnboardingScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.surface },
   scroll: { padding: spacing.containerMargin, paddingBottom: spacing.xl },
-  header: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.lg },
-  avatar: {
+  header: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.lg, gap: spacing.sm },
+  backBtn: {
     width: 40,
     height: 40,
     borderRadius: 20,
     backgroundColor: colors.surfaceContainer,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: spacing.md,
+  },
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.primaryFixed,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   brand: { ...typography.headlineSm, color: colors.primary },
   h1: { ...typography.headlineMd, color: colors.primary, marginBottom: spacing.xs },
@@ -408,7 +504,7 @@ const styles = StyleSheet.create({
   stepNum: { ...typography.labelCaps },
   stepLabel: { ...typography.labelCaps, marginTop: spacing.xs, textAlign: 'center' },
   stepLine: { flex: 1, height: 2, marginTop: 16, marginHorizontal: spacing.xs },
-  formCard: { borderWidth: 1, borderColor: colors.surfaceVariant },
+  formCard: { borderWidth: 1, borderColor: colors.surfaceVariant, padding: spacing.lg },
   cardTitle: { ...typography.headlineSm, color: colors.primary, marginBottom: spacing.xs },
   uploadSub: { ...typography.bodySm, color: colors.onSurfaceVariant, marginBottom: spacing.md },
   inputLabel: { ...typography.labelCaps, color: colors.onSurfaceVariant, marginBottom: spacing.xs },
@@ -421,6 +517,82 @@ const styles = StyleSheet.create({
     ...typography.bodyLg,
     color: colors.onSurface,
     backgroundColor: colors.surface,
+  },
+  yearGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  yearChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1.5,
+    borderColor: colors.outlineVariant,
+    backgroundColor: colors.surfaceContainerLowest,
+    minWidth: '47%',
+  },
+  yearChipActive: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primaryFixed,
+  },
+  yearChipText: {
+    ...typography.bodyMd,
+    color: colors.onSurface,
+  },
+  yearChipTextActive: {
+    color: colors.primary,
+    fontWeight: '700',
+  },
+  currentBadge: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: radius.full,
+    marginLeft: 'auto',
+  },
+  currentBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.onPrimary,
+  },
+  actionsContainer: {
+    marginTop: spacing.xl,
+  },
+  twoButtonsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  prevBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    height: 48,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1.5,
+    borderColor: colors.outlineVariant,
+    backgroundColor: colors.surfaceContainerLow,
+  },
+  prevBtnText: {
+    ...typography.headlineSm,
+    fontSize: 14,
+    color: colors.onSurface,
+  },
+  cancelLink: {
+    alignItems: 'center',
+    paddingVertical: spacing.xs,
+  },
+  cancelLinkText: {
+    ...typography.bodySm,
+    color: colors.onSurfaceVariant,
+    textDecorationLine: 'underline',
   },
   uploadBox: {
     borderWidth: 1.5,

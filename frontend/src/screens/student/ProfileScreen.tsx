@@ -28,14 +28,21 @@ export default function ProfileScreen({ navigation }: any) {
       ? 'success'
       : user?.kyc_status === 'PENDING'
       ? 'warning'
-      : 'error';
+      : 'neutral';
 
   const kycText =
     user?.kyc_status === 'APPROVED'
-      ? 'KYC Approuvé'
+      ? 'KYC Validé'
       : user?.kyc_status === 'PENDING'
       ? 'KYC En Attente'
-      : 'KYC Non Validé';
+      : 'KYC Non Soumis';
+
+  const kycIcon: keyof typeof MaterialIcons.glyphMap =
+    user?.kyc_status === 'APPROVED'
+      ? 'check-circle'
+      : user?.kyc_status === 'PENDING'
+      ? 'schedule'
+      : 'info-outline';
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
@@ -46,7 +53,7 @@ export default function ProfileScreen({ navigation }: any) {
           </View>
           <Text style={styles.name}>{fullName}</Text>
           <Text style={styles.hint}>{matriculeLabel}</Text>
-          <Badge label={kycText} tone={kycTone as any} icon="check-circle" />
+          <Badge label={kycText} tone={kycTone as any} icon={kycIcon} />
         </View>
 
         <Card style={styles.section}>
@@ -64,6 +71,9 @@ export default function ProfileScreen({ navigation }: any) {
             >
               <MaterialIcons name={r.icon} size={22} color={colors.onSurfaceVariant} />
               <Text style={styles.rowLabel}>{r.label}</Text>
+              {r.action === 'KycOnboarding' && (
+                <Badge label={kycText} tone={kycTone as any} icon={kycIcon} />
+              )}
               <MaterialIcons name="chevron-right" size={22} color={colors.outline} />
             </Pressable>
           ))}

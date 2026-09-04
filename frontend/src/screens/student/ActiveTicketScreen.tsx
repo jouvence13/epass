@@ -7,8 +7,10 @@ import Card from '../../components/Card';
 import Badge from '../../components/Badge';
 import PrimaryButton from '../../components/PrimaryButton';
 import { colors, radius, spacing, typography } from '../../theme/theme';
+import { useAuth } from '../../context/AuthContext';
 
 export default function ActiveTicketScreen() {
+  const { user } = useAuth();
   const pulse = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -22,28 +24,41 @@ export default function ActiveTicketScreen() {
   const ringScale = pulse.interpolate({ inputRange: [0, 1], outputRange: [0.85, 1.3] });
   const ringOpacity = pulse.interpolate({ inputRange: [0, 1], outputRange: [0.6, 0] });
 
+  const isApproved = user?.kyc_status === 'APPROVED';
+
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
       <ScrollView contentContainerStyle={styles.scroll}>
         <View style={styles.alertBanner}>
-          <MaterialIcons name="warning" size={22} color={colors.onErrorContainer} style={{ marginTop: 2 }} />
+          <MaterialIcons name="info-outline" size={22} color={colors.onErrorContainer} style={{ marginTop: 2 }} />
           <View style={{ flex: 1 }}>
-            <Text style={styles.alertTitle}>Delay: +15 min</Text>
-            <Text style={styles.alertBody}>Due to heavy traffic near the central campus roundabout.</Text>
+            <Text style={styles.alertTitle}>Information Trafic : Ligne Campus</Text>
+            <Text style={styles.alertBody}>Circulation fluide entre le campus d'Abomey-Calavi et Cotonou.</Text>
           </View>
         </View>
 
         <Card floating style={styles.ticketCard}>
           <View style={styles.validBadge}>
-            <MaterialIcons name="check-circle" size={14} color={colors.onSecondary} />
-            <Text style={styles.validText}>Valid Ticket</Text>
+            <MaterialIcons
+              name={isApproved ? 'check-circle' : user?.kyc_status === 'PENDING' ? 'schedule' : 'info'}
+              size={14}
+              color={colors.onSecondary}
+            />
+            <Text style={styles.validText}>
+              {isApproved ? 'Ticket Valide' : user?.kyc_status === 'PENDING' ? 'KYC En Attente' : 'KYC Non Soumis'}
+            </Text>
           </View>
-          <Text style={styles.route}>Campus Express Route 4</Text>
-          <Text style={styles.studentId}>Student ID: 2023-4458</Text>
+          <Text style={styles.route}>Campus Express • Ligne A</Text>
+          <Text style={styles.studentId}>Matricule : {user?.matricule_uac || 'UAC-2024-XXXX'}</Text>
 
           <View style={styles.qrWrap}>
             <View style={styles.qrBox}>
-              <QRCode value="CROUS-UAC-TICKET-A7B9X2M4" size={160} color={colors.onBackground} backgroundColor={colors.white} />
+              <QRCode
+                value={`CROUS-UAC-TICKET-${user?.matricule_uac || 'ETUDIANT'}-A7B9`}
+                size={160}
+                color={colors.onBackground}
+                backgroundColor={colors.white}
+              />
             </View>
             <Animated.View
               pointerEvents="none"
@@ -57,24 +72,24 @@ export default function ActiveTicketScreen() {
           <Text style={styles.code}>A7B9-X2M4</Text>
 
           <PrimaryButton
-            label="Recycle Ticket"
+            label="Recycler mon Ticket"
             icon="recycling"
             variant="muted"
-            onPress={() => Alert.alert('Ticket', 'Ticket sent back to the pool.')}
+            onPress={() => Alert.alert('Ticket Universitaire', 'Votre ticket a été replacé dans la file active.')}
             style={{ width: '100%' }}
           />
-          <Text style={styles.availFor}>Available for 6 more days</Text>
+          <Text style={styles.availFor}>Valable pour la journée en cours</Text>
         </Card>
 
         <Card style={styles.mapCard}>
           <View style={styles.mapHeader}>
             <View>
-              <Text style={styles.mapTitle}>Live Tracking</Text>
-              <Text style={styles.hint}>Bus #402 • Capacity: 65%</Text>
+              <Text style={styles.mapTitle}>Suivi GPS en Direct</Text>
+              <Text style={styles.hint}>Bus CROUS #402 • Remplissage : 65%</Text>
             </View>
             <View style={{ alignItems: 'flex-end' }}>
               <Text style={styles.eta}>8 min</Text>
-              <Text style={styles.etaLabel}>Estimated Arrival</Text>
+              <Text style={styles.etaLabel}>Arrivée estimée</Text>
             </View>
           </View>
           <View style={styles.mapArea}>
