@@ -233,12 +233,6 @@ export default function BookTicketScreen({ navigation }: any) {
               />
             </View>
 
-            <Badge
-              label={isKycPending ? 'Dossier en cours d’examen' : 'Tarif CROUS Verrouillé'}
-              tone={isKycPending ? 'warning' : 'error'}
-              icon={isKycPending ? 'schedule' : 'lock'}
-            />
-
             <Text style={styles.kycLockTitle}>
               {isKycPending
                 ? 'Validation Académique en Cours'

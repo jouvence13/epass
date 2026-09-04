@@ -222,12 +222,6 @@ export default function ActiveTicketScreen({ navigation }: any) {
               />
             </View>
 
-            <Badge
-              label={isPending ? 'Validation Académique en Cours' : 'Accès Billets Verrouillé'}
-              tone={isPending ? 'warning' : 'error'}
-              icon={isPending ? 'schedule' : 'lock'}
-            />
-
             <Text style={styles.kycLockTitle}>
               {isPending
                 ? 'Dossier Étudiant en Examen'
