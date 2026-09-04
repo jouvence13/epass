@@ -44,6 +44,7 @@ class KycDocumentOutSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     document_id: uuid.UUID
+    user_id: uuid.UUID
     document_type: DocumentTypeEnum
     document_url: str
     verification_status: KycStatusEnum

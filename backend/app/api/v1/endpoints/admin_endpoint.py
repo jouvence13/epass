@@ -4,6 +4,7 @@ from typing import List, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, or_
+from sqlalchemy.orm import selectinload
 
 from app.core.database import get_async_db
 from app.core.security import hash_password
@@ -211,3 +212,50 @@ async def get_financial_audit(
         "total_tickets_recycled": recycled_tickets,
         "currency": "XOF (FCFA)"
     }
+
+
+@router.get("/users", response_model=List[UserProfileSchema])
+async def list_users(
+    role: str = None,
+    current_admin: Users = Depends(require_roles([UserRoleEnum.ADMIN_CROUS, UserRoleEnum.SUPERADMIN])),
+    db: AsyncSession = Depends(get_async_db)
+):
+    """Admin: List all registered users with optional role filter."""
+    query = select(Users).order_by(Users.created_at.desc())
+    if role:
+        query = query.where(Users.role == role)
+    result = await db.execute(query)
+    return result.scalars().all()
+
+
+@router.get("/routes", response_model=List[RouteOutSchema])
+async def list_routes(
+    current_admin: Users = Depends(require_roles([UserRoleEnum.ADMIN_CROUS, UserRoleEnum.SUPERADMIN])),
+    db: AsyncSession = Depends(get_async_db)
+):
+    """Admin: List all bus lines/routes."""
+    result = await db.execute(
+        select(Routes)
+        .options(selectinload(Routes.origin_stop), selectinload(Routes.destination_stop))
+        .order_by(Routes.route_name.asc())
+    )
+    return result.scalars().all()
+
+
+@router.get("/trips", response_model=List[TripOutSchema])
+async def list_trips(
+    current_admin: Users = Depends(require_roles([UserRoleEnum.ADMIN_CROUS, UserRoleEnum.SUPERADMIN])),
+    db: AsyncSession = Depends(get_async_db)
+):
+    """Admin: List all scheduled & active trips."""
+    result = await db.execute(
+        select(Trips)
+        .options(
+            selectinload(Trips.route).selectinload(Routes.origin_stop),
+            selectinload(Trips.route).selectinload(Routes.destination_stop),
+            selectinload(Trips.bus)
+        )
+        .order_by(Trips.departure_time.desc())
+    )
+    return result.scalars().all()
+
