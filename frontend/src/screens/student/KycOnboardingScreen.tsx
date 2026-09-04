@@ -90,47 +90,6 @@ export default function KycOnboardingScreen({ navigation }: any) {
     }
   };
 
-  const sampleCardSvg =
-    'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="240" viewBox="0 0 400 240"><rect width="400" height="240" fill="%230f3a63" rx="16"/><rect x="20" y="20" width="360" height="40" fill="%231a56db" rx="8"/><text x="200" y="46" fill="white" font-size="15" font-family="sans-serif" font-weight="bold" text-anchor="middle">UNIVERSIT%C3%89 D\'ABOMEY-CALAVI</text><rect x="30" y="80" width="80" height="100" fill="%23e2e8f0" rx="8"/><circle cx="70" cy="115" r="22" fill="%2394a3b8"/><path d="M45 165 C45 145, 95 145, 95 165 Z" fill="%2394a3b8"/><text x="130" y="105" fill="white" font-size="14" font-weight="bold" font-family="sans-serif">CARTE %C3%89TUDIANT UAC</text><text x="130" y="130" fill="%2393c5fd" font-size="12" font-family="sans-serif">Ann%C3%A9e : 2026-2027</text><text x="130" y="155" fill="%23cbd5e1" font-size="11" font-family="sans-serif">Matricule : UAC-2026-VALID</text><rect x="130" y="170" width="140" height="22" fill="%2310b981" rx="4"/><text x="200" y="185" fill="white" font-size="10" font-weight="bold" font-family="sans-serif" text-anchor="middle">DOCUMENT CERTIFI%C3%89 CROUS</text></svg>';
-
-  const sampleCipSvg =
-    'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="240" viewBox="0 0 400 240"><rect width="400" height="240" fill="%23064e3b" rx="16"/><rect x="20" y="20" width="360" height="40" fill="%23059669" rx="8"/><text x="200" y="46" fill="white" font-size="15" font-family="sans-serif" font-weight="bold" text-anchor="middle">R%C3%89PUBLIQUE DU B%C3%89NIN</text><text x="200" y="105" fill="white" font-size="14" font-weight="bold" font-family="sans-serif" text-anchor="middle">CERTIFICAT D\'IDENTIFICATION PERSONNELLE</text><text x="200" y="135" fill="%23a7f3d0" font-size="12" font-family="sans-serif" text-anchor="middle">NPI : 10928374650192</text><rect x="130" y="165" width="140" height="22" fill="%2310b981" rx="4"/><text x="200" y="180" fill="white" font-size="10" font-weight="bold" font-family="sans-serif" text-anchor="middle">ANIP - CONFORME</text></svg>';
-
-  const loadSampleDoc = (docType: 'STUDENT_CARD' | 'CIP_IDENTITY') => {
-    setErrorMessage(null);
-    if (docType === 'STUDENT_CARD') {
-      setStudentCardInfo({
-        name: 'carte_etudiant_uac_2026.png',
-        size: '185 Ko',
-        isPdf: false,
-        previewUri: sampleCardSvg,
-      });
-      const blob = new Blob(['sample-student-card'], { type: 'image/png' });
-      setStudentCardFile(blob);
-      showToast({
-        title: 'Carte Étudiante Chargée',
-        message: 'Scan de la Carte d’Étudiant UAC validé pour le dossier.',
-        type: 'success',
-        category: 'KYC',
-      });
-    } else {
-      setIdentityInfo({
-        name: 'certificat_cip_national.png',
-        size: '210 Ko',
-        isPdf: false,
-        previewUri: sampleCipSvg,
-      });
-      const blob = new Blob(['sample-cip'], { type: 'image/png' });
-      setIdentityFile(blob);
-      showToast({
-        title: 'Pièce CIP Chargée',
-        message: 'Certificat d’Identification Personnelle validé pour le dossier.',
-        type: 'success',
-        category: 'KYC',
-      });
-    }
-  };
-
   // Fonction universelle de sélection de fichier (Web & Mobile)
   const pickFile = (docType: 'STUDENT_CARD' | 'CIP_IDENTITY') => {
     setErrorMessage(null);
@@ -180,8 +139,6 @@ export default function KycOnboardingScreen({ navigation }: any) {
         }
       };
       input.click();
-    } else {
-      loadSampleDoc(docType);
     }
   };
 
@@ -789,14 +746,6 @@ export default function KycOnboardingScreen({ navigation }: any) {
                       <Text style={styles.browseFileBtnText}>Parcourir mon appareil</Text>
                     </View>
                   </Pressable>
-
-                  <Pressable
-                    style={styles.sampleFillButton}
-                    onPress={() => loadSampleDoc('STUDENT_CARD')}
-                  >
-                    <MaterialIcons name="auto-awesome" size={16} color={colors.secondary} />
-                    <Text style={styles.sampleFillText}>Utiliser un spécimen officiel UAC (Test rapide)</Text>
-                  </Pressable>
                 </View>
               )}
             </>
@@ -886,14 +835,6 @@ export default function KycOnboardingScreen({ navigation }: any) {
                       <MaterialIcons name="folder-open" size={16} color="#ffffff" />
                       <Text style={styles.browseFileBtnText}>Parcourir mon appareil</Text>
                     </View>
-                  </Pressable>
-
-                  <Pressable
-                    style={styles.sampleFillButton}
-                    onPress={() => loadSampleDoc('CIP_IDENTITY')}
-                  >
-                    <MaterialIcons name="auto-awesome" size={16} color={colors.secondary} />
-                    <Text style={styles.sampleFillText}>Utiliser un spécimen de CIP béninois (Test rapide)</Text>
                   </Pressable>
                 </View>
               )}
