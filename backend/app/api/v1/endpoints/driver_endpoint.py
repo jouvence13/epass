@@ -398,31 +398,47 @@ async def get_driver_alerts(
 ):
     """
     Driver Alerts Endpoint:
-    Returns system alerts, delay broadcasts, refuel reminders, and dispatch messages.
+    Returns system alerts, delay broadcasts, refuel reminders, and dispatch messages from PostgreSQL.
     """
-    return [
-        DriverAlertOutSchema(
-            id="1",
-            icon="warning",
-            title="Delay broadcasted",
-            body="+30 min sent to passengers on Route 42.",
-            time="5 min ago",
-            tone="#ffdad6"
-        ),
-        DriverAlertOutSchema(
-            id="2",
-            icon="local-gas-station",
-            title="Refuel reminder",
-            body="Bus #402 fuel level below 20%.",
-            time="1 h ago",
-            tone="#e2d6ff"
-        ),
-        DriverAlertOutSchema(
-            id="3",
-            icon="chat",
-            title="Dispatch message",
-            body="\"Please confirm arrival at Science Block.\"",
-            time="2 h ago",
-            tone="#e0e3e5"
+    notifs_query = await db.execute(
+        select(Notifications)
+        .where(Notifications.user_id == current_driver.user_id)
+        .order_by(Notifications.created_at.desc())
+    )
+    notifs = notifs_query.scalars().all()
+
+    now = datetime.now(timezone.utc)
+    alerts: List[DriverAlertOutSchema] = []
+
+    for n in notifs:
+        text = f"{n.title} {n.message}".lower()
+        if "retard" in text or "trafic" in text or "embouteillage" in text:
+            icon = "warning"
+            tone = "#ffdad6"
+        elif "carburant" in text or "essence" in text:
+            icon = "local-gas-station"
+            tone = "#e2d6ff"
+        else:
+            icon = "chat"
+            tone = "#e0e3e5"
+
+        delta = now - n.created_at
+        if delta.total_seconds() < 3600:
+            time_str = f"Il y a {max(1, int(delta.total_seconds() // 60))} min"
+        elif delta.total_seconds() < 86400:
+            time_str = f"Il y a {int(delta.total_seconds() // 3600)} h"
+        else:
+            time_str = n.created_at.strftime("%d/%m, %H:%M")
+
+        alerts.append(
+            DriverAlertOutSchema(
+                id=str(n.notification_id),
+                icon=icon,
+                title=n.title,
+                body=n.message,
+                time=time_str,
+                tone=tone
+            )
         )
-    ]
+
+    return alerts

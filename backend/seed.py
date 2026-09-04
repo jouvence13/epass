@@ -28,10 +28,17 @@ from app.core.database import async_engine, AsyncSessionLocal
 from app.core.security import hash_password
 from app.models.base import Base
 from app.models.user_model import Users, UserRoleEnum, KycStatusEnum, KycDocuments, DocumentTypeEnum
-from app.models.fleet_model import Buses, Stops, Routes, BusStatusEnum
+from app.models.fleet_model import Buses, Stops, Routes, RouteStops, BusStatusEnum
 from app.models.trip_model import Trips, TripStatusEnum, GpsLogs
-from app.models.payment_model import Payments, PaymentStatusEnum, PaymentGatewayEnum
+from app.models.payment_model import (
+    Payments,
+    PaymentStatusEnum,
+    PaymentGatewayEnum,
+    Wallets,
+    UserPaymentMethods,
+)
 from app.models.ticket_model import Tickets, TicketStatusEnum
+from app.models.notification_model import Notifications
 
 
 async def run_seed():
@@ -169,10 +176,22 @@ async def run_seed():
         # ----------------------------------------------------------------------
         print("\n📍 4. Création des Arrêts PostGIS...")
         stops_data = [
-            ("Calavi Campus", 6.4474, 2.3557),
+            ("Campus UAC Calavi", 6.4474, 2.3557),
             ("Science Block", 6.4420, 2.3600),
-            ("Godomey", 6.4000, 2.3400),
-            ("Cotonou Centre", 6.3703, 2.4174),
+            ("Carrefour IITA", 6.4320, 2.3500),
+            ("Carrefour KPOTA", 6.4250, 2.3480),
+            ("Marché Godomey", 6.4100, 2.3420),
+            ("Échangeur Godomey", 6.4000, 2.3400),
+            ("Carrefour Vêdoko", 6.3850, 2.3950),
+            ("Stade Général Mathieu Kérékou", 6.3880, 2.3800),
+            ("Carrefour Toyota", 6.3750, 2.4100),
+            ("Place Bulgarie", 6.3780, 2.4050),
+            ("Cotonou Étoile Rouge", 6.3703, 2.4174),
+            ("Dantokpa Grand Marché", 6.3700, 2.4300),
+            ("Akpakpa Sacré-Cœur", 6.3650, 2.4450),
+            ("Carrefour Le Bélier", 6.4600, 2.4500),
+            ("PK 10 Route Porto-Novo", 6.4750, 2.5200),
+            ("Gare Routière Ouando", 6.4900, 2.6100),
             ("Porto-Novo Gare", 6.4969, 2.6289),
         ]
         stops_map = {}
@@ -194,25 +213,60 @@ async def run_seed():
         print("\n🛣️ 5. Création des Lignes de Bus (Routes)...")
         routes_data = [
             {
-                "name": "Campus Express Route 4",
-                "origin": "Calavi Campus",
-                "destination": "Cotonou Centre",
+                "name": "Campus Express (Ligne A)",
+                "origin": "Campus UAC Calavi",
+                "destination": "Cotonou Étoile Rouge",
                 "price": 250.00,
-                "duration": 35
+                "duration": 35,
+                "stops": [
+                    ("Campus UAC Calavi", 0, None),
+                    ("Carrefour IITA", 7, None),
+                    ("Échangeur Godomey", 13, "Ligne B"),
+                    ("Stade Général Mathieu Kérékou", 21, None),
+                    ("Place Bulgarie", 28, None),
+                    ("Cotonou Étoile Rouge", 35, None),
+                ]
             },
             {
-                "name": "Navette Inter-Facultés",
-                "origin": "Calavi Campus",
-                "destination": "Science Block",
+                "name": "Navette Inter-Facultés (Ligne B)",
+                "origin": "Campus UAC Calavi",
+                "destination": "Échangeur Godomey",
                 "price": 100.00,
-                "duration": 10
+                "duration": 22,
+                "stops": [
+                    ("Campus UAC Calavi", 0, None),
+                    ("Carrefour KPOTA", 8, None),
+                    ("Marché Godomey", 14, None),
+                    ("Échangeur Godomey", 22, None),
+                ]
             },
             {
                 "name": "Ligne Calavi - Porto-Novo",
-                "origin": "Calavi Campus",
+                "origin": "Campus UAC Calavi",
                 "destination": "Porto-Novo Gare",
                 "price": 500.00,
-                "duration": 60
+                "duration": 60,
+                "stops": [
+                    ("Campus UAC Calavi", 0, None),
+                    ("Carrefour Le Bélier", 20, None),
+                    ("PK 10 Route Porto-Novo", 45, None),
+                    ("Gare Routière Ouando", 65, None),
+                    ("Porto-Novo Gare", 85, None),
+                ]
+            },
+            {
+                "name": "Ligne Express Akpakpa",
+                "origin": "Campus UAC Calavi",
+                "destination": "Akpakpa Sacré-Cœur",
+                "price": 300.00,
+                "duration": 40,
+                "stops": [
+                    ("Campus UAC Calavi", 0, None),
+                    ("Carrefour Vêdoko", 17, None),
+                    ("Carrefour Toyota", 23, None),
+                    ("Dantokpa Grand Marché", 31, None),
+                    ("Akpakpa Sacré-Cœur", 40, None),
+                ]
             }
         ]
         routes_map = {}
@@ -230,7 +284,26 @@ async def run_seed():
                 db.add(r)
                 await db.flush()
                 print(f"   🛣️ Ligne créée : {r.route_name} ({r.base_price} FCFA, {r.estimated_duration_minutes} min)")
+
             routes_map[r_info["name"]] = r
+
+            # Insérer la séquence des arrêts ordonnés (RouteStops)
+            for order_idx, (stop_name, eta_offset, conn_lbl) in enumerate(r_info["stops"], start=1):
+                target_stop = stops_map[stop_name]
+                rs_existing = (await db.execute(
+                    select(RouteStops).where(RouteStops.route_id == r.route_id, RouteStops.stop_id == target_stop.stop_id)
+                )).scalars().first()
+
+                if not rs_existing:
+                    rs = RouteStops(
+                        route_id=r.route_id,
+                        stop_id=target_stop.stop_id,
+                        stop_order=order_idx,
+                        estimated_minutes_from_origin=eta_offset,
+                        connection_label=conn_lbl
+                    )
+                    db.add(rs)
+                    await db.flush()
 
         # ----------------------------------------------------------------------
         # FLOTTE DE BUS (BUSES)
@@ -262,9 +335,10 @@ async def run_seed():
         # TRAJETS PROGRAMMÉS (TRIPS)
         # ----------------------------------------------------------------------
         print("\n🗓️ 7. Programmation des Trajets (Trips)...")
-        route_a = routes_map["Campus Express Route 4"]
-        route_b = routes_map["Navette Inter-Facultés"]
+        route_a = routes_map["Campus Express (Ligne A)"]
+        route_b = routes_map["Navette Inter-Facultés (Ligne B)"]
         route_c = routes_map["Ligne Calavi - Porto-Novo"]
+        route_d = routes_map["Ligne Express Akpakpa"]
         bus_1 = buses_map["BUS-UAC-01"]
         bus_2 = buses_map["BUS-UAC-02"]
         bus_3 = buses_map["BUS-UAC-03"]
@@ -553,6 +627,166 @@ async def run_seed():
             db.add(gps_log)
             await db.flush()
             print("   📡 Position GPS enregistrée pour Bus #402 (Lat: 6.4474, Lon: 2.3557, Vitesse: 38.5 km/h)")
+
+        # ----------------------------------------------------------------------
+        # DOCUMENTS KYC (KYC DOCUMENTS)
+        # ----------------------------------------------------------------------
+        print("\n📄 10. Enregistrement des Justificatifs KYC...")
+        admin_user = users_map["+22997000000"]
+        kyc_entries = [
+            (student_koffi.user_id, DocumentTypeEnum.STUDENT_CARD, "/uploads/kyc/koffi_carte_etudiant.jpg", KycStatusEnum.APPROVED, admin_user.user_id, now, "2024-2025"),
+            (student_koffi.user_id, DocumentTypeEnum.CIP_IDENTITY, "/uploads/kyc/koffi_cip.jpg", KycStatusEnum.APPROVED, admin_user.user_id, now, "2024-2025"),
+            (student_sena.user_id, DocumentTypeEnum.STUDENT_CARD, "/uploads/kyc/sena_carte_etudiant.jpg", KycStatusEnum.APPROVED, admin_user.user_id, now, "2024-2025"),
+            (student_marius.user_id, DocumentTypeEnum.STUDENT_CARD, "/uploads/kyc/marius_carte_etudiant.jpg", KycStatusEnum.PENDING, None, None, "2024-2025"),
+        ]
+        for u_id, dtype, durl, vstatus, vby, vat, ayear in kyc_entries:
+            doc_existing = (await db.execute(
+                select(KycDocuments).where(KycDocuments.user_id == u_id, KycDocuments.document_type == dtype)
+            )).scalars().first()
+            if not doc_existing:
+                doc_obj = KycDocuments(
+                    user_id=u_id,
+                    document_type=dtype,
+                    document_url=durl,
+                    verification_status=vstatus,
+                    validated_by=vby,
+                    validated_at=vat,
+                    academic_year=ayear
+                )
+                db.add(doc_obj)
+                await db.flush()
+                print(f"   📄 Document KYC enregistré : {dtype.value} pour {u_id}")
+
+        # ----------------------------------------------------------------------
+        # NOTIFICATIONS UTILISATEURS (NOTIFICATIONS)
+        # ----------------------------------------------------------------------
+        print("\n🔔 11. Création des Notifications Utilisateurs...")
+        notifs_data = [
+            (
+                student_koffi.user_id,
+                tk_koffi_1.ticket_id,
+                "Dossier KYC Validé",
+                "Félicitations ! Vos pièces justificatives ont été vérifiées par le CROUS. Vous bénéficiez du tarif subventionné à 100 FCFA.",
+                "PUSH",
+                False,
+                now - timedelta(minutes=10)
+            ),
+            (
+                student_koffi.user_id,
+                None,
+                "Trafic Fluide - Ligne Campus Express",
+                "Les bus circulent normalement sur l'axe Campus Abomey-Calavi ↔ Étoile Rouge Cotonou.",
+                "PUSH",
+                False,
+                now - timedelta(hours=1)
+            ),
+            (
+                student_koffi.user_id,
+                tk_koffi_1.ticket_id,
+                "Achat de Pass Campus Validé",
+                "Votre ticket A7B9-X2M4 a été débité de votre compte MTN MoMo (100 FCFA).",
+                "PUSH",
+                True,
+                now - timedelta(hours=18)
+            ),
+            (
+                student_koffi.user_id,
+                None,
+                "Horaires de Soirée Renforcés",
+                "Des rotations supplémentaires sont assurées jusqu'à 21h30 du lundi au vendredi sur le réseau CROUS.",
+                "PUSH",
+                True,
+                now - timedelta(days=2)
+            ),
+            (
+                student_marius.user_id,
+                None,
+                "Dossier KYC en cours d'examen",
+                "Vos justificatifs académiques ont bien été reçus et sont en cours de vérification par les équipes CROUS.",
+                "PUSH",
+                False,
+                now - timedelta(minutes=30)
+            ),
+            (
+                driver_user.user_id,
+                None,
+                "Alerte Trafic : Embouteillage Carrefour Vedoko",
+                "Ralentissement signalé entre Carrefour Vêdoko et Étoile Rouge. Retard estimé à +15 minutes.",
+                "PUSH",
+                False,
+                now - timedelta(minutes=25)
+            )
+        ]
+
+        for u_id, tk_id, title, msg, chan, is_s, sched in notifs_data:
+            notif_existing = (await db.execute(
+                select(Notifications).where(Notifications.user_id == u_id, Notifications.title == title)
+            )).scalars().first()
+            if not notif_existing:
+                notif_obj = Notifications(
+                    user_id=u_id,
+                    ticket_id=tk_id,
+                    title=title,
+                    message=msg,
+                    channel=chan,
+                    is_sent=is_s,
+                    scheduled_for=sched,
+                    sent_at=sched if is_s else None
+                )
+                db.add(notif_obj)
+                await db.flush()
+                print(f"   🔔 Notification enregistrée : '{title}' pour {u_id}")
+
+        # ----------------------------------------------------------------------
+        # PORTEFEUILLES ÉTUDIANTS & COMPTES PAIEMENTS (WALLETS & PAYMENT METHODS)
+        # ----------------------------------------------------------------------
+        print("\n💳 12. Création des Portefeuilles & Comptes Opérateurs Mobile Money...")
+        all_students = [student_koffi, student_sena, student_aminata, student_marius]
+
+        for s in all_students:
+            # Wallet
+            w_existing = (await db.execute(
+                select(Wallets).where(Wallets.user_id == s.user_id)
+            )).scalars().first()
+            if not w_existing:
+                w_obj = Wallets(
+                    user_id=s.user_id,
+                    balance=2300.00 if s == student_koffi else 1500.00,
+                    currency="FCFA"
+                )
+                db.add(w_obj)
+                await db.flush()
+                print(f"   💰 Portefeuille créé pour {s.first_name} {s.last_name} (Solde: {w_obj.balance} FCFA)")
+
+            # Mobile Money Methods
+            pm_mtn_existing = (await db.execute(
+                select(UserPaymentMethods).where(UserPaymentMethods.user_id == s.user_id, UserPaymentMethods.provider_type == "MTN_MOMO")
+            )).scalars().first()
+            if not pm_mtn_existing:
+                pm_mtn = UserPaymentMethods(
+                    user_id=s.user_id,
+                    provider_type="MTN_MOMO",
+                    account_number=s.phone_number,
+                    account_label="MTN Mobile Money",
+                    is_default=True
+                )
+                pm_moov = UserPaymentMethods(
+                    user_id=s.user_id,
+                    provider_type="MOOV_MONEY",
+                    account_number="+22995443322",
+                    account_label="Moov Money Flooz",
+                    is_default=False
+                )
+                pm_celtiis = UserPaymentMethods(
+                    user_id=s.user_id,
+                    provider_type="CELTIIS_CASH",
+                    account_number="+22961229988",
+                    account_label="Celtiis Cash Bénin",
+                    is_default=False
+                )
+                db.add_all([pm_mtn, pm_moov, pm_celtiis])
+                await db.flush()
+                print(f"   📱 Comptes Mobile Money créés pour {s.first_name} {s.last_name} (MTN, Moov, Celtiis)")
 
         await db.commit()
 

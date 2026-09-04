@@ -191,6 +191,34 @@ async def instant_ticket_purchase(
     await db.commit()
     await db.refresh(ticket)
 
+    # 5. Enregistrement de la notification de confirmation dans PostgreSQL
+    from app.models.notification_model import Notifications
+    ticket_notif = Notifications(
+        user_id=current_user.user_id,
+        ticket_id=ticket.ticket_id,
+        title="Achat de Pass Campus Validé",
+        message=f"Votre ticket {formatted_code} a été débité ({payload.amount:.0f} FCFA) via {payload.payment_method}.",
+        channel="PUSH",
+        is_sent=True,
+        scheduled_for=now,
+        sent_at=now
+    )
+    db.add(ticket_notif)
+    await db.commit()
+
+    # 6. Récupération de la télémétrie GPS depuis PostgreSQL
+    from app.models.trip_model import GpsLogs
+    from geoalchemy2.functions import ST_X, ST_Y
+    gps_query = await db.execute(
+        select(GpsLogs, ST_Y(GpsLogs.position).label("lat"), ST_X(GpsLogs.position).label("lon"))
+        .where(GpsLogs.trip_id == trip.trip_id)
+        .order_by(GpsLogs.recorded_at.desc())
+    )
+    gps_row = gps_query.first()
+    live_lat = float(gps_row.lat) if (gps_row and gps_row.lat is not None) else 6.4474
+    live_lon = float(gps_row.lon) if (gps_row and gps_row.lon is not None) else 2.3557
+    live_speed = float(gps_row[0].speed_kmh) if (gps_row and gps_row[0].speed_kmh is not None) else 38.0
+
     # Formatage du code SMS (e.g. A7B9-X2M4)
     if len(sms_otp) == 8:
         formatted_code = f"{sms_otp[:4]}-{sms_otp[4:]}"
@@ -221,8 +249,8 @@ async def instant_ticket_purchase(
         capacity_percentage=int(((trip.total_seats - trip.available_seats) / trip.total_seats) * 100),
         eta_minutes=8,
         eta_label="8 min",
-        latitude=6.4474,
-        longitude=2.3557,
-        speed_kmh=38.0
+        latitude=live_lat,
+        longitude=live_lon,
+        speed_kmh=live_speed
     )
 

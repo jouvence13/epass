@@ -19,6 +19,7 @@ import PrimaryButton from '../../components/PrimaryButton';
 import { colors, radius, spacing, typography } from '../../theme/theme';
 import { useAuth, StudentTicket } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
+import { ENDPOINTS } from '../../config/api';
 
 interface RouteStop {
   id: string;
@@ -360,7 +361,7 @@ export default function ActiveTicketScreen() {
           {availableLineKeys.length > 1 && (
             <View style={styles.lineTabs}>
               {availableLineKeys.map((key) => {
-                const lineInfo = BUS_LINES[key];
+                const lineInfo = busLines[key] || { code: key, name: key };
                 const isActive = selectedLineKey === key;
                 return (
                   <Pressable

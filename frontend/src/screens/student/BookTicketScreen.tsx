@@ -87,10 +87,11 @@ export default function BookTicketScreen({ navigation }: any) {
 
   const handleSimulateScan = () => {
     setIsScanning(false);
+    const activeSlot = busSlots[selectedSlot] || busSlots[0];
     setScannedBusData({
       busId: 'Bus CROUS #402',
-      line: 'Ligne A (Express Campus)',
-      route: 'Calavi Campus → Cotonou Étoile Rouge',
+      line: activeSlot ? `Ligne Express (${activeSlot.route})` : 'Ligne Campus Express',
+      route: activeSlot ? activeSlot.route : 'Calavi Campus → Cotonou Centre',
       price: 100, // Tarif subventionné
     });
   };
@@ -104,10 +105,10 @@ export default function BookTicketScreen({ navigation }: any) {
     const price = priceOverride || scannedBusData?.price || 100;
     const isQR = activeTab === 'SCAN_QR';
     const currentSlot = busSlots[selectedSlot] || busSlots[0];
-    const targetLine = isQR ? scannedBusData?.line || 'Ligne A (Express Campus)' : currentSlot.route;
-    const targetRoute = isQR ? scannedBusData?.route || 'Calavi Campus → Cotonou Étoile Rouge' : `${departure} → ${destination}`;
+    const targetLine = isQR ? scannedBusData?.line || 'Ligne Campus Express' : (currentSlot?.route || 'Campus Express');
+    const targetRoute = isQR ? scannedBusData?.route || 'Calavi Campus → Cotonou Centre' : `${departure} → ${destination}`;
     const targetBus = isQR ? scannedBusData?.busId || 'Bus CROUS #402' : 'Bus CROUS #402';
-    const slotId = isQR ? 'slot-1' : currentSlot.id;
+    const slotId = isQR ? (currentSlot?.id || 'slot-1') : (currentSlot?.id || 'slot-1');
 
     if (paymentOperator === 'WALLET') {
       if (walletBalance < price) {

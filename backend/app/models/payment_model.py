@@ -2,6 +2,7 @@ import enum
 import uuid
 from typing import Any, Dict, Optional
 from sqlalchemy import (
+    Boolean,
     Enum,
     ForeignKey,
     Numeric,
@@ -68,3 +69,42 @@ class Payments(Base, TimestampMixin):
     # Relationships
     user: Mapped["Users"] = relationship("Users", back_populates="payments")
     ticket: Mapped[Optional["Tickets"]] = relationship("Tickets", back_populates="payment", uselist=False)
+
+
+class Wallets(Base, TimestampMixin):
+    __tablename__ = "wallets"
+
+    wallet_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.user_id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+        index=True
+    )
+    balance: Mapped[float] = mapped_column(Numeric(10, 2), default=0.00, nullable=False)
+    currency: Mapped[str] = mapped_column(String(10), default="FCFA", nullable=False)
+
+
+class UserPaymentMethods(Base, TimestampMixin):
+    __tablename__ = "user_payment_methods"
+
+    method_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.user_id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+    provider_type: Mapped[str] = mapped_column(String(30), nullable=False) # 'MTN_MOMO', 'MOOV_MONEY', 'CELTIIS_CASH'
+    account_number: Mapped[str] = mapped_column(String(30), nullable=False)
+    account_label: Mapped[str] = mapped_column(String(100), nullable=False)
+    is_default: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)

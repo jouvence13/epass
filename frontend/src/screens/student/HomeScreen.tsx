@@ -102,12 +102,8 @@ export default function HomeScreen({ navigation }: any) {
         const ok = debitWallet(price);
         if (ok) {
           const newTicket = purchaseTicket({
-            line: selectedDeparture.route,
-            route: selectedDeparture.route.includes('Godomey')
-              ? 'Calavi Campus → Échangeur Godomey'
-              : selectedDeparture.route.includes('Akpakpa')
-              ? 'Calavi Campus → Akpakpa Sacré-Cœur'
-              : 'Calavi Campus → Cotonou Étoile Rouge',
+            line: `Ligne ${selectedDeparture.route}`,
+            route: selectedDeparture.route,
             busId: 'Bus CROUS #402',
             price: 100,
             paymentMethod: 'Portefeuille CROUS',
@@ -159,12 +155,8 @@ export default function HomeScreen({ navigation }: any) {
           : 'Celtiis Cash (*888#)';
 
       const newTicket = purchaseTicket({
-        line: selectedDeparture.route,
-        route: selectedDeparture.route.includes('Godomey')
-          ? 'Calavi Campus → Échangeur Godomey'
-          : selectedDeparture.route.includes('Akpakpa')
-          ? 'Calavi Campus → Akpakpa Sacré-Cœur'
-          : 'Calavi Campus → Cotonou Étoile Rouge',
+        line: `Ligne ${selectedDeparture.route}`,
+        route: selectedDeparture.route,
         busId: 'Bus CROUS #402',
         price: 100,
         paymentMethod: opName,

@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,7 +9,7 @@ from sqlalchemy.orm import selectinload
 from app.core.database import get_async_db
 from app.models.trip_model import Trips, TripStatusEnum, GpsLogs
 from app.models.ticket_model import Tickets, TicketStatusEnum
-from app.models.fleet_model import Routes, Stops, Buses
+from app.models.fleet_model import Routes, Stops, Buses, RouteStops
 from app.models.user_model import Users
 from app.schemas.trip_schema import TripOutSchema
 from app.schemas.ticket_schema import ActiveTicketScreenOutSchema
@@ -249,11 +249,16 @@ async def get_student_ticket_history(
             "Validated" if tk.status == TicketStatusEnum.VALIDATED else "Expired"
         )
 
+        total_seats = trip.total_seats if (trip and trip.total_seats > 0) else 50
+        avail_seats = trip.available_seats if trip else 50
+        cap_pct = int(((total_seats - max(0, avail_seats)) / total_seats) * 100) if total_seats > 0 else 0
+        bus_code_val = trip.bus.bus_code if (trip and trip.bus) else "Bus CROUS"
+
         history_list.append(
             ActiveTicketScreenOutSchema(
                 ticket_id=tk.ticket_id,
                 trip_id=trip.trip_id if trip else uuid.uuid4(),
-                route_name=route.route_name if route else "Campus Express Route 4",
+                route_name=route.route_name if route else "Ligne Campus",
                 student_name=f"{current_user.first_name} {current_user.last_name}",
                 student_id=f"Student ID: {current_user.matricule_uac or '2023-4458'}",
                 matricule_uac=current_user.matricule_uac,
@@ -268,10 +273,10 @@ async def get_student_ticket_history(
                 delay_minutes=trip.delay_minutes if trip else 0,
                 delay_title=f"Delay: +{trip.delay_minutes} min" if (trip and trip.delay_minutes > 0) else None,
                 delay_reason=trip.delay_reason if trip else None,
-                bus_code=bus.bus_code if bus else "Bus #402",
-                capacity_percentage=65,
-                eta_minutes=8,
-                eta_label="8 min",
+                bus_code=bus_code_val,
+                capacity_percentage=cap_pct,
+                eta_minutes=0 if tk.status != TicketStatusEnum.ISSUED else 8,
+                eta_label="Terminé" if tk.status != TicketStatusEnum.ISSUED else "8 min",
                 latitude=6.4474,
                 longitude=2.3557,
                 speed_kmh=38.0
@@ -294,13 +299,16 @@ async def get_live_lines(
         .options(
             selectinload(Routes.origin_stop),
             selectinload(Routes.destination_stop),
-            selectinload(Routes.trips).selectinload(Trips.bus)
+            selectinload(Routes.route_stops).selectinload(RouteStops.stop),
+            selectinload(Routes.trips).selectinload(Trips.bus),
+            selectinload(Routes.trips).selectinload(Trips.driver)
         )
         .where(Routes.is_active == True)
     )
     routes = (await db.execute(routes_query)).scalars().all()
 
     line_configs = {}
+    now = datetime.now(timezone.utc)
 
     for r in routes:
         key = "LIGNE_A" if "Express" in r.route_name or "Ligne A" in r.route_name else (
@@ -310,62 +318,74 @@ async def get_live_lines(
         )
 
         active_trip = next((t for t in r.trips if t.status in [TripStatusEnum.SCHEDULED, TripStatusEnum.BOARDING, TripStatusEnum.EN_ROUTE]), None)
+        if not active_trip and r.trips:
+            active_trip = r.trips[0]
+
         bus = active_trip.bus if active_trip else None
 
-        total_seats = active_trip.total_seats if (active_trip and active_trip.total_seats > 0) else 50
-        avail_seats = active_trip.available_seats if active_trip else 18
+        total_seats = active_trip.total_seats if (active_trip and active_trip.total_seats > 0) else (bus.max_capacity if bus else 50)
+        avail_seats = active_trip.available_seats if active_trip else total_seats
         occupied = total_seats - max(0, avail_seats)
-        pct = int((occupied / total_seats) * 100) if total_seats > 0 else 50
+        pct = int((occupied / total_seats) * 100) if total_seats > 0 else 0
 
-        bus_label = bus.bus_code if bus else ("Bus CROUS #402" if key == "LIGNE_A" else "Bus CROUS #218" if key == "LIGNE_B" else "Bus CROUS #301" if key == "LIGNE_PORTO_NOVO" else "Bus CROUS #305")
+        bus_label = f"Bus CROUS #{bus.bus_code.split('-')[-1]}" if (bus and bus.bus_code) else "Bus CROUS"
         origin_n = r.origin_stop.stop_name if r.origin_stop else "Campus UAC Calavi"
         dest_n = r.destination_stop.stop_name if r.destination_stop else "Cotonou Centre"
 
-        # Generate realistic dynamic intermediate stops between origin and destination
-        if "Porto-Novo" in r.route_name:
-            stops = [
-                {"id": "p1", "name": "Campus UAC Calavi (Terminus)", "status": "passed", "time": "07:00"},
-                {"id": "p2", "name": "Carrefour Le Bélier", "status": "passed", "time": "07:20"},
-                {"id": "p3", "name": "PK 10 Route Porto-Novo", "status": "current", "time": "07:45", "etaMinutes": 8},
-                {"id": "p4", "name": "Gare Routière Ouando", "status": "upcoming", "time": "08:05", "etaMinutes": 20},
-                {"id": "p5", "name": "Porto-Novo Gare (Terminus)", "status": "upcoming", "time": "08:25", "etaMinutes": 40},
-            ]
-            current_loc = "PK 10 Route de Porto-Novo"
-            next_stop = "Gare Routière Ouando"
-            speed_val = "55 km/h"
-        elif "Godomey" in r.route_name:
-            stops = [
-                {"id": "b1", "name": "Campus UAC Calavi (Terminus)", "status": "passed", "time": "08:00"},
-                {"id": "b2", "name": "Carrefour KPOTA", "status": "passed", "time": "08:08"},
-                {"id": "b3", "name": "Marché Godomey", "status": "current", "time": "08:14", "etaMinutes": 5},
-                {"id": "b4", "name": "Échangeur Godomey (Terminus)", "status": "upcoming", "time": "08:22", "etaMinutes": 12},
-            ]
-            current_loc = "Carrefour KPOTA"
-            next_stop = "Marché Godomey"
-            speed_val = "35 km/h"
-        elif "Akpakpa" in r.route_name:
-            stops = [
-                {"id": "c1", "name": "Campus UAC Calavi (Terminus)", "status": "passed", "time": "07:15"},
-                {"id": "c2", "name": "Carrefour Vêdoko", "status": "passed", "time": "07:32"},
-                {"id": "c3", "name": "Carrefour Toyota", "status": "current", "time": "07:38", "etaMinutes": 4},
-                {"id": "c4", "name": "Dantokpa Grand Marché", "status": "upcoming", "time": "07:46", "etaMinutes": 12},
-                {"id": "c5", "name": "Akpakpa Sacré-Cœur (Terminus)", "status": "upcoming", "time": "07:55", "etaMinutes": 21},
-            ]
-            current_loc = "Carrefour Vêdoko"
-            next_stop = "Carrefour Toyota"
-            speed_val = "48 km/h"
-        else:
-            stops = [
-                {"id": "s1", "name": "Campus UAC Calavi (Terminus)", "status": "passed", "time": "07:35"},
-                {"id": "s2", "name": "Carrefour IITA", "status": "passed", "time": "07:42"},
-                {"id": "s3", "name": "Échangeur Godomey", "status": "current", "time": "07:48", "etaMinutes": 3, "connection": "Ligne B"},
-                {"id": "s4", "name": "Stade Général Mathieu Kérékou", "status": "upcoming", "time": "07:56", "etaMinutes": 11},
-                {"id": "s5", "name": "Place Bulgarie", "status": "upcoming", "time": "08:03", "etaMinutes": 18},
-                {"id": "s6", "name": "Cotonou Étoile Rouge (Terminus)", "status": "upcoming", "time": "08:12", "etaMinutes": 27},
-            ]
-            current_loc = "Entre IITA et Godomey"
-            next_stop = "Échangeur Godomey"
-            speed_val = "42 km/h"
+        # Latest GPS telemetry from driver / bus in PostgreSQL
+        speed_val = "40 km/h"
+        if active_trip:
+            latest_gps_q = await db.execute(
+                select(GpsLogs)
+                .where(GpsLogs.trip_id == active_trip.trip_id)
+                .order_by(GpsLogs.recorded_at.desc())
+                .limit(1)
+            )
+            latest_gps = latest_gps_q.scalars().first()
+            if latest_gps and latest_gps.speed_kmh:
+                speed_val = f"{int(latest_gps.speed_kmh)} km/h"
+
+        # Dynamically build stops from RouteStops table in PostgreSQL
+        stops_list = []
+        current_loc = origin_n
+        next_stop = dest_n
+        next_stop_eta = "5 min"
+
+        dep_base = active_trip.departure_time if (active_trip and active_trip.departure_time) else now
+        sorted_route_stops = sorted(r.route_stops, key=lambda x: x.stop_order) if r.route_stops else []
+
+        if sorted_route_stops:
+            total_stops = len(sorted_route_stops)
+            current_idx = max(0, min(total_stops - 1, total_stops // 2))
+
+            for i, rs in enumerate(sorted_route_stops):
+                stop_time = (dep_base + timedelta(minutes=rs.estimated_minutes_from_origin)).strftime("%H:%M")
+                if i < current_idx:
+                    st_status = "passed"
+                    eta_mins = None
+                elif i == current_idx:
+                    st_status = "current"
+                    eta_mins = max(1, rs.estimated_minutes_from_origin // 3)
+                    current_loc = rs.stop.stop_name
+                    if i + 1 < total_stops:
+                        next_stop = sorted_route_stops[i + 1].stop.stop_name
+                        next_stop_eta = f"{max(2, sorted_route_stops[i + 1].estimated_minutes_from_origin - rs.estimated_minutes_from_origin)} min"
+                else:
+                    st_status = "upcoming"
+                    eta_mins = max(2, rs.estimated_minutes_from_origin - sorted_route_stops[current_idx].estimated_minutes_from_origin)
+
+                stop_dict = {
+                    "id": str(rs.stop.stop_id)[:8],
+                    "name": f"{rs.stop.stop_name} (Terminus)" if (i == 0 or i == total_stops - 1) else rs.stop.stop_name,
+                    "status": st_status,
+                    "time": stop_time,
+                }
+                if eta_mins is not None:
+                    stop_dict["etaMinutes"] = eta_mins
+                if rs.connection_label:
+                    stop_dict["connection"] = rs.connection_label
+
+                stops_list.append(stop_dict)
 
         line_configs[key] = {
             "id": key,
@@ -376,9 +396,9 @@ async def get_live_lines(
             "speed": speed_val,
             "currentLocation": current_loc,
             "nextStop": next_stop,
-            "nextStopEta": "3 min" if key == "LIGNE_A" else "5 min" if key == "LIGNE_B" else "8 min",
+            "nextStopEta": next_stop_eta,
             "totalEta": f"{r.estimated_duration_minutes} min",
-            "stops": stops
+            "stops": stops_list
         }
 
     return line_configs

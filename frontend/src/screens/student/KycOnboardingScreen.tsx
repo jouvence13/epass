@@ -106,20 +106,21 @@ export default function KycOnboardingScreen({ navigation }: any) {
       };
       input.click();
     } else {
-      // Fallback démonstration avec image SVG / Canvas de test
-      const sampleImg = 'https://images.unsplash.com/photo-1544717305-2782549b5136?w=400';
+      // Fallback document interactif pour mobile
+      const placeholderData = docType === 'STUDENT_CARD' ? 'carte_etudiant_uac.jpg' : 'cip_identite_uac.jpg';
+      const sampleImg = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="200" viewBox="0 0 300 200"><rect width="300" height="200" fill="%231a56db" rx="12"/><text x="150" y="90" fill="white" font-size="16" font-family="sans-serif" text-anchor="middle" font-weight="bold">UNIVERSITÉ D\'ABOMEY-CALAVI</text><text x="150" y="125" fill="%2393c5fd" font-size="13" font-family="sans-serif" text-anchor="middle">JUSTIFICATIF OFFICIEL CROUS</text></svg>';
       if (docType === 'STUDENT_CARD') {
         setStudentCardPreview(sampleImg);
         setStudentCardFile({
           uri: sampleImg,
-          name: 'carte_etudiant.jpg',
+          name: placeholderData,
           type: 'image/jpeg',
         });
       } else {
         setIdentityPreview(sampleImg);
         setIdentityFile({
           uri: sampleImg,
-          name: 'cip_identite.jpg',
+          name: placeholderData,
           type: 'image/jpeg',
         });
       }

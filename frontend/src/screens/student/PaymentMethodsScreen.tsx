@@ -38,73 +38,40 @@ interface RechargeHistory {
   date: string;
 }
 
+import { ENDPOINTS } from '../../config/api';
+
 export default function PaymentMethodsScreen({ navigation }: any) {
   const { user, walletBalance, operatorPhoneNumbers, rechargeWallet, updateOperatorPhone } = useAuth();
   const { showToast } = useNotifications();
 
   const [methods, setMethods] = useState<PaymentMethod[]>([]);
+  const [rechargeHistory, setRechargeHistory] = useState<RechargeHistory[]>([]);
+  const [isLoadingData, setIsLoadingData] = useState(true);
+
+  const fetchPaymentData = async () => {
+    try {
+      const [methodsRes, histRes] = await Promise.all([
+        fetch(ENDPOINTS.PAYMENT_METHODS, { credentials: 'include' }),
+        fetch(ENDPOINTS.PAYMENT_HISTORY, { credentials: 'include' }),
+      ]);
+      if (methodsRes.ok) {
+        const data = await methodsRes.json();
+        setMethods(data);
+      }
+      if (histRes.ok) {
+        const data = await histRes.json();
+        setRechargeHistory(data);
+      }
+    } catch (e) {
+      console.warn('Error fetching payment data:', e);
+    } finally {
+      setIsLoadingData(false);
+    }
+  };
 
   useEffect(() => {
-    setMethods([
-      {
-        id: '1',
-        type: 'MTN_MOMO',
-        title: 'MTN Mobile Money',
-        account: operatorPhoneNumbers.MTN || '+2290157774305',
-        isDefault: true,
-        color: '#fbbf24',
-        icon: 'phone-android',
-        code: '*880#',
-      },
-      {
-        id: '2',
-        type: 'MOOV_MONEY',
-        title: 'Moov Money Flooz',
-        account: operatorPhoneNumbers.MOOV || '+2290199134633',
-        isDefault: false,
-        color: '#0284c7',
-        icon: 'contactless',
-        code: '*855#',
-      },
-      {
-        id: '3',
-        type: 'CELTIIS_CASH',
-        title: 'Celtiis Cash Bénin',
-        account: operatorPhoneNumbers.CELTIIS || '+2290143272822',
-        isDefault: false,
-        color: '#0070ba',
-        icon: 'smartphone',
-        code: '*888#',
-      },
-      {
-        id: '4',
-        type: 'CROUS_WALLET',
-        title: 'Portefeuille Étudiant CROUS',
-        account: `Solde disponible : ${walletBalance.toLocaleString('fr-FR')} FCFA`,
-        isDefault: false,
-        color: colors.primary,
-        icon: 'account-balance-wallet',
-        code: 'Subvention CROUS',
-      },
-    ]);
+    fetchPaymentData();
   }, [operatorPhoneNumbers, walletBalance]);
-
-  const [rechargeHistory, setRechargeHistory] = useState<RechargeHistory[]>([
-    {
-      id: 'r1',
-      amount: 2000,
-      operator: 'MTN Mobile Money',
-      phone: '+2290157774305',
-      date: 'Hier, 14:20',
-    },
-    {
-      id: 'r2',
-      amount: 1000,
-      operator: 'Celtiis Cash',
-      phone: '+2290143272822',
-      date: '02 Sept, 09:15',
-    },
-  ]);
 
   // Modal d'ajout ou d'édition de compte Mobile Money
   const [modalVisible, setModalVisible] = useState(false);
@@ -205,21 +172,30 @@ export default function PaymentMethodsScreen({ navigation }: any) {
     const cleanRechargePhone = rechargePhone.replace(/\s+/g, '').trim();
     const formattedPhone = cleanRechargePhone.startsWith('+229') ? cleanRechargePhone : `+229${cleanRechargePhone}`;
 
-    setTimeout(() => {
+    setTimeout(async () => {
       setIsProcessingUssd(false);
       setUssdPromptVisible(false);
 
       rechargeWallet(amount, opName, formattedPhone);
 
-      // Ajoute à l'historique
-      const newHist: RechargeHistory = {
-        id: Date.now().toString(),
-        amount,
-        operator: opName,
-        phone: formattedPhone,
-        date: "À l'instant",
-      };
-      setRechargeHistory((prev) => [newHist, ...prev]);
+      try {
+        const rechargeRes = await fetch(ENDPOINTS.WALLET_RECHARGE, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            amount: amount,
+            operator: opName,
+            phone_number: formattedPhone,
+          }),
+        });
+        if (rechargeRes.ok) {
+          const histItem = await rechargeRes.json();
+          setRechargeHistory((prev) => [histItem, ...prev]);
+        }
+      } catch (err) {
+        console.warn('Error saving recharge to backend:', err);
+      }
 
       const newBal = walletBalance + amount;
       showToast({

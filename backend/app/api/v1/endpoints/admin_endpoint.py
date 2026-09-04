@@ -4,14 +4,13 @@ from typing import List, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, or_
-from geoalchemy2.functions import ST_X, ST_Y
 
 from app.core.database import get_async_db
 from app.core.security import hash_password
 from app.models.user_model import Users, UserRoleEnum, KycStatusEnum
 from app.models.fleet_model import Buses, Stops, Routes, BusStatusEnum
-from app.models.trip_model import Trips, TripStatusEnum, GpsLogs
-from app.models.payment_model import Payments, PaymentStatusEnum, PaymentGatewayEnum
+from app.models.trip_model import Trips, TripStatusEnum
+from app.models.payment_model import Payments, PaymentStatusEnum
 from app.models.ticket_model import Tickets, TicketStatusEnum
 from app.schemas.user_schema import AdminCreateUserSchema, UserProfileSchema
 from app.schemas.fleet_schema import (
@@ -181,171 +180,6 @@ async def schedule_trip(
     await db.commit()
     await db.refresh(trip)
     return trip
-
-
-# ==============================================================================
-# Demo Data Seeder (Initialise toutes les entités requises par le Frontend)
-# ==============================================================================
-
-@router.post("/seed-demo-data", status_code=status.HTTP_200_OK)
-async def seed_demo_data(
-    db: AsyncSession = Depends(get_async_db)
-) -> Dict[str, Any]:
-    """
-    Seed Demo Data Endpoint:
-    Populates the database with realistic test records matching the mobile app screens:
-    - Stops: Calavi Campus, Science Block, Godomey, Cotonou Centre
-    - Route: Campus Express Route 4 (250 FCFA)
-    - Bus: Bus #402 (BUS-UAC-01)
-    - Trips: 07:30 (32 seats available), 08:15 (0 seats - Full)
-    - Students: Koffi Alain (active ticket A7B9-X2M4), Sena Dossou, Aminata Sylla, Marius Adjovi
-    - Driver: Chauffeur UAC
-    """
-    now = datetime.now(timezone.utc)
-
-    # 1. Stops
-    stops_data = [
-        ("Calavi Campus", 6.4474, 2.3557),
-        ("Science Block", 6.4420, 2.3600),
-        ("Godomey", 6.4000, 2.3400),
-        ("Cotonou Centre", 6.3703, 2.4174)
-    ]
-    stops_map = {}
-    for name, lat, lon in stops_data:
-        existing = (await db.execute(select(Stops).where(Stops.stop_name == name))).scalars().first()
-        if not existing:
-            existing = Stops(
-                stop_name=name,
-                geolocation=func.ST_SetSRID(func.ST_MakePoint(lon, lat), 4326)
-            )
-            db.add(existing)
-            await db.flush()
-        stops_map[name] = existing
-
-    # 2. Driver & Students
-    driver = (await db.execute(select(Users).where(Users.phone_number == "+22997000001"))).scalars().first()
-    if not driver:
-        driver = Users(
-            matricule_uac="DRV-2024-001",
-            phone_number="+22997000001",
-            first_name="Chauffeur",
-            last_name="CROUS",
-            password_hash=hash_password("Driver1234"),
-            role=UserRoleEnum.DRIVER,
-            kyc_status=KycStatusEnum.APPROVED,
-            is_active=True
-        )
-        db.add(driver)
-        await db.flush()
-
-    students_data = [
-        ("Koffi", "Alain", "UAC-2022-8492", "+22997001122"),
-        ("Sena", "Dossou", "UAC-2021-3310", "+22995443322"),
-        ("Aminata", "Sylla", "UAC-2023-1102", "+22961229988"),
-        ("Marius", "Adjovi", "UAC-2020-5521", "+22966123456")
-    ]
-    students_map = {}
-    for fn, ln, mat, phone in students_data:
-        st = (await db.execute(select(Users).where(Users.phone_number == phone))).scalars().first()
-        if not st:
-            st = Users(
-                matricule_uac=mat,
-                phone_number=phone,
-                first_name=fn,
-                last_name=ln,
-                password_hash=hash_password("Student1234"),
-                role=UserRoleEnum.STUDENT,
-                kyc_status=KycStatusEnum.APPROVED,
-                last_kyc_verification_date=now,
-                next_kyc_due_date=now + timedelta(days=90),
-                is_active=True
-            )
-            db.add(st)
-            await db.flush()
-        students_map[phone] = st
-
-    # 3. Route & Bus
-    route = (await db.execute(select(Routes).where(Routes.route_name == "Campus Express Route 4"))).scalars().first()
-    if not route:
-        route = Routes(
-            route_name="Campus Express Route 4",
-            origin_stop_id=stops_map["Calavi Campus"].stop_id,
-            destination_stop_id=stops_map["Cotonou Centre"].stop_id,
-            base_price=250.00,
-            estimated_duration_minutes=35,
-            is_active=True
-        )
-        db.add(route)
-        await db.flush()
-
-    bus = (await db.execute(select(Buses).where(Buses.bus_code == "BUS-UAC-01"))).scalars().first()
-    if not bus:
-        bus = Buses(
-            immatriculation_number="RB-4412-UAC",
-            bus_code="BUS-UAC-01",
-            max_capacity=50,
-            status=BusStatusEnum.OPERATIONAL,
-            current_driver_id=driver.user_id
-        )
-        db.add(bus)
-        await db.flush()
-
-    # 4. Scheduled Trips
-    trip_730 = (await db.execute(select(Trips).where(Trips.route_id == route.route_id))).scalars().first()
-    if not trip_730:
-        trip_730 = Trips(
-            route_id=route.route_id,
-            bus_id=bus.bus_id,
-            driver_id=driver.user_id,
-            departure_time=now + timedelta(hours=1),
-            estimated_arrival_time=now + timedelta(hours=1, minutes=35),
-            status=TripStatusEnum.SCHEDULED,
-            total_seats=50,
-            available_seats=32,
-            delay_minutes=15,
-            delay_reason="Due to heavy traffic near the central campus roundabout."
-        )
-        db.add(trip_730)
-        await db.flush()
-
-    # 5. Tickets with exact frontend codes
-    koffi = students_map["+22997001122"]
-    existing_tk = (await db.execute(select(Tickets).where(Tickets.user_id == koffi.user_id))).scalars().first()
-    if not existing_tk:
-        pay = Payments(
-            user_id=koffi.user_id,
-            transaction_reference=f"PAY-{uuid.uuid4().hex[:8].upper()}",
-            gateway=PaymentGatewayEnum.FEDAPAY,
-            amount=250.00,
-            phone_number=koffi.phone_number,
-            status=PaymentStatusEnum.SUCCESSFUL
-        )
-        db.add(pay)
-        await db.flush()
-
-        tk = Tickets(
-            user_id=koffi.user_id,
-            trip_id=trip_730.trip_id,
-            payment_id=pay.payment_id,
-            qr_code_token="CROUS-UAC-TICKET-A7B9X2M4",
-            sms_backup_code="A7B9X2M4",
-            status=TicketStatusEnum.ISSUED,
-            recycle_count=0,
-            initial_expiration_date=trip_730.departure_time,
-            final_expiration_date=trip_730.departure_time + timedelta(days=6)
-        )
-        db.add(tk)
-
-    await db.commit()
-
-    return {
-        "status": "success",
-        "message": "Données de démonstration initialisées avec succès.",
-        "route": "Campus Express Route 4 (250 FCFA)",
-        "trip_id": trip_730.trip_id,
-        "koffi_phone": "+22997001122",
-        "driver_phone": "+22997000001"
-    }
 
 
 # ==============================================================================

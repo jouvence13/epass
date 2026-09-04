@@ -107,6 +107,7 @@ class Stops(Base, TimestampMixin):
         foreign_keys="Routes.destination_stop_id",
         back_populates="destination_stop"
     )
+    route_stops: Mapped[List["RouteStops"]] = relationship("RouteStops", back_populates="stop")
 
 
 class Routes(Base, TimestampMixin):
@@ -140,3 +141,39 @@ class Routes(Base, TimestampMixin):
     origin_stop: Mapped["Stops"] = relationship("Stops", foreign_keys=[origin_stop_id], back_populates="origin_routes")
     destination_stop: Mapped["Stops"] = relationship("Stops", foreign_keys=[destination_stop_id], back_populates="destination_routes")
     trips: Mapped[List["Trips"]] = relationship("Trips", back_populates="route")
+    route_stops: Mapped[List["RouteStops"]] = relationship(
+        "RouteStops",
+        back_populates="route",
+        order_by="RouteStops.stop_order",
+        cascade="all, delete-orphan"
+    )
+
+
+class RouteStops(Base, TimestampMixin):
+    __tablename__ = "route_stops"
+
+    route_stop_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4
+    )
+    route_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("routes.route_id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+    stop_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("stops.stop_id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+    stop_order: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    estimated_minutes_from_origin: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    connection_label: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+
+    # Relationships
+    route: Mapped["Routes"] = relationship("Routes", back_populates="route_stops")
+    stop: Mapped["Stops"] = relationship("Stops", back_populates="route_stops")
+

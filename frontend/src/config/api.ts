@@ -30,6 +30,15 @@ export const ENDPOINTS = {
   UPLOAD_KYC: `${API_V1_URL}/kyc/upload`,
   MY_DOCUMENTS: `${API_V1_URL}/kyc/my-documents`,
 
+  // Notifications
+  NOTIFICATIONS: `${API_V1_URL}/notifications/my-notifications`,
+  MARK_NOTIFICATIONS_READ: `${API_V1_URL}/notifications/mark-all-read`,
+
+  // Paiements & Portefeuille
+  PAYMENT_METHODS: `${API_V1_URL}/payments/methods`,
+  PAYMENT_HISTORY: `${API_V1_URL}/payments/history`,
+  WALLET_RECHARGE: `${API_V1_URL}/payments/wallet/recharge`,
+
   // Trajets & Billetterie Étudiant
   AVAILABLE_TRIPS: `${API_V1_URL}/trips/available`,
   LIVE_LINES: `${API_V1_URL}/trips/live-lines`,

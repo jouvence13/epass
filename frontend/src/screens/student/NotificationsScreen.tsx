@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   Pressable,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -12,6 +13,7 @@ import Card from '../../components/Card';
 import Badge from '../../components/Badge';
 import { colors, radius, spacing, typography } from '../../theme/theme';
 import { useAuth } from '../../context/AuthContext';
+import { ENDPOINTS } from '../../config/api';
 
 interface NotificationItem {
   id: string;
@@ -27,55 +29,39 @@ interface NotificationItem {
 export default function NotificationsScreen({ navigation }: any) {
   const { user } = useAuth();
   const [filter, setFilter] = useState<'ALL' | 'TRAFFIC' | 'KYC' | 'PAYMENT'>('ALL');
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const [notifications, setNotifications] = useState<NotificationItem[]>([
-    {
-      id: '1',
-      category: 'KYC',
-      title: user?.kyc_status === 'APPROVED' ? 'Dossier KYC Validé' : 'Dossier KYC en examen',
-      message:
-        user?.kyc_status === 'APPROVED'
-          ? 'Félicitations ! Vos pièces justificatives ont été vérifiées par le CROUS. Vous bénéficiez du tarif subventionné.'
-          : 'Vos justificatifs académiques ont bien été reçus et sont en cours de vérification par les équipes CROUS.',
-      time: 'Il y a 10 min',
-      read: false,
-      icon: 'verified',
-      tone: user?.kyc_status === 'APPROVED' ? 'success' : 'warning',
-    },
-    {
-      id: '2',
-      category: 'TRAFFIC',
-      title: 'Trafic Fluide - Ligne Campus Express',
-      message: 'Les bus circulent normalement sur l\'axe Campus Abomey-Calavi ↔ Étoile Rouge Cotonou.',
-      time: 'Il y a 1h',
-      read: false,
-      icon: 'directions-bus',
-      tone: 'info',
-    },
-    {
-      id: '3',
-      category: 'PAYMENT',
-      title: 'Achat de Pass Campus Validé',
-      message: 'Votre ticket A7B9-X2M4 a été débité de votre compte MTN MoMo (100 FCFA).',
-      time: 'Hier, 18:30',
-      read: true,
-      icon: 'receipt',
-      tone: 'success',
-    },
-    {
-      id: '4',
-      category: 'SCHEDULE',
-      title: 'Horaires de Soirée Renforcés',
-      message: 'Des rotations supplémentaires sont assurées jusqu\'à 21h30 du lundi au vendredi.',
-      time: 'Il y a 2 jours',
-      read: true,
-      icon: 'schedule',
-      tone: 'neutral',
-    },
-  ]);
+  const fetchNotifications = async () => {
+    try {
+      const res = await fetch(ENDPOINTS.NOTIFICATIONS, {
+        credentials: 'include',
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setNotifications(data);
+      }
+    } catch (e) {
+      console.warn('Error fetching notifications:', e);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-  const markAllAsRead = () => {
+  useEffect(() => {
+    fetchNotifications();
+  }, []);
+
+  const markAllAsRead = async () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    try {
+      await fetch(ENDPOINTS.MARK_NOTIFICATIONS_READ, {
+        method: 'POST',
+        credentials: 'include',
+      });
+    } catch (e) {
+      console.warn('Error marking notifications as read:', e);
+    }
   };
 
   const filteredList = notifications.filter((n) => {
