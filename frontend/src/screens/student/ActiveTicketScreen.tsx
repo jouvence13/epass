@@ -43,94 +43,38 @@ interface BusLineConfig {
   stops: RouteStop[];
 }
 
-const BUS_LINES: Record<string, BusLineConfig> = {
-  LIGNE_A: {
-    id: 'LIGNE_A',
-    name: 'Campus Express',
-    code: 'Ligne A (Calavi ↔ Cotonou)',
-    busNumber: 'Bus CROUS #402',
-    occupancy: '32/50 places (64%)',
-    speed: '42 km/h',
-    currentLocation: 'Entre IITA et Godomey',
-    nextStop: 'Échangeur Godomey',
-    nextStopEta: '3 min',
-    totalEta: '18 min',
-    stops: [
-      { id: 's1', name: 'Campus UAC Calavi (Terminus)', status: 'passed', time: '07:35' },
-      { id: 's2', name: 'Carrefour IITA', status: 'passed', time: '07:42' },
-      { id: 's3', name: 'Échangeur Godomey', status: 'current', time: '07:48', etaMinutes: 3, connection: 'Ligne B' },
-      { id: 's4', name: 'Stade Général Mathieu Kérékou', status: 'upcoming', time: '07:56', etaMinutes: 11 },
-      { id: 's5', name: 'Place Bulgarie', status: 'upcoming', time: '08:03', etaMinutes: 18 },
-      { id: 's6', name: 'Cotonou Étoile Rouge (Terminus)', status: 'upcoming', time: '08:12', etaMinutes: 27 },
-    ],
-  },
-  LIGNE_B: {
-    id: 'LIGNE_B',
-    name: 'Navette Godomey',
-    code: 'Ligne B (Calavi ↔ Godomey)',
-    busNumber: 'Bus CROUS #218',
-    occupancy: '44/50 places (88%)',
-    speed: '35 km/h',
-    currentLocation: 'Carrefour KPOTA',
-    nextStop: 'Marché Godomey',
-    nextStopEta: '5 min',
-    totalEta: '12 min',
-    stops: [
-      { id: 'b1', name: 'Campus UAC Calavi', status: 'passed', time: '08:00' },
-      { id: 'b2', name: 'Carrefour KPOTA', status: 'passed', time: '08:08' },
-      { id: 'b3', name: 'Marché Godomey', status: 'current', time: '08:14', etaMinutes: 5 },
-      { id: 'b4', name: 'Échangeur Godomey (Terminus)', status: 'upcoming', time: '08:22', etaMinutes: 12 },
-    ],
-  },
-  LIGNE_C: {
-    id: 'LIGNE_C',
-    name: 'Trans-Lagune',
-    code: 'Ligne C (Calavi ↔ Akpakpa)',
-    busNumber: 'Bus CROUS #305',
-    occupancy: '28/50 places (56%)',
-    speed: '48 km/h',
-    currentLocation: 'Carrefour Vêdoko',
-    nextStop: 'Carrefour Toyota',
-    nextStopEta: '4 min',
-    totalEta: '22 min',
-    stops: [
-      { id: 'c1', name: 'Campus UAC Calavi', status: 'passed', time: '07:15' },
-      { id: 'c2', name: 'Carrefour Vêdoko', status: 'passed', time: '07:32' },
-      { id: 'c3', name: 'Carrefour Toyota', status: 'current', time: '07:38', etaMinutes: 4 },
-      { id: 'c4', name: 'Dantokpa Grand Marché', status: 'upcoming', time: '07:46', etaMinutes: 12 },
-      { id: 'c5', name: 'Akpakpa Sacré-Cœur (Terminus)', status: 'upcoming', time: '07:55', etaMinutes: 21 },
-    ],
-  },
-  LIGNE_PORTO_NOVO: {
-    id: 'LIGNE_PORTO_NOVO',
-    name: 'Inter-Villes Porto-Novo',
-    code: 'Ligne Calavi - Porto-Novo',
-    busNumber: 'Bus CROUS #301',
-    occupancy: '22/30 places (73%)',
-    speed: '55 km/h',
-    currentLocation: 'PK 10 Route de Porto-Novo',
-    nextStop: 'Gare Routière Ouando',
-    nextStopEta: '8 min',
-    totalEta: '35 min',
-    stops: [
-      { id: 'p1', name: 'Campus UAC Calavi', status: 'passed', time: '07:00' },
-      { id: 'p2', name: 'Carrefour Le Bélier', status: 'passed', time: '07:20' },
-      { id: 'p3', name: 'PK 10 Route Porto-Novo', status: 'current', time: '07:45', etaMinutes: 8 },
-      { id: 'p4', name: 'Gare Routière Ouando', status: 'upcoming', time: '08:05', etaMinutes: 20 },
-      { id: 'p5', name: 'Porto-Novo Gare (Terminus)', status: 'upcoming', time: '08:25', etaMinutes: 40 },
-    ],
-  },
-};
-
 export default function ActiveTicketScreen() {
   const { user, tickets, activeTicket, setActiveTicket, busSlots, recycleTicket } = useAuth();
   const { showToast } = useNotifications();
+
+  // Lignes et arrêts de bus dynamiques chargés depuis le Backend API
+  const [busLines, setBusLines] = useState<Record<string, BusLineConfig>>({});
+
+  useEffect(() => {
+    const fetchLiveLines = async () => {
+      try {
+        const res = await fetch(ENDPOINTS.LIVE_LINES, {
+          credentials: 'include',
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data && typeof data === 'object' && Object.keys(data).length > 0) {
+            setBusLines(data);
+          }
+        }
+      } catch (e) {
+        console.warn('Live lines fetch error:', e);
+      }
+    };
+
+    fetchLiveLines();
+  }, []);
 
   // Billets actifs de l'étudiant
   const userActiveTickets = tickets.filter((t) => t.status === 'ACTIVE');
 
   // Déterminer la ligne associée à un billet
-  const getLineKeyForTicket = (t?: StudentTicket | null): 'LIGNE_A' | 'LIGNE_B' | 'LIGNE_C' | 'LIGNE_PORTO_NOVO' => {
+  const getLineKeyForTicket = (t?: StudentTicket | null): string => {
     if (!t) return 'LIGNE_A';
     const text = `${t.line || ''} ${t.route || ''}`.toLowerCase();
     if (text.includes('porto-novo') || text.includes('porto novo')) return 'LIGNE_PORTO_NOVO';
@@ -139,7 +83,7 @@ export default function ActiveTicketScreen() {
     return 'LIGNE_A';
   };
 
-  const [selectedLineKey, setSelectedLineKey] = useState<'LIGNE_A' | 'LIGNE_B' | 'LIGNE_C' | 'LIGNE_PORTO_NOVO'>(
+  const [selectedLineKey, setSelectedLineKey] = useState<string>(
     getLineKeyForTicket(activeTicket)
   );
 
@@ -153,16 +97,28 @@ export default function ActiveTicketScreen() {
   // Ensemble des lignes pour lesquelles l'étudiant possède un billet actif
   const myActiveLineKeys = Array.from(
     new Set(userActiveTickets.map((t) => getLineKeyForTicket(t)))
-  ) as ('LIGNE_A' | 'LIGNE_B' | 'LIGNE_C' | 'LIGNE_PORTO_NOVO')[];
+  );
 
-  const availableLineKeys = myActiveLineKeys.length > 0 ? myActiveLineKeys : (['LIGNE_A'] as ('LIGNE_A' | 'LIGNE_B' | 'LIGNE_C' | 'LIGNE_PORTO_NOVO')[]);
+  const availableLineKeys = myActiveLineKeys.length > 0 ? myActiveLineKeys : ['LIGNE_A'];
 
   // État du Modal de Recyclage
   const [recycleModalVisible, setRecycleModalVisible] = useState(false);
   const [selectedTargetSlotId, setSelectedTargetSlotId] = useState<string>('slot-2');
   const [isRecycling, setIsRecycling] = useState(false);
 
-  const activeLine = BUS_LINES[selectedLineKey] || BUS_LINES['LIGNE_A'];
+  const activeLine: BusLineConfig = busLines[selectedLineKey] || Object.values(busLines)[0] || {
+    id: selectedLineKey,
+    name: 'Campus Express',
+    code: 'Ligne Campus',
+    busNumber: 'Bus CROUS',
+    occupancy: 'Places disponibles',
+    speed: '40 km/h',
+    currentLocation: 'Campus Calavi',
+    nextStop: 'Prochain Arrêt',
+    nextStopEta: '5 min',
+    totalEta: '20 min',
+    stops: [],
+  };
 
   // Animations
   const pulse = useRef(new Animated.Value(0)).current;

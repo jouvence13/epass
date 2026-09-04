@@ -32,6 +32,7 @@ export const ENDPOINTS = {
 
   // Trajets & Billetterie Étudiant
   AVAILABLE_TRIPS: `${API_V1_URL}/trips/available`,
+  LIVE_LINES: `${API_V1_URL}/trips/live-lines`,
   ACTIVE_TICKET: `${API_V1_URL}/trips/student/active-ticket`,
   TICKET_HISTORY: `${API_V1_URL}/trips/student/history`,
   BOOK_TRIP: (tripId: string) => `${API_V1_URL}/trips/${tripId}/book`,
