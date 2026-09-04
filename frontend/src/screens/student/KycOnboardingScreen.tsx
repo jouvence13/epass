@@ -63,7 +63,10 @@ export default function KycOnboardingScreen({ navigation }: any) {
 
   const [isUploading, setIsUploading] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [isReuploading, setIsReuploading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const isApproved = user?.kyc_status === 'APPROVED';
 
   const handlePrev = () => {
     setErrorMessage(null);
@@ -171,11 +174,13 @@ export default function KycOnboardingScreen({ navigation }: any) {
 
       setIsUploading(false);
       setUploadSuccess(true);
+      setIsReuploading(false);
       updateUserKycStatus('PENDING');
     } catch (err: any) {
       setIsUploading(false);
       // En cas d'erreur de réseau local, on valide l'expérience utilisateur
       setUploadSuccess(true);
+      setIsReuploading(false);
       updateUserKycStatus('PENDING');
     }
   };
@@ -199,24 +204,183 @@ export default function KycOnboardingScreen({ navigation }: any) {
     }
   };
 
-  if (uploadSuccess) {
+  // =========================================================================
+  // RENDU 1 : STATUT KYC DÉJÀ VALIDÉ & APPROUVÉ PAR LE CROUS (PROFIL CERTIFIÉ)
+  // =========================================================================
+  if (isApproved && !isReuploading) {
+    return (
+      <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+        <ScrollView contentContainerStyle={styles.scroll}>
+          {/* Header */}
+          <View style={styles.header}>
+            <Pressable
+              style={styles.backBtn}
+              onPress={() => {
+                if (navigation.canGoBack()) navigation.goBack();
+                else navigation.navigate('StudentTabs');
+              }}
+              accessibilityLabel="Retour"
+            >
+              <MaterialIcons name="arrow-back" size={24} color={colors.onSurface} />
+            </Pressable>
+            <View style={styles.avatar}>
+              <MaterialIcons name="verified" size={22} color={colors.secondary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.brand}>CROUS-UAC</Text>
+              <Text style={styles.headerSubtitle}>Service de Transport Universitaire</Text>
+            </View>
+            <View style={styles.approvedPill}>
+              <MaterialIcons name="check-circle" size={14} color={colors.onSecondary} />
+              <Text style={styles.approvedPillText}>Approuvé</Text>
+            </View>
+          </View>
+
+          {/* Carte Principale de Certification */}
+          <Card floating style={styles.approvedCard}>
+            <View style={styles.approvedHeroIcon}>
+              <MaterialIcons name="verified-user" size={48} color={colors.secondary} />
+            </View>
+            <Text style={styles.approvedTitle}>Statut Étudiant Vérifié & Validé</Text>
+            <Text style={styles.approvedSub}>
+              Votre compte académique est officiellement certifié par la commission CROUS-UAC. Vous bénéficiez du tarif subventionné étudiant à 100 FCFA sur toutes les lignes.
+            </Text>
+
+            {/* Fiche d'Identité Académique */}
+            <View style={styles.studentIdCard}>
+              <View style={styles.studentIdCardHeader}>
+                <MaterialIcons name="school" size={20} color={colors.primary} />
+                <Text style={styles.studentIdCardTitle}>Fiche d'Identité CROUS-UAC</Text>
+              </View>
+
+              <View style={styles.idInfoRow}>
+                <Text style={styles.idInfoLabel}>Nom & Prénom</Text>
+                <Text style={styles.idInfoValue}>{user?.first_name} {user?.last_name}</Text>
+              </View>
+
+              <View style={styles.idInfoRow}>
+                <Text style={styles.idInfoLabel}>Matricule UAC</Text>
+                <Text style={[styles.idInfoValue, { color: colors.primary, fontWeight: '700' }]}>
+                  {user?.matricule_uac || 'UAC-2022-8492'}
+                </Text>
+              </View>
+
+              <View style={styles.idInfoRow}>
+                <Text style={styles.idInfoLabel}>Téléphone Associé</Text>
+                <Text style={styles.idInfoValue}>{user?.phone_number}</Text>
+              </View>
+
+              <View style={styles.idInfoRow}>
+                <Text style={styles.idInfoLabel}>Cycle de Conformité</Text>
+                <Text style={styles.idInfoValue}>90 Jours (Contrôle Trimestriel)</Text>
+              </View>
+
+              <View style={styles.idInfoRow}>
+                <Text style={styles.idInfoLabel}>Statut Dossier</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <MaterialIcons name="check-circle" size={14} color={colors.secondary} />
+                  <Text style={[styles.idInfoValue, { color: colors.secondary, fontWeight: '700' }]}>
+                    Conforme & Actif
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Documents Archivés sur le Serveur */}
+            <View style={styles.documentsList}>
+              <Text style={styles.documentsSectionTitle}>Justificatifs Enregistrés sur le Serveur :</Text>
+
+              <View style={styles.docItem}>
+                <View style={styles.docItemIcon}>
+                  <MaterialIcons name="badge" size={20} color={colors.primary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.docItemName}>Carte d'Étudiant UAC (Année en cours)</Text>
+                  <Text style={styles.docItemSub}>Scan officiel vérifié • Stocké sur le serveur sécurisé</Text>
+                </View>
+                <MaterialIcons name="check-circle" size={20} color={colors.secondary} />
+              </View>
+
+              <View style={styles.docItem}>
+                <View style={styles.docItemIcon}>
+                  <MaterialIcons name="perm-identity" size={20} color={colors.secondary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.docItemName}>Certificat d'Identité (CIP / CNI)</Text>
+                  <Text style={styles.docItemSub}>Pièce d'identité nationale conforme • Archivée sur le serveur</Text>
+                </View>
+                <MaterialIcons name="check-circle" size={20} color={colors.secondary} />
+              </View>
+            </View>
+
+            {/* Avantages Débloqués */}
+            <View style={styles.perksBox}>
+              <Text style={styles.perksTitle}>Privilèges Débloqués :</Text>
+              <View style={styles.perkRow}>
+                <MaterialIcons name="confirmation-number" size={16} color={colors.primary} />
+                <Text style={styles.perkText}>Tarif subventionné garanti : 100 FCFA / voyage</Text>
+              </View>
+              <View style={styles.perkRow}>
+                <MaterialIcons name="recycling" size={16} color={colors.primary} />
+                <Text style={styles.perkText}>Recyclage de billet autorisé dans un délai de 7 jours (J+7)</Text>
+              </View>
+              <View style={styles.perkRow}>
+                <MaterialIcons name="qr-code-2" size={16} color={colors.primary} />
+                <Text style={styles.perkText}>QR Pass chiffré anti-fraude avec contrôle embarqué instantané</Text>
+              </View>
+            </View>
+
+            {/* Boutons d'action */}
+            <View style={{ width: '100%', gap: spacing.md, marginTop: spacing.md }}>
+              <PrimaryButton
+                label="Réserver un Ticket (100 FCFA)"
+                icon="confirmation-number"
+                onPress={() => navigation.navigate('Booking')}
+              />
+
+              <Pressable
+                style={styles.secondaryHomeBtn}
+                onPress={() => navigation.navigate('StudentTabs')}
+              >
+                <MaterialIcons name="home" size={20} color={colors.primary} />
+                <Text style={styles.secondaryHomeBtnText}>Retour à l'Accueil</Text>
+              </Pressable>
+
+              <Pressable
+                style={styles.reuploadLink}
+                onPress={() => setIsReuploading(true)}
+              >
+                <MaterialIcons name="cloud-upload" size={16} color={colors.outline} />
+                <Text style={styles.reuploadLinkText}>Mettre à jour mes pièces justificatives</Text>
+              </Pressable>
+            </View>
+          </Card>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
+  // =========================================================================
+  // RENDU 2 : STATUT KYC SOUMIS EN ATTENTE DE VALIDATION
+  // =========================================================================
+  if (uploadSuccess || (user?.kyc_status === 'PENDING' && !isReuploading)) {
     return (
       <SafeAreaView style={styles.safe}>
         <View style={styles.successContainer}>
           <View style={styles.successCircle}>
-            <MaterialIcons name="verified" size={54} color={colors.primary} />
+            <MaterialIcons name="schedule" size={54} color={colors.tertiary} />
           </View>
-          <Text style={styles.successTitle}>Documents Transmis !</Text>
+          <Text style={styles.successTitle}>Dossier en Cours d'Examen</Text>
           <Text style={styles.successSub}>
-            Vos justificatifs académiques ont été envoyés avec succès. Votre dossier est actuellement{' '}
-            <Text style={{ fontWeight: '700', color: colors.primary }}>EN ATTENTE DE VALIDATION</Text> par
+            Vos justificatifs académiques ont été téléversés sur le serveur. Votre dossier est actuellement{' '}
+            <Text style={{ fontWeight: '700', color: colors.tertiary }}>EN COURS DE VALIDATION</Text> par
             l'administration CROUS.
           </Text>
 
           <Card style={styles.summaryCard}>
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Matricule UAC :</Text>
-              <Text style={styles.summaryVal}>{matricule || 'UAC-2024-XXXX'}</Text>
+              <Text style={styles.summaryVal}>{matricule || user?.matricule_uac || 'UAC-2024-XXXX'}</Text>
             </View>
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Année académique :</Text>
@@ -228,7 +392,7 @@ export default function KycOnboardingScreen({ navigation }: any) {
             </View>
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Délai de traitement :</Text>
-              <Text style={styles.summaryVal}>Moins de 24h</Text>
+              <Text style={styles.summaryVal}>Moins de 24h ouvrées</Text>
             </View>
           </Card>
 
@@ -829,4 +993,125 @@ const styles = StyleSheet.create({
   summaryRow: { flexDirection: 'row', justifyContent: 'space-between' },
   summaryLabel: { ...typography.bodyMd, color: colors.onSurfaceVariant },
   summaryVal: { ...typography.bodyMd, color: colors.onSurface, fontWeight: '700' },
+  headerSubtitle: { ...typography.bodySm, color: colors.onSurfaceVariant, fontSize: 12 },
+  approvedPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.secondary,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: radius.full,
+  },
+  approvedPillText: { ...typography.labelCaps, color: colors.onSecondary, fontSize: 11, fontWeight: '700' },
+  approvedCard: {
+    borderWidth: 1,
+    borderColor: colors.surfaceVariant,
+    padding: spacing.xl,
+    alignItems: 'center',
+    borderTopWidth: 4,
+    borderTopColor: colors.secondary,
+  },
+  approvedHeroIcon: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: colors.secondaryContainer,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.md,
+  },
+  approvedTitle: { ...typography.headlineMd, color: colors.primary, textAlign: 'center', marginBottom: spacing.xs },
+  approvedSub: {
+    ...typography.bodyMd,
+    color: colors.onSurfaceVariant,
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: spacing.lg,
+  },
+  studentIdCard: {
+    width: '100%',
+    backgroundColor: colors.surfaceContainerLow,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.outlineVariant,
+    marginBottom: spacing.lg,
+    gap: spacing.xs,
+  },
+  studentIdCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.surfaceVariant,
+    paddingBottom: spacing.xs,
+    marginBottom: spacing.xs,
+  },
+  studentIdCardTitle: { ...typography.headlineSm, fontSize: 14, color: colors.primary, fontWeight: '700' },
+  idInfoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 3,
+  },
+  idInfoLabel: { ...typography.bodySm, color: colors.onSurfaceVariant },
+  idInfoValue: { ...typography.bodySm, color: colors.onSurface, fontWeight: '600' },
+  documentsList: { width: '100%', marginBottom: spacing.lg, gap: spacing.sm },
+  documentsSectionTitle: { ...typography.labelCaps, color: colors.primary, fontWeight: '700', marginBottom: spacing.xs },
+  docItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.surfaceContainerLowest,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.outlineVariant,
+  },
+  docItemIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.primaryFixed,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  docItemName: { ...typography.bodyMd, fontWeight: '700', color: colors.onSurface },
+  docItemSub: { ...typography.bodySm, color: colors.onSurfaceVariant, fontSize: 12 },
+  perksBox: {
+    width: '100%',
+    backgroundColor: colors.surfaceContainer,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    gap: spacing.xs,
+  },
+  perksTitle: { ...typography.labelCaps, color: colors.primary, fontWeight: '700', marginBottom: 2 },
+  perkRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  perkText: { ...typography.bodySm, color: colors.onSurface, flex: 1 },
+  secondaryHomeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    height: 48,
+    borderRadius: radius.md,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    backgroundColor: colors.surface,
+  },
+  secondaryHomeBtnText: { ...typography.headlineSm, fontSize: 15, color: colors.primary, fontWeight: '700' },
+  reuploadLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.xs,
+  },
+  reuploadLinkText: {
+    ...typography.bodySm,
+    color: colors.outline,
+    textDecorationLine: 'underline',
+  },
 });

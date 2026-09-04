@@ -63,8 +63,8 @@ class Settings(BaseSettings):
     KKIAPAY_SECRET: str = "kkiapay_sample_secret"
     KKIAPAY_SANDBOX: bool = True
 
-    # Storage & Uploads
-    UPLOAD_DIR: str = "./uploads/kyc"
+    # Storage & Uploads (Stockage sécurisé sur le serveur, hors de l'arborescence du projet)
+    UPLOAD_DIR: str = os.getenv("KYC_UPLOAD_DIR", "/tmp/epass_server_uploads/kyc")
 
     # Notifications
     FIREBASE_CREDENTIALS_PATH: str = "./firebase_credentials.json"

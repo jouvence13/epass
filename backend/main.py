@@ -88,9 +88,9 @@ app.add_middleware(
     allow_headers=["*"],  # Autorise tous les en-têtes HTTP (Authorization, Content-Type...)
 )
 
-# Montage du dossier des fichiers téléversés en accès statique
-if os.path.exists(settings.UPLOAD_DIR):
-    app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+# Montage du dossier des fichiers téléversés en accès statique sur le serveur
+os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="uploads")
 
 # Inclusion des routeurs principaux
 app.include_router(api_router, prefix=settings.API_V1_PREFIX) # Routes REST : /api/v1/...
