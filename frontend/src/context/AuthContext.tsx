@@ -100,30 +100,9 @@ const formatApiError = (detail: any, defaultMsg: string): string => {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const getStoredToken = (): string | null => {
-  try {
-    if (typeof window !== 'undefined' && window.localStorage) {
-      return window.localStorage.getItem('epass_access_token');
-    }
-  } catch (e) {}
-  return null;
-};
-
-const setStoredToken = (tok: string | null) => {
-  try {
-    if (typeof window !== 'undefined' && window.localStorage) {
-      if (tok) {
-        window.localStorage.setItem('epass_access_token', tok);
-      } else {
-        window.localStorage.removeItem('epass_access_token');
-      }
-    }
-  } catch (e) {}
-};
-
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(getStoredToken());
+  const [token, setToken] = useState<string | null>(null);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [justRegistered, setJustRegistered] = useState(false);
@@ -180,14 +159,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Synchronisation dynamique des billets de l'étudiant depuis le Backend API
   const refreshTickets = useCallback(async () => {
     try {
-      const headers: Record<string, string> = {};
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
-
       const res = await fetch(ENDPOINTS.TICKET_HISTORY, {
         credentials: 'include',
-        headers,
       });
 
       if (res.ok) {
@@ -227,7 +200,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (e) {
       console.warn('Student tickets fetch error:', e);
     }
-  }, [token]);
+  }, []);
 
   // Débit dynamique du portefeuille
   const debitWallet = (amount: number): boolean => {
@@ -295,17 +268,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // 3. Appel asynchrone au Backend API pour enregistrer la transaction et le ticket dans PostgreSQL
     (async () => {
       try {
-        const headers: Record<string, string> = {
-          'Content-Type': 'application/json',
-        };
-        if (token) {
-          headers['Authorization'] = `Bearer ${token}`;
-        }
-
         const res = await fetch(ENDPOINTS.INSTANT_PURCHASE, {
           method: 'POST',
           credentials: 'include',
-          headers,
+          headers: {
+            'Content-Type': 'application/json',
+          },
           body: JSON.stringify({
             trip_id: params.slotId && params.slotId.includes('-') && params.slotId.length > 20 ? params.slotId : undefined,
             payment_method: params.paymentMethod,
@@ -321,7 +289,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             );
           }
         }
-        // Rafraîchir les départs depuis le backend
         refreshTrips();
       } catch (e) {
         console.warn('Backend instant purchase async error:', e);
@@ -387,14 +354,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Appel à l'API Backend de recyclage
     try {
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      };
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
-
-      // UUID de ticket réel correspondant
       const targetDbTicketId =
         ticketId.length > 20 && ticketId.includes('-')
           ? ticketId
@@ -402,7 +361,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           ? '4134b24d-f3f7-4e08-a996-f87452033095'
           : '61a2be79-d843-4f9b-b869-e5838a6a84dc';
 
-      // UUID de trajet valide
       const targetDbTripId =
         newSlotId.length > 20 && newSlotId.includes('-')
           ? newSlotId
@@ -417,7 +375,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const res = await fetch(ENDPOINTS.RECYCLE_TICKET, {
         method: 'POST',
         credentials: 'include',
-        headers,
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
           ticket_id: targetDbTicketId,
           new_trip_id: targetDbTripId,
@@ -460,20 +420,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return { success: true, ticket: updatedTicket };
   };
 
-  // Initialisation de la session : vérification du token stocké ou du cookie backend
+  // Initialisation de la session : 100% basée sur le cookie de session HttpOnly envoyé automatiquement par le navigateur
   useEffect(() => {
     const initAuth = async () => {
-      const savedToken = getStoredToken();
       try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 3000);
-        const headers: Record<string, string> = {};
-        if (savedToken) {
-          headers['Authorization'] = `Bearer ${savedToken}`;
-        }
 
         const profileRes = await fetch(ENDPOINTS.MY_PROFILE, {
-          headers,
           credentials: 'include',
           signal: controller.signal,
         });
@@ -491,17 +445,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             kyc_status: p.kyc_status,
           };
           setUser(userData);
-          setToken(savedToken || 'cookie_session');
+          setToken('cookie_session');
         } else {
-          setStoredToken(null);
           setUser(null);
           setToken(null);
         }
       } catch (e) {
-        if (!savedToken) {
-          setUser(null);
-          setToken(null);
-        }
+        setUser(null);
+        setToken(null);
       } finally {
         setIsInitialLoading(false);
       }
@@ -548,12 +499,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
       }
 
-      // Récupération dynamique du profil depuis le backend
+      // Récupération dynamique du profil via la session cookie HttpOnly fraîchement établie
       const profileRes = await fetch(ENDPOINTS.MY_PROFILE, {
         credentials: 'include',
-        headers: {
-          Authorization: `Bearer ${data.access_token}`,
-        },
       });
 
       let userData: User;
@@ -579,8 +527,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
       }
 
-      setStoredToken(data.access_token);
-      setToken(data.access_token);
+      setToken('cookie_session');
       setUser(userData);
       setIsLoading(false);
 
@@ -648,19 +595,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = async () => {
     try {
-      const headers: Record<string, string> = {};
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
       await fetch(ENDPOINTS.LOGOUT, {
         method: 'POST',
         credentials: 'include',
-        headers,
       });
     } catch (e) {
       console.warn('Logout API error:', e);
     }
-    setStoredToken(null);
     setUser(null);
     setToken(null);
     setTickets([]);

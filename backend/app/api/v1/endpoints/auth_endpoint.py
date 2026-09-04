@@ -213,10 +213,12 @@ async def login_user(
 @router.post("/logout")
 async def logout_user(response: Response):
     """
-    Logout user and clear session cookies.
+    Logout user and clear all session cookies.
     """
     response.delete_cookie(key="epass_session", path="/")
     response.delete_cookie(key="epass_refresh", path="/")
+    response.delete_cookie(key="access_token", path="/")
+    response.delete_cookie(key="refresh_token", path="/")
     return {"message": "Déconnexion réussie. Session et cookies réinitialisés."}
 
 

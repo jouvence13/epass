@@ -36,39 +36,40 @@ interface NotificationContextType {
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
+import { ENDPOINTS } from '../config/api';
+
 export function NotificationProvider({ children }: { children: React.ReactNode }) {
-  const [notifications, setNotifications] = useState<GlobalNotification[]>([
-    {
-      id: 'n1',
-      category: 'KYC',
-      title: 'Dossier KYC Transmis',
-      message: 'Vos justificatifs académiques sont en cours de modération par l\'administration CROUS.',
-      time: 'Il y a 10 min',
-      read: false,
-      type: 'warning',
-      icon: 'schedule',
-    },
-    {
-      id: 'n2',
-      category: 'TRAFFIC',
-      title: 'Trafic Fluide - Ligne A',
-      message: 'Bus CROUS #402 en approche sur l\'axe Calavi Campus ↔ Cotonou Étoile Rouge.',
-      time: 'Il y a 25 min',
-      read: false,
-      type: 'info',
-      icon: 'directions-bus',
-    },
-    {
-      id: 'n3',
-      category: 'WALLET',
-      title: 'Portefeuille Initialisé',
-      message: 'Solde actuel disponible : 2 500 FCFA. Prêt pour vos réservations et scans QR.',
-      time: 'Aujourd\'hui',
-      read: true,
-      type: 'success',
-      icon: 'account-balance-wallet',
-    },
-  ]);
+  const [notifications, setNotifications] = useState<GlobalNotification[]>([]);
+
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      try {
+        const res = await fetch(ENDPOINTS.NOTIFICATIONS, {
+          credentials: 'include',
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data)) {
+            const mapped: GlobalNotification[] = data.map((item: any) => ({
+              id: item.id,
+              category: item.category || 'GENERAL',
+              title: item.title,
+              message: item.message,
+              time: item.time,
+              read: item.read ?? false,
+              type: item.tone === 'success' ? 'success' : item.tone === 'warning' ? 'warning' : 'info',
+              icon: item.icon || 'notifications',
+            }));
+            setNotifications(mapped);
+          }
+        }
+      } catch (e) {
+        console.warn('Fetch notifications error:', e);
+      }
+    };
+
+    fetchNotifications();
+  }, []);
 
   // Toast actif pour affichage global en haut de l'écran
   const [activeToast, setActiveToast] = useState<{
@@ -156,8 +157,16 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     });
   };
 
-  const markAllAsRead = () => {
+  const markAllAsRead = async () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    try {
+      await fetch(ENDPOINTS.MARK_NOTIFICATIONS_READ, {
+        method: 'POST',
+        credentials: 'include',
+      });
+    } catch (e) {
+      console.warn('Mark all read error:', e);
+    }
   };
 
   const clearNotification = (id: string) => {

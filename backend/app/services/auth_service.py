@@ -57,14 +57,6 @@ async def get_current_authenticated_user(
             detail="Session non authentifiée ou cookie expiré. Veuillez vous connecter.",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
-    # Prise en charge transparente de la session active de démonstration (Koffi Alain)
-    if token in ("session_active", "demo_student"):
-        demo_user = (
-            await db.execute(select(Users).where(Users.phone_number == "+22997001122"))
-        ).scalars().first()
-        if demo_user:
-            return demo_user
 
     # 4. Décodage et vérification de la signature du jeton
     try:
