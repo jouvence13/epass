@@ -6,24 +6,30 @@ import BookTicketScreen from '../screens/student/BookTicketScreen';
 import ActiveTicketScreen from '../screens/student/ActiveTicketScreen';
 import ProfileScreen from '../screens/student/ProfileScreen';
 import TopBar from '../components/TopBar';
-import { colors } from '../theme/theme';
-
+import { colors, typography } from '../theme/theme';
 import { useAuth } from '../context/AuthContext';
 
 const Tab = createBottomTabNavigator();
 
 const ICONS: Record<string, keyof typeof MaterialIcons.glyphMap> = {
   Home: 'directions-bus',
-  Booking: 'add-circle',
   Tickets: 'confirmation-number',
+  Booking: 'qr-code-scanner',
   Profile: 'person',
+};
+
+const LABELS: Record<string, string> = {
+  Home: 'Accueil',
+  Tickets: 'Mes Tickets',
+  Booking: 'Payer (QR)',
+  Profile: 'Profil',
 };
 
 const TITLES: Record<string, string> = {
   Home: 'CROUS-UAC',
-  Booking: 'Booking',
-  Tickets: 'Active Ticket',
-  Profile: 'Mon profil',
+  Tickets: 'Mes Tickets Actifs',
+  Booking: 'Payer & Réserver (Scan QR)',
+  Profile: 'Mon Profil Étudiant',
 };
 
 export default function StudentTabs() {
@@ -39,20 +45,27 @@ export default function StudentTabs() {
             onRightPress={logout}
           />
         ),
-        tabBarActiveTintColor: colors.onSecondaryContainer,
+        tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.onSurfaceVariant,
-        tabBarStyle: { borderTopColor: colors.outlineVariant, height: 64, paddingBottom: 8, paddingTop: 6 },
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
+        tabBarStyle: {
+          backgroundColor: colors.surface,
+          borderTopColor: colors.outlineVariant,
+          borderTopWidth: 1,
+          height: 66,
+          paddingBottom: 8,
+          paddingTop: 8,
+        },
+        tabBarLabel: LABELS[route.name],
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontWeight: '700',
+          marginTop: 2,
+        },
         tabBarIcon: ({ color, size, focused }) => (
           <MaterialIcons
             name={ICONS[route.name]}
-            size={focused ? size + 2 : size}
+            size={focused ? 24 : 22}
             color={color}
-            style={
-              focused
-                ? { backgroundColor: colors.secondaryContainer, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 4, overflow: 'hidden' }
-                : undefined
-            }
           />
         ),
       })}

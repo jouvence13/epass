@@ -19,7 +19,7 @@ import { useAuth } from '../../context/AuthContext';
 
 interface PaymentMethod {
   id: string;
-  type: 'MTN_MOMO' | 'MOOV_MONEY' | 'CROUS_WALLET';
+  type: 'MTN_MOMO' | 'MOOV_MONEY' | 'CELTIIS_CASH' | 'CROUS_WALLET';
   title: string;
   account: string;
   isDefault: boolean;
@@ -52,6 +52,15 @@ export default function PaymentMethodsScreen({ navigation }: any) {
     },
     {
       id: '3',
+      type: 'CELTIIS_CASH',
+      title: 'Celtiis Cash Bénin',
+      account: '+229 40 88 99 00',
+      isDefault: false,
+      color: '#0070ba',
+      icon: 'smartphone',
+    },
+    {
+      id: '4',
       type: 'CROUS_WALLET',
       title: 'Portefeuille Étudiant CROUS',
       account: `Solde : ${walletBalance.toLocaleString('fr-FR')} FCFA`,
@@ -63,7 +72,7 @@ export default function PaymentMethodsScreen({ navigation }: any) {
 
   // Modal d'ajout de moyen de paiement
   const [modalVisible, setModalVisible] = useState(false);
-  const [selectedOperator, setSelectedOperator] = useState<'MTN' | 'MOOV'>('MTN');
+  const [selectedOperator, setSelectedOperator] = useState<'MTN' | 'MOOV' | 'CELTIIS'>('MTN');
   const [newPhone, setNewPhone] = useState('');
   const [rechargeModalVisible, setRechargeModalVisible] = useState(false);
   const [rechargeAmount, setRechargeAmount] = useState('1000');
@@ -86,12 +95,32 @@ export default function PaymentMethodsScreen({ navigation }: any) {
     const cleanNumber = newPhone.startsWith('+229') ? newPhone : `+229 ${newPhone}`;
     const newMethod: PaymentMethod = {
       id: Date.now().toString(),
-      type: selectedOperator === 'MTN' ? 'MTN_MOMO' : 'MOOV_MONEY',
-      title: selectedOperator === 'MTN' ? 'MTN Mobile Money' : 'Moov Money Flooz',
+      type:
+        selectedOperator === 'MTN'
+          ? 'MTN_MOMO'
+          : selectedOperator === 'MOOV'
+          ? 'MOOV_MONEY'
+          : 'CELTIIS_CASH',
+      title:
+        selectedOperator === 'MTN'
+          ? 'MTN Mobile Money'
+          : selectedOperator === 'MOOV'
+          ? 'Moov Money Flooz'
+          : 'Celtiis Cash Bénin',
       account: cleanNumber,
       isDefault: false,
-      color: selectedOperator === 'MTN' ? '#fbbf24' : '#0284c7',
-      icon: selectedOperator === 'MTN' ? 'phone-android' : 'contactless',
+      color:
+        selectedOperator === 'MTN'
+          ? '#fbbf24'
+          : selectedOperator === 'MOOV'
+          ? '#0284c7'
+          : '#0070ba',
+      icon:
+        selectedOperator === 'MTN'
+          ? 'phone-android'
+          : selectedOperator === 'MOOV'
+          ? 'contactless'
+          : 'smartphone',
     };
 
     setMethods((prev) => [...prev, newMethod]);
@@ -210,7 +239,7 @@ export default function PaymentMethodsScreen({ navigation }: any) {
             <View style={{ flex: 1 }}>
               <Text style={styles.securityTitle}>Paiement Sécurisé & Chiffré</Text>
               <Text style={styles.securityText}>
-                Toutes les transactions sont confirmées directement sur votre téléphone via le prompt USSD de votre opérateur (MTN *880# ou Moov *855#).
+                Toutes les transactions sont confirmées directement sur votre téléphone via le prompt USSD de votre opérateur (MTN *880#, Moov *855# ou Celtiis *888#).
               </Text>
             </View>
           </View>
@@ -242,8 +271,8 @@ export default function PaymentMethodsScreen({ navigation }: any) {
                 ]}
                 onPress={() => setSelectedOperator('MTN')}
               >
-                <MaterialIcons name="phone-android" size={24} color="#000000" />
-                <Text style={styles.operatorText}>MTN Bénin (*880#)</Text>
+                <MaterialIcons name="phone-android" size={22} color="#000000" />
+                <Text style={styles.operatorText}>MTN (*880#)</Text>
               </Pressable>
 
               <Pressable
@@ -253,8 +282,19 @@ export default function PaymentMethodsScreen({ navigation }: any) {
                 ]}
                 onPress={() => setSelectedOperator('MOOV')}
               >
-                <MaterialIcons name="contactless" size={24} color="#0284c7" />
-                <Text style={styles.operatorText}>Moov Bénin (*855#)</Text>
+                <MaterialIcons name="contactless" size={22} color="#0284c7" />
+                <Text style={styles.operatorText}>Moov (*855#)</Text>
+              </Pressable>
+
+              <Pressable
+                style={[
+                  styles.operatorCard,
+                  selectedOperator === 'CELTIIS' && styles.operatorCardActive,
+                ]}
+                onPress={() => setSelectedOperator('CELTIIS')}
+              >
+                <MaterialIcons name="smartphone" size={22} color="#0070ba" />
+                <Text style={styles.operatorText}>Celtiis (*888#)</Text>
               </Pressable>
             </View>
 
