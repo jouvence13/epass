@@ -100,28 +100,38 @@ const formatApiError = (detail: any, defaultMsg: string): string => {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const DEMO_STUDENT_USER: User = {
-  user_id: 'a47876e3-dabf-4e40-9e32-db28f8914814',
-  phone_number: '+22997001122',
-  first_name: 'Koffi',
-  last_name: 'Alain',
-  role: 'STUDENT',
-  matricule_uac: 'UAC-2022-8492',
-  kyc_status: 'APPROVED',
+const getStoredToken = (): string | null => {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      return window.localStorage.getItem('epass_access_token');
+    }
+  } catch (e) {}
+  return null;
+};
+
+const setStoredToken = (tok: string | null) => {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      if (tok) {
+        window.localStorage.setItem('epass_access_token', tok);
+      } else {
+        window.localStorage.removeItem('epass_access_token');
+      }
+    }
+  } catch (e) {}
 };
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Tout est conservé en mémoire dynamique React (aucune persistance locale dans le navigateur)
-  const [user, setUser] = useState<User | null>(DEMO_STUDENT_USER);
-  const [token, setToken] = useState<string | null>('session_active');
-  const [isInitialLoading, setIsInitialLoading] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [token, setToken] = useState<string | null>(getStoredToken());
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [justRegistered, setJustRegistered] = useState(false);
 
-  // Solde dynamique du Portefeuille Universitaire CROUS (2300 F = 2500 F - 2 tickets de 100 F)
+  // Solde dynamique du Portefeuille Universitaire CROUS
   const [walletBalance, setWalletBalance] = useState<number>(2300);
 
-  // Numéros Mobile Money enregistrés (compacts, tout collé)
+  // Numéros Mobile Money enregistrés
   const [operatorPhoneNumbers, setOperatorPhoneNumbers] = useState<{
     MTN: string;
     MOOV: string;
@@ -133,56 +143,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   });
 
   // Liste dynamique des créneaux & rotations de bus
-  const [busSlots, setBusSlots] = useState<BusSlot[]>([
-    { id: '7a6ad347-c0fb-472d-80c7-7830ed61cdad', time: '07:30 - Rotation Matin', route: 'Ligne A (Calavi ↔ Cotonou)', bookedSeats: 32, totalSeats: 50, full: false },
-    { id: '2a953d78-5279-4342-8d66-2a6e8b0a0a87', time: '08:15 - Rotation Express', route: 'Ligne B (Calavi ↔ Godomey)', bookedSeats: 50, totalSeats: 50, full: true },
-    { id: '3c81e9b2-6541-487a-bfa1-7f912c018a99', time: '09:00 - Rotation Campus', route: 'Ligne A (Calavi ↔ Cotonou)', bookedSeats: 18, totalSeats: 50, full: false },
-    { id: '4d92fa13-7652-498b-cfb2-8a023d129b00', time: '12:30 - Rotation Midi', route: 'Ligne C (Calavi ↔ Akpakpa)', bookedSeats: 40, totalSeats: 50, full: false },
-  ]);
+  const [busSlots, setBusSlots] = useState<BusSlot[]>([]);
 
-  // Liste dynamique des titres de transport achetés par l'étudiant (support multi-tickets)
-  const [tickets, setTickets] = useState<StudentTicket[]>([
-    {
-      id: '61a2be79-d843-4f9b-b869-e5838a6a84dc',
-      code: 'A7B9-K8N5',
-      line: 'Campus Express • Ligne A',
-      route: 'Calavi Campus → Cotonou Étoile Rouge',
-      busId: 'Bus CROUS #402',
-      price: 100,
-      date: "Aujourd'hui, 07:45",
-      status: 'ACTIVE',
-      paymentMethod: 'Portefeuille CROUS',
-      timeSlot: '07:30 - Rotation Matin',
-      recycleCount: 0,
-    },
-    {
-      id: '4134b24d-f3f7-4e08-a996-f87452033095',
-      code: 'A7B9-X2M4',
-      line: 'Campus Express • Ligne A',
-      route: 'Calavi Campus → Cotonou Étoile Rouge',
-      busId: 'Bus CROUS #402',
-      price: 100,
-      date: "Aujourd'hui, 07:30",
-      status: 'ACTIVE',
-      paymentMethod: 'Portefeuille CROUS',
-      timeSlot: '07:30 - Rotation Matin',
-      recycleCount: 0,
-    },
-  ]);
-
-  const [activeTicket, setActiveTicket] = useState<StudentTicket | null>({
-    id: '61a2be79-d843-4f9b-b869-e5838a6a84dc',
-    code: 'A7B9-K8N5',
-    line: 'Campus Express • Ligne A',
-    route: 'Calavi Campus → Cotonou Étoile Rouge',
-    busId: 'Bus CROUS #402',
-    price: 100,
-    date: "Aujourd'hui, 07:45",
-    status: 'ACTIVE',
-    paymentMethod: 'Portefeuille CROUS',
-    timeSlot: '07:30 - Rotation Matin',
-    recycleCount: 0,
-  });
+  // Liste dynamique des titres de transport achetés par l'étudiant
+  const [tickets, setTickets] = useState<StudentTicket[]>([]);
+  const [activeTicket, setActiveTicket] = useState<StudentTicket | null>(null);
 
   // Synchronisation dynamique des départs depuis le Backend API
   const refreshTrips = useCallback(async () => {
@@ -495,13 +460,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return { success: true, ticket: updatedTicket };
   };
 
-  // Initialisation de la session : 100% basée sur le cookie de session sécurisé HttpOnly du Backend
+  // Initialisation de la session : vérification du token stocké ou du cookie backend
   useEffect(() => {
     const initAuth = async () => {
+      const savedToken = getStoredToken();
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 2000);
+        const timeoutId = setTimeout(() => controller.abort(), 3000);
+        const headers: Record<string, string> = {};
+        if (savedToken) {
+          headers['Authorization'] = `Bearer ${savedToken}`;
+        }
+
         const profileRes = await fetch(ENDPOINTS.MY_PROFILE, {
+          headers,
           credentials: 'include',
           signal: controller.signal,
         });
@@ -519,10 +491,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             kyc_status: p.kyc_status,
           };
           setUser(userData);
-          setToken('cookie_session');
+          setToken(savedToken || 'cookie_session');
+        } else {
+          setStoredToken(null);
+          setUser(null);
+          setToken(null);
         }
       } catch (e) {
-        // Conserve l'état en mémoire sans bloquer
+        if (!savedToken) {
+          setUser(null);
+          setToken(null);
+        }
       } finally {
         setIsInitialLoading(false);
       }
@@ -600,6 +579,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
       }
 
+      setStoredToken(data.access_token);
       setToken(data.access_token);
       setUser(userData);
       setIsLoading(false);
@@ -668,15 +648,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = async () => {
     try {
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
       await fetch(ENDPOINTS.LOGOUT, {
         method: 'POST',
         credentials: 'include',
+        headers,
       });
     } catch (e) {
       console.warn('Logout API error:', e);
     }
+    setStoredToken(null);
     setUser(null);
     setToken(null);
+    setTickets([]);
+    setActiveTicket(null);
     setJustRegistered(false);
   };
 
