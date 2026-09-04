@@ -21,7 +21,7 @@ export default function ProfileScreen({ navigation }: any) {
   const fullName = user ? `${user.first_name} ${user.last_name}` : 'Étudiant UAC';
   const matriculeLabel = user?.matricule_uac
     ? `Matricule : ${user.matricule_uac}`
-    : `Téléphone : ${user?.phone_number || '+229 01 97 00 11 22'}`;
+    : `Téléphone : ${user?.phone_number || '+2290197001122'}`;
 
   const kycTone =
     user?.kyc_status === 'APPROVED'

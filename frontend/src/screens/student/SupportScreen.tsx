@@ -59,13 +59,13 @@ export default function SupportScreen({ navigation }: any) {
 
   const handleCallSupport = () => {
     Linking.openURL('tel:+22921360100').catch(() => {
-      Alert.alert('Numéro CROUS', 'Téléphone : +229 21 36 01 00');
+      Alert.alert('Numéro CROUS', 'Téléphone : +22921360100');
     });
   };
 
   const handleWhatsapp = () => {
     Linking.openURL('https://wa.me/22997000000?text=Bonjour%20CROUS%20UAC%20BusPass').catch(() => {
-      Alert.alert('WhatsApp CROUS', 'Numéro WhatsApp : +229 97 00 00 00');
+      Alert.alert('WhatsApp CROUS', 'Numéro WhatsApp : +22997000000');
     });
   };
 
@@ -108,7 +108,7 @@ export default function SupportScreen({ navigation }: any) {
               <MaterialIcons name="phone" size={24} color={colors.primary} />
             </View>
             <Text style={styles.contactTitle}>Appel CROUS</Text>
-            <Text style={styles.contactSub}>+229 21 36 01 00</Text>
+            <Text style={styles.contactSub}>+22921360100</Text>
           </Pressable>
 
           <Pressable style={styles.contactCard} onPress={handleWhatsapp}>

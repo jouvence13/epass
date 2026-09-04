@@ -17,6 +17,7 @@ import PrimaryButton from '../../components/PrimaryButton';
 import Badge from '../../components/Badge';
 import { colors, radius, spacing, typography } from '../../theme/theme';
 import { useAuth } from '../../context/AuthContext';
+import { useNotifications } from '../../context/NotificationContext';
 
 interface Slot {
   time: string;
@@ -33,7 +34,8 @@ const SLOTS: Slot[] = [
 ];
 
 export default function BookTicketScreen({ navigation }: any) {
-  const { user } = useAuth();
+  const { user, walletBalance, operatorPhoneNumbers, debitWallet } = useAuth();
+  const { showToast } = useNotifications();
   const [activeTab, setActiveTab] = useState<'SCAN_QR' | 'MANUAL_BOOKING'>('SCAN_QR');
 
   // État du Scan QR
@@ -47,8 +49,17 @@ export default function BookTicketScreen({ navigation }: any) {
 
   // Moyen de paiement
   const [paymentOperator, setPaymentOperator] = useState<'MTN' | 'MOOV' | 'CELTIIS' | 'WALLET'>('MTN');
-  const [phone, setPhone] = useState(user?.phone_number || '');
+  const [phone, setPhone] = useState(operatorPhoneNumbers.MTN || '+2290157774305');
   const [isProcessing, setIsProcessing] = useState(false);
+
+  // Synchronisation automatique du numéro de téléphone lors du changement d'opérateur
+  const handleSelectOperator = (op: 'MTN' | 'MOOV' | 'CELTIIS' | 'WALLET') => {
+    setPaymentOperator(op);
+    if (op !== 'WALLET') {
+      const savedNumber = operatorPhoneNumbers[op] || user?.phone_number || '+2290157774305';
+      setPhone(savedNumber);
+    }
+  };
 
   // État Réservation Manuelle
   const [selectedSlot, setSelectedSlot] = useState(0);
@@ -101,21 +112,87 @@ export default function BookTicketScreen({ navigation }: any) {
     setIsScanning(true);
   };
 
-  const handleConfirmPayment = () => {
+  const handleConfirmPayment = (priceOverride?: number) => {
+    const price = priceOverride || scannedBusData?.price || 100;
+
+    if (paymentOperator === 'WALLET') {
+      if (walletBalance < price) {
+        Alert.alert(
+          'Solde CROUS Insuffisant',
+          `Votre solde actuel (${walletBalance.toLocaleString(
+            'fr-FR'
+          )} FCFA) est insuffisant pour régler ce titre de ${price} FCFA. Veuillez recharger votre portefeuille.`,
+          [
+            { text: 'Annuler', style: 'cancel' },
+            {
+              text: 'Recharger mon Portefeuille',
+              onPress: () => navigation.navigate('Moyens de Paiement'),
+            },
+          ]
+        );
+        showToast({
+          title: 'Solde Insuffisant',
+          message: `Solde CROUS: ${walletBalance} F. Recharge requise.`,
+          type: 'error',
+          category: 'WALLET',
+        });
+        return;
+      }
+
+      setIsProcessing(true);
+      setTimeout(() => {
+        setIsProcessing(false);
+        const success = debitWallet(price);
+        if (success) {
+          showToast({
+            title: 'Titre Validé en Temps Réel !',
+            message: `${price} FCFA débités du Portefeuille CROUS. Nouveau solde : ${(walletBalance - price).toLocaleString('fr-FR')} FCFA`,
+            type: 'success',
+            category: 'WALLET',
+          });
+
+          Alert.alert(
+            'Paiement Portefeuille Réussi !',
+            `Votre trajet a été débité instantanément (100 FCFA). Votre titre de transport est maintenant actif. Bon voyage !`,
+            [
+              {
+                text: 'Voir mon Ticket Actif',
+                onPress: () => navigation.navigate('Tickets'),
+              },
+            ]
+          );
+        }
+      }, 800);
+      return;
+    }
+
+    // Paiement Mobile Money (MTN, Moov, Celtiis)
+    const cleanPhone = phone.replace(/\s+/g, '').trim();
+    if (!cleanPhone || cleanPhone.length < 8) {
+      Alert.alert('Numéro Requis', 'Veuillez renseigner un numéro de téléphone Mobile Money valide.');
+      return;
+    }
+
     setIsProcessing(true);
     setTimeout(() => {
       setIsProcessing(false);
+      const opName =
+        paymentOperator === 'MTN'
+          ? 'MTN Mobile Money (*880#)'
+          : paymentOperator === 'MOOV'
+          ? 'Moov Money (*855#)'
+          : 'Celtiis Cash (*888#)';
+
+      showToast({
+        title: 'Titre Validé avec Succès !',
+        message: `${price} FCFA réglés via ${opName} (${cleanPhone}).`,
+        type: 'success',
+        category: 'PAYMENT',
+      });
+
       Alert.alert(
         'Paiement Réussi !',
-        `Votre titre de transport a été validé avec succès via ${
-          paymentOperator === 'MTN'
-            ? 'MTN Mobile Money (*880#)'
-            : paymentOperator === 'MOOV'
-            ? 'Moov Money (*855#)'
-            : paymentOperator === 'CELTIIS'
-            ? 'Celtiis Cash (*888#)'
-            : 'votre Portefeuille CROUS'
-        }. Vous pouvez maintenant monter à bord.`,
+        `Votre titre de transport a été validé avec succès via ${opName}. Vous pouvez maintenant monter à bord.`,
         [
           {
             text: 'Voir mon Ticket Actif',
@@ -260,7 +337,7 @@ export default function BookTicketScreen({ navigation }: any) {
                       styles.operatorTile,
                       paymentOperator === 'MTN' && styles.operatorTileActive,
                     ]}
-                    onPress={() => setPaymentOperator('MTN')}
+                    onPress={() => handleSelectOperator('MTN')}
                   >
                     <View style={[styles.operatorBadge, { backgroundColor: '#fbbf24' }]}>
                       <Text style={styles.operatorBadgeText}>MTN</Text>
@@ -275,7 +352,7 @@ export default function BookTicketScreen({ navigation }: any) {
                       styles.operatorTile,
                       paymentOperator === 'MOOV' && styles.operatorTileActive,
                     ]}
-                    onPress={() => setPaymentOperator('MOOV')}
+                    onPress={() => handleSelectOperator('MOOV')}
                   >
                     <View style={[styles.operatorBadge, { backgroundColor: '#0284c7' }]}>
                       <Text style={[styles.operatorBadgeText, { color: '#ffffff' }]}>Moov</Text>
@@ -290,7 +367,7 @@ export default function BookTicketScreen({ navigation }: any) {
                       styles.operatorTile,
                       paymentOperator === 'CELTIIS' && styles.operatorTileActive,
                     ]}
-                    onPress={() => setPaymentOperator('CELTIIS')}
+                    onPress={() => handleSelectOperator('CELTIIS')}
                   >
                     <View style={[styles.operatorBadge, { backgroundColor: '#0070ba' }]}>
                       <Text style={[styles.operatorBadgeText, { color: '#ffffff' }]}>Celtiis</Text>
@@ -305,13 +382,13 @@ export default function BookTicketScreen({ navigation }: any) {
                       styles.operatorTile,
                       paymentOperator === 'WALLET' && styles.operatorTileActive,
                     ]}
-                    onPress={() => setPaymentOperator('WALLET')}
+                    onPress={() => handleSelectOperator('WALLET')}
                   >
                     <View style={[styles.operatorBadge, { backgroundColor: colors.primary }]}>
                       <MaterialIcons name="account-balance-wallet" size={16} color="#ffffff" />
                     </View>
                     <Text style={styles.operatorTileTitle}>Portefeuille</Text>
-                    <Text style={styles.operatorTileCode}>Solde: 2500 F</Text>
+                    <Text style={styles.operatorTileCode}>Solde: {walletBalance.toLocaleString('fr-FR')} F</Text>
                   </Pressable>
                 </View>
 
@@ -323,7 +400,7 @@ export default function BookTicketScreen({ navigation }: any) {
                     <TextInput
                       value={phone}
                       onChangeText={setPhone}
-                      placeholder="ex: 01 97 00 11 22"
+                      placeholder="ex: 0197001122"
                       placeholderTextColor={colors.outline}
                       keyboardType="phone-pad"
                       style={styles.input}
@@ -332,10 +409,16 @@ export default function BookTicketScreen({ navigation }: any) {
                 )}
 
                 <PrimaryButton
-                  label={isProcessing ? 'Validation en cours...' : `Confirmer et Payer ${scannedBusData.price} FCFA`}
-                  icon="check"
+                  label={
+                    isProcessing
+                      ? 'Validation en cours...'
+                      : paymentOperator === 'WALLET'
+                      ? `Payer avec mon Portefeuille (${scannedBusData.price} FCFA)`
+                      : `Confirmer et Payer ${scannedBusData.price} FCFA`
+                  }
+                  icon={paymentOperator === 'WALLET' ? 'account-balance-wallet' : 'check'}
                   variant="gold"
-                  onPress={handleConfirmPayment}
+                  onPress={() => handleConfirmPayment(scannedBusData.price)}
                   disabled={isProcessing}
                   style={{ marginTop: spacing.lg }}
                 />
@@ -427,7 +510,7 @@ export default function BookTicketScreen({ navigation }: any) {
                     styles.operatorTile,
                     paymentOperator === 'MTN' && styles.operatorTileActive,
                   ]}
-                  onPress={() => setPaymentOperator('MTN')}
+                  onPress={() => handleSelectOperator('MTN')}
                 >
                   <View style={[styles.operatorBadge, { backgroundColor: '#fbbf24' }]}>
                     <Text style={styles.operatorBadgeText}>MTN</Text>
@@ -441,7 +524,7 @@ export default function BookTicketScreen({ navigation }: any) {
                     styles.operatorTile,
                     paymentOperator === 'MOOV' && styles.operatorTileActive,
                   ]}
-                  onPress={() => setPaymentOperator('MOOV')}
+                  onPress={() => handleSelectOperator('MOOV')}
                 >
                   <View style={[styles.operatorBadge, { backgroundColor: '#0284c7' }]}>
                     <Text style={[styles.operatorBadgeText, { color: '#ffffff' }]}>Moov</Text>
@@ -455,7 +538,7 @@ export default function BookTicketScreen({ navigation }: any) {
                     styles.operatorTile,
                     paymentOperator === 'CELTIIS' && styles.operatorTileActive,
                   ]}
-                  onPress={() => setPaymentOperator('CELTIIS')}
+                  onPress={() => handleSelectOperator('CELTIIS')}
                 >
                   <View style={[styles.operatorBadge, { backgroundColor: '#0070ba' }]}>
                     <Text style={[styles.operatorBadgeText, { color: '#ffffff' }]}>Celtiis</Text>
@@ -469,13 +552,13 @@ export default function BookTicketScreen({ navigation }: any) {
                     styles.operatorTile,
                     paymentOperator === 'WALLET' && styles.operatorTileActive,
                   ]}
-                  onPress={() => setPaymentOperator('WALLET')}
+                  onPress={() => handleSelectOperator('WALLET')}
                 >
                   <View style={[styles.operatorBadge, { backgroundColor: colors.primary }]}>
                     <MaterialIcons name="account-balance-wallet" size={16} color="#ffffff" />
                   </View>
                   <Text style={styles.operatorTileTitle}>Portefeuille</Text>
-                  <Text style={styles.operatorTileCode}>2500 F</Text>
+                  <Text style={styles.operatorTileCode}>Solde: {walletBalance.toLocaleString('fr-FR')} F</Text>
                 </Pressable>
               </View>
 
@@ -484,10 +567,10 @@ export default function BookTicketScreen({ navigation }: any) {
                   <Text style={[styles.inputLabel, { marginTop: spacing.sm }]}>
                     Numéro de téléphone :
                   </Text>
-                    <TextInput
+                  <TextInput
                     value={phone}
                     onChangeText={setPhone}
-                    placeholder="ex: 01 97 00 11 22"
+                    placeholder="ex: 0197001122"
                     placeholderTextColor={colors.outline}
                     keyboardType="phone-pad"
                     style={styles.input}
@@ -497,10 +580,16 @@ export default function BookTicketScreen({ navigation }: any) {
             </Card>
 
             <PrimaryButton
-              label="Réserver & Payer (100 FCFA)"
-              icon="confirmation-number"
+              label={
+                isProcessing
+                  ? 'Validation en cours...'
+                  : paymentOperator === 'WALLET'
+                  ? `Payer avec mon Portefeuille (100 FCFA)`
+                  : 'Réserver & Payer (100 FCFA)'
+              }
+              icon={paymentOperator === 'WALLET' ? 'account-balance-wallet' : 'confirmation-number'}
               variant="gold"
-              onPress={handleConfirmPayment}
+              onPress={() => handleConfirmPayment(100)}
               disabled={isProcessing}
               style={{ marginTop: spacing.sm }}
             />

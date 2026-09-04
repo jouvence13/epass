@@ -23,6 +23,15 @@ interface AuthContextType {
   isInitialLoading: boolean;
   justRegistered: boolean;
   clearJustRegistered: () => void;
+  walletBalance: number;
+  operatorPhoneNumbers: {
+    MTN: string;
+    MOOV: string;
+    CELTIIS: string;
+  };
+  debitWallet: (amount: number) => boolean;
+  rechargeWallet: (amount: number, operator: string, phone: string) => void;
+  updateOperatorPhone: (operator: 'MTN' | 'MOOV' | 'CELTIIS', phone: string) => void;
   login: (phoneNumber: string, password: string) => Promise<{ success: boolean; error?: string }>;
   register: (
     payload: {
@@ -94,6 +103,69 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [justRegistered, setJustRegistered] = useState(false);
+
+  // État du Portefeuille Universitaire CROUS
+  const [walletBalance, setWalletBalance] = useState<number>(() => {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      const saved = localStorage.getItem('epass_wallet_balance');
+      if (saved) {
+        const val = parseInt(saved, 10);
+        if (!isNaN(val)) return val;
+      }
+    }
+    return 2500;
+  });
+
+  // Numéros de Mobile Money enregistrés par opérateur (compacts, tout collé)
+  const [operatorPhoneNumbers, setOperatorPhoneNumbers] = useState<{
+    MTN: string;
+    MOOV: string;
+    CELTIIS: string;
+  }>(() => {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      const saved = localStorage.getItem('epass_operator_phones');
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch (e) {}
+      }
+    }
+    return {
+      MTN: '+2290157774305',
+      MOOV: '+2290199134633',
+      CELTIIS: '+2290143272822',
+    };
+  });
+
+  const debitWallet = (amount: number): boolean => {
+    if (walletBalance < amount) return false;
+    const next = walletBalance - amount;
+    setWalletBalance(next);
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      localStorage.setItem('epass_wallet_balance', next.toString());
+    }
+    return true;
+  };
+
+  const rechargeWallet = (amount: number, _operator: string, _phone: string) => {
+    const next = walletBalance + amount;
+    setWalletBalance(next);
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      localStorage.setItem('epass_wallet_balance', next.toString());
+    }
+  };
+
+  const updateOperatorPhone = (operator: 'MTN' | 'MOOV' | 'CELTIIS', phone: string) => {
+    const cleanPhone = phone.replace(/\s+/g, '').replace(/-/g, '');
+    const compactPhone = cleanPhone.startsWith('+229') ? cleanPhone : `+229${cleanPhone}`;
+    setOperatorPhoneNumbers((prev) => {
+      const updated = { ...prev, [operator]: compactPhone };
+      if (Platform.OS === 'web' && typeof window !== 'undefined') {
+        localStorage.setItem('epass_operator_phones', JSON.stringify(updated));
+      }
+      return updated;
+    });
+  };
 
   useEffect(() => {
     const initAuth = async () => {
@@ -313,6 +385,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isInitialLoading,
         justRegistered,
         clearJustRegistered,
+        walletBalance,
+        operatorPhoneNumbers,
+        debitWallet,
+        rechargeWallet,
+        updateOperatorPhone,
         login,
         register,
         logout,

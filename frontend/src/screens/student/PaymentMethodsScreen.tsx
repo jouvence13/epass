@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -17,6 +17,7 @@ import Badge from '../../components/Badge';
 import PrimaryButton from '../../components/PrimaryButton';
 import { colors, radius, spacing, typography } from '../../theme/theme';
 import { useAuth } from '../../context/AuthContext';
+import { useNotifications } from '../../context/NotificationContext';
 
 interface PaymentMethod {
   id: string;
@@ -38,65 +39,69 @@ interface RechargeHistory {
 }
 
 export default function PaymentMethodsScreen({ navigation }: any) {
-  const { user } = useAuth();
-  const [walletBalance, setWalletBalance] = useState(2500); // 2 500 FCFA
+  const { user, walletBalance, operatorPhoneNumbers, rechargeWallet, updateOperatorPhone } = useAuth();
+  const { showToast } = useNotifications();
 
-  const [methods, setMethods] = useState<PaymentMethod[]>([
-    {
-      id: '1',
-      type: 'MTN_MOMO',
-      title: 'MTN Mobile Money',
-      account: user?.phone_number || '+229 01 97 45 67 89',
-      isDefault: true,
-      color: '#fbbf24',
-      icon: 'phone-android',
-      code: '*880#',
-    },
-    {
-      id: '2',
-      type: 'MOOV_MONEY',
-      title: 'Moov Money Flooz',
-      account: '+229 01 95 12 34 56',
-      isDefault: false,
-      color: '#0284c7',
-      icon: 'contactless',
-      code: '*855#',
-    },
-    {
-      id: '3',
-      type: 'CELTIIS_CASH',
-      title: 'Celtiis Cash Bénin',
-      account: '+229 01 40 88 99 00',
-      isDefault: false,
-      color: '#0070ba',
-      icon: 'smartphone',
-      code: '*888#',
-    },
-    {
-      id: '4',
-      type: 'CROUS_WALLET',
-      title: 'Portefeuille Étudiant CROUS',
-      account: `Solde disponible : ${walletBalance.toLocaleString('fr-FR')} FCFA`,
-      isDefault: false,
-      color: colors.primary,
-      icon: 'account-balance-wallet',
-      code: 'Subvention CROUS',
-    },
-  ]);
+  const [methods, setMethods] = useState<PaymentMethod[]>([]);
+
+  useEffect(() => {
+    setMethods([
+      {
+        id: '1',
+        type: 'MTN_MOMO',
+        title: 'MTN Mobile Money',
+        account: operatorPhoneNumbers.MTN || '+2290157774305',
+        isDefault: true,
+        color: '#fbbf24',
+        icon: 'phone-android',
+        code: '*880#',
+      },
+      {
+        id: '2',
+        type: 'MOOV_MONEY',
+        title: 'Moov Money Flooz',
+        account: operatorPhoneNumbers.MOOV || '+2290199134633',
+        isDefault: false,
+        color: '#0284c7',
+        icon: 'contactless',
+        code: '*855#',
+      },
+      {
+        id: '3',
+        type: 'CELTIIS_CASH',
+        title: 'Celtiis Cash Bénin',
+        account: operatorPhoneNumbers.CELTIIS || '+2290143272822',
+        isDefault: false,
+        color: '#0070ba',
+        icon: 'smartphone',
+        code: '*888#',
+      },
+      {
+        id: '4',
+        type: 'CROUS_WALLET',
+        title: 'Portefeuille Étudiant CROUS',
+        account: `Solde disponible : ${walletBalance.toLocaleString('fr-FR')} FCFA`,
+        isDefault: false,
+        color: colors.primary,
+        icon: 'account-balance-wallet',
+        code: 'Subvention CROUS',
+      },
+    ]);
+  }, [operatorPhoneNumbers, walletBalance]);
 
   const [rechargeHistory, setRechargeHistory] = useState<RechargeHistory[]>([
     {
       id: 'r1',
       amount: 2000,
       operator: 'MTN Mobile Money',
-      phone: '+229 01 97 00 11 22',
-      date: "Hier, 14:20",
+      phone: '+2290157774305',
+      date: 'Hier, 14:20',
     },
     {
       id: 'r2',
       amount: 1000,
       operator: 'Celtiis Cash',
-      phone: '+229 01 40 88 99 00',
+      phone: '+2290143272822',
       date: '02 Sept, 09:15',
     },
   ]);
@@ -110,10 +115,15 @@ export default function PaymentMethodsScreen({ navigation }: any) {
   // Modal de Recharge du Portefeuille
   const [rechargeModalVisible, setRechargeModalVisible] = useState(false);
   const [rechargeOperator, setRechargeOperator] = useState<'MTN' | 'MOOV' | 'CELTIIS'>('MTN');
-  const [rechargePhone, setRechargePhone] = useState(user?.phone_number || '01 97 00 11 22');
+  const [rechargePhone, setRechargePhone] = useState(operatorPhoneNumbers.MTN || '+2290157774305');
   const [rechargeAmount, setRechargeAmount] = useState('1000');
   const [ussdPromptVisible, setUssdPromptVisible] = useState(false);
   const [isProcessingUssd, setIsProcessingUssd] = useState(false);
+
+  const handleSelectRechargeOperator = (op: 'MTN' | 'MOOV' | 'CELTIIS') => {
+    setRechargeOperator(op);
+    setRechargePhone(operatorPhoneNumbers[op] || '+2290157774305');
+  };
 
   const setDefaultMethod = (id: string) => {
     setMethods((prev) =>
@@ -127,7 +137,7 @@ export default function PaymentMethodsScreen({ navigation }: any) {
   const openAddModal = () => {
     setEditingMethodId(null);
     setSelectedOperator('MTN');
-    setInputPhoneNumber('');
+    setInputPhoneNumber(operatorPhoneNumbers.MTN.replace('+229', ''));
     setModalVisible(true);
   };
 
@@ -140,73 +150,30 @@ export default function PaymentMethodsScreen({ navigation }: any) {
         ? 'MOOV'
         : 'CELTIIS';
     setSelectedOperator(op);
-    // Nettoie pour ne garder que le numéro local 10 chiffres
-    const clean = method.account.replace('+229', '').trim();
+    // Nettoie pour afficher format compact
+    const clean = method.account.replace('+229', '').replace(/\s+/g, '').trim();
     setInputPhoneNumber(clean);
     setModalVisible(true);
   };
 
   const handleSaveMethod = () => {
-    if (!inputPhoneNumber.trim() || inputPhoneNumber.replace(/\s+/g, '').length < 8) {
-      Alert.alert('Numéro incomplet', 'Veuillez saisir un numéro de téléphone valide à 10 chiffres (ex: 01 97 00 11 22).');
+    const compactInput = inputPhoneNumber.replace(/\s+/g, '').replace(/-/g, '').trim();
+    if (!compactInput || compactInput.length < 8) {
+      Alert.alert('Numéro incomplet', 'Veuillez saisir un numéro de téléphone valide à 10 chiffres (ex: 0197001122).');
       return;
     }
 
-    const cleanInput = inputPhoneNumber.trim();
-    const formatted = cleanInput.startsWith('+229') ? cleanInput : `+229 ${cleanInput}`;
+    const formatted = compactInput.startsWith('+229') ? compactInput : `+229${compactInput}`;
+    updateOperatorPhone(selectedOperator, formatted);
 
-    if (editingMethodId) {
-      // Modification du numéro existant
-      setMethods((prev) =>
-        prev.map((m) =>
-          m.id === editingMethodId
-            ? { ...m, account: formatted }
-            : m
-        )
-      );
-      setModalVisible(false);
-      Alert.alert('Numéro modifié', `Le numéro de votre compte ${selectedOperator} a été mis à jour.`);
-    } else {
-      // Création d'un nouveau compte
-      const newMethod: PaymentMethod = {
-        id: Date.now().toString(),
-        type:
-          selectedOperator === 'MTN'
-            ? 'MTN_MOMO'
-            : selectedOperator === 'MOOV'
-            ? 'MOOV_MONEY'
-            : 'CELTIIS_CASH',
-        title:
-          selectedOperator === 'MTN'
-            ? 'MTN Mobile Money'
-            : selectedOperator === 'MOOV'
-            ? 'Moov Money Flooz'
-            : 'Celtiis Cash Bénin',
-        account: formatted,
-        isDefault: false,
-        color:
-          selectedOperator === 'MTN'
-            ? '#fbbf24'
-            : selectedOperator === 'MOOV'
-            ? '#0284c7'
-            : '#0070ba',
-        icon:
-          selectedOperator === 'MTN'
-            ? 'phone-android'
-            : selectedOperator === 'MOOV'
-            ? 'contactless'
-            : 'smartphone',
-        code:
-          selectedOperator === 'MTN'
-            ? '*880#'
-            : selectedOperator === 'MOOV'
-            ? '*855#'
-            : '*888#',
-      };
-      setMethods((prev) => [...prev, newMethod]);
-      setModalVisible(false);
-      Alert.alert('Compte enregistré', 'Votre moyen de paiement a été ajouté avec succès.');
-    }
+    setModalVisible(false);
+    showToast({
+      title: 'Numéro Enregistré',
+      message: `Compte ${selectedOperator} mis à jour : ${formatted}`,
+      type: 'success',
+      category: 'PAYMENT',
+    });
+    Alert.alert('Numéro Enregistré', `Le numéro de votre compte ${selectedOperator} (${formatted}) a été synchronisé.`);
   };
 
   const handleInitiateRecharge = () => {
@@ -215,7 +182,8 @@ export default function PaymentMethodsScreen({ navigation }: any) {
       Alert.alert('Montant invalide', 'Veuillez choisir ou saisir un montant de recharge valide.');
       return;
     }
-    if (!rechargePhone.trim() || rechargePhone.length < 8) {
+    const cleanPhone = rechargePhone.replace(/\s+/g, '').trim();
+    if (!cleanPhone || cleanPhone.length < 8) {
       Alert.alert('Numéro requis', 'Veuillez renseigner le numéro de téléphone qui sera débité.');
       return;
     }
@@ -234,30 +202,32 @@ export default function PaymentMethodsScreen({ navigation }: any) {
         ? 'Moov Money Flooz'
         : 'Celtiis Cash';
 
+    const cleanRechargePhone = rechargePhone.replace(/\s+/g, '').trim();
+    const formattedPhone = cleanRechargePhone.startsWith('+229') ? cleanRechargePhone : `+229${cleanRechargePhone}`;
+
     setTimeout(() => {
       setIsProcessingUssd(false);
       setUssdPromptVisible(false);
-      const newBal = walletBalance + amount;
-      setWalletBalance(newBal);
 
-      // Met à jour la ligne du portefeuille
-      setMethods((prev) =>
-        prev.map((m) =>
-          m.type === 'CROUS_WALLET'
-            ? { ...m, account: `Solde disponible : ${newBal.toLocaleString('fr-FR')} FCFA` }
-            : m
-        )
-      );
+      rechargeWallet(amount, opName, formattedPhone);
 
       // Ajoute à l'historique
       const newHist: RechargeHistory = {
         id: Date.now().toString(),
         amount,
         operator: opName,
-        phone: rechargePhone.startsWith('+229') ? rechargePhone : `+229 ${rechargePhone}`,
+        phone: formattedPhone,
         date: "À l'instant",
       };
       setRechargeHistory((prev) => [newHist, ...prev]);
+
+      const newBal = walletBalance + amount;
+      showToast({
+        title: 'Recharge Portefeuille Réussie !',
+        message: `+${amount.toLocaleString('fr-FR')} FCFA ajoutés. Nouveau solde : ${newBal.toLocaleString('fr-FR')} FCFA`,
+        type: 'success',
+        category: 'WALLET',
+      });
 
       Alert.alert(
         'Recharge Validée !',
@@ -472,7 +442,7 @@ export default function PaymentMethodsScreen({ navigation }: any) {
             <TextInput
               value={inputPhoneNumber}
               onChangeText={setInputPhoneNumber}
-              placeholder="ex: 01 97 00 11 22"
+              placeholder="ex: 0197001122"
               placeholderTextColor={colors.outline}
               keyboardType="phone-pad"
               style={styles.modalInput}
@@ -517,7 +487,7 @@ export default function PaymentMethodsScreen({ navigation }: any) {
                   styles.operatorCard,
                   rechargeOperator === 'MTN' && styles.operatorCardActive,
                 ]}
-                onPress={() => setRechargeOperator('MTN')}
+                onPress={() => handleSelectRechargeOperator('MTN')}
               >
                 <MaterialIcons name="phone-android" size={20} color="#000000" />
                 <Text style={styles.operatorText}>MTN (*880#)</Text>
@@ -528,7 +498,7 @@ export default function PaymentMethodsScreen({ navigation }: any) {
                   styles.operatorCard,
                   rechargeOperator === 'MOOV' && styles.operatorCardActive,
                 ]}
-                onPress={() => setRechargeOperator('MOOV')}
+                onPress={() => handleSelectRechargeOperator('MOOV')}
               >
                 <MaterialIcons name="contactless" size={20} color="#0284c7" />
                 <Text style={styles.operatorText}>Moov (*855#)</Text>
@@ -539,7 +509,7 @@ export default function PaymentMethodsScreen({ navigation }: any) {
                   styles.operatorCard,
                   rechargeOperator === 'CELTIIS' && styles.operatorCardActive,
                 ]}
-                onPress={() => setRechargeOperator('CELTIIS')}
+                onPress={() => handleSelectRechargeOperator('CELTIIS')}
               >
                 <MaterialIcons name="smartphone" size={20} color="#0070ba" />
                 <Text style={styles.operatorText}>Celtiis (*888#)</Text>
@@ -553,7 +523,7 @@ export default function PaymentMethodsScreen({ navigation }: any) {
             <TextInput
               value={rechargePhone}
               onChangeText={setRechargePhone}
-              placeholder="ex: 01 97 00 11 22"
+              placeholder="ex: 0197001122"
               placeholderTextColor={colors.outline}
               keyboardType="phone-pad"
               style={styles.modalInput}

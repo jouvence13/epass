@@ -116,7 +116,7 @@ export default function RegisterScreen({ navigation }: any) {
             <MaterialIcons name="phone" size={20} color={colors.outline} style={styles.inputIcon} />
             <TextInput
               style={styles.inputField}
-              placeholder="+229 01 97 00 11 22"
+              placeholder="+2290197001122"
               placeholderTextColor={colors.outline}
               keyboardType="phone-pad"
               value={phoneNumber}
