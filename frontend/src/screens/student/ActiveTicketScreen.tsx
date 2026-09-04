@@ -102,7 +102,7 @@ const BUS_LINES: Record<string, BusLineConfig> = {
 };
 
 export default function ActiveTicketScreen() {
-  const { user, activeTicket } = useAuth();
+  const { user, tickets, activeTicket, setActiveTicket } = useAuth();
   const [selectedLineKey, setSelectedLineKey] = useState<'LIGNE_A' | 'LIGNE_B' | 'LIGNE_C'>('LIGNE_A');
 
   const activeLine = BUS_LINES[selectedLineKey];
@@ -153,6 +153,31 @@ export default function ActiveTicketScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
       <ScrollView contentContainerStyle={styles.scroll}>
+        {/* Sélecteur de Ticket si l'étudiant en possède plusieurs */}
+        {tickets.length > 1 && (
+          <View style={styles.ticketSwitcherRow}>
+            {tickets.map((t, idx) => {
+              const isSelected = activeTicket?.id === t.id;
+              return (
+                <Pressable
+                  key={t.id}
+                  style={[styles.ticketSwitcherTab, isSelected && styles.ticketSwitcherTabActive]}
+                  onPress={() => setActiveTicket(t)}
+                >
+                  <MaterialIcons
+                    name="confirmation-number"
+                    size={16}
+                    color={isSelected ? colors.onPrimary : colors.onSurfaceVariant}
+                  />
+                  <Text style={[styles.ticketSwitcherText, isSelected && styles.ticketSwitcherTextActive]}>
+                    Ticket #{idx + 1} ({t.code})
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        )}
+
         {/* Bannière Info Trafic */}
         <View style={styles.alertBanner}>
           <MaterialIcons name="info-outline" size={22} color={colors.onErrorContainer} style={{ marginTop: 2 }} />
@@ -433,6 +458,37 @@ export default function ActiveTicketScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   scroll: { padding: spacing.containerMargin, paddingBottom: spacing.xl, gap: spacing.lg },
+  ticketSwitcherRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    backgroundColor: colors.surfaceContainerLowest,
+    padding: 4,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.outlineVariant,
+  },
+  ticketSwitcherTab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 6,
+    borderRadius: radius.md,
+  },
+  ticketSwitcherTabActive: {
+    backgroundColor: colors.primary,
+  },
+  ticketSwitcherText: {
+    ...typography.labelCaps,
+    fontSize: 11,
+    color: colors.onSurfaceVariant,
+    fontWeight: '700',
+  },
+  ticketSwitcherTextActive: {
+    color: colors.onPrimary,
+  },
   alertBanner: {
     flexDirection: 'row',
     gap: spacing.sm,

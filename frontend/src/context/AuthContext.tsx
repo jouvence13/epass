@@ -221,15 +221,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Liste des titres de transport achetés par l'étudiant
   const [tickets, setTickets] = useState<StudentTicket[]>(() => {
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      const saved = localStorage.getItem('epass_student_tickets');
-      if (saved) {
-        try {
-          return JSON.parse(saved);
-        } catch (e) {}
-      }
-    }
-    return [
+    const defaultTickets: StudentTicket[] = [
       {
         id: 't-101',
         code: 'A7B9-X2M4',
@@ -243,11 +235,54 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         timeSlot: '07:30 - Rotation Matin',
       },
     ];
+
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      const saved = localStorage.getItem('epass_student_tickets');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            return parsed;
+          }
+        } catch (e) {}
+      }
+
+      // Si le solde est à 2 300 F (200 F débités = 2 tickets achetés), on initialise les 2 tickets
+      const balanceStr = localStorage.getItem('epass_wallet_balance');
+      const bal = balanceStr ? parseInt(balanceStr, 10) : 2500;
+      if (bal <= 2300) {
+        return [
+          {
+            id: 't-102',
+            code: 'A7B9-K8N5',
+            line: 'Campus Express • Ligne A',
+            route: 'Calavi Campus → Cotonou Étoile Rouge',
+            busId: 'Bus CROUS #402',
+            price: 100,
+            date: "Aujourd'hui, 07:45",
+            status: 'ACTIVE',
+            paymentMethod: 'Portefeuille CROUS',
+            timeSlot: '07:30 - Rotation Matin',
+          },
+          ...defaultTickets,
+        ];
+      }
+    }
+    return defaultTickets;
   });
 
   const [activeTicket, setActiveTicket] = useState<StudentTicket | null>(() => {
     return tickets.find((t) => t.status === 'ACTIVE') || tickets[0] || null;
   });
+
+  // Maintenir activeTicket à jour si tickets change
+  useEffect(() => {
+    if (tickets.length > 0) {
+      if (!activeTicket || !tickets.some((t) => t.id === activeTicket.id)) {
+        setActiveTicket(tickets[0]);
+      }
+    }
+  }, [tickets]);
 
   const purchaseTicket = (params: {
     line: string;
@@ -277,11 +312,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return updated;
     });
 
-    // 2. Génération du ticket payé
+    // 2. Génération du nouveau ticket payé avec un code et ID uniques
     const randomSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
     const newCode = `A7B9-${randomSuffix}`;
     const newTicket: StudentTicket = {
-      id: `t-${Date.now()}`,
+      id: `t-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       code: newCode,
       line: params.line,
       route: params.route,

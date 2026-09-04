@@ -66,11 +66,14 @@ export default function HomeScreen({ navigation }: any) {
 
         {activeTicketsList.length > 0 ? (
           <View style={{ gap: spacing.md }}>
-            {activeTicketsList.map((t) => (
+            {activeTicketsList.map((t, idx) => (
               <Card key={t.id} floating style={styles.activeTicketCard}>
                 <View style={styles.ticketCardHeader}>
                   <View style={{ flex: 1 }}>
-                    <Badge label="Ticket Valide & Payé" tone="success" icon="check-circle" />
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                      <Badge label={`Ticket #${idx + 1}`} tone="primary" />
+                      <Badge label="Validé & Payé (100 F)" tone="success" icon="check-circle" />
+                    </View>
                     <Text style={styles.ticketRoute}>{t.route}</Text>
                     <Text style={styles.ticketBusSub}>{t.line} • {t.busId}</Text>
                   </View>
@@ -81,8 +84,8 @@ export default function HomeScreen({ navigation }: any) {
                       navigation.navigate('Tickets');
                     }}
                   >
-                    <MaterialIcons name="qr-code-2" size={28} color={colors.onPrimary} />
-                    <Text style={styles.qrOpenBtnText}>Scanner</Text>
+                    <MaterialIcons name="qr-code-2" size={26} color={colors.onPrimary} />
+                    <Text style={styles.qrOpenBtnText}>Afficher QR</Text>
                   </Pressable>
                 </View>
 
@@ -93,7 +96,7 @@ export default function HomeScreen({ navigation }: any) {
                   </View>
                   <View style={styles.ticketMetaItem}>
                     <MaterialIcons name="payments" size={14} color={colors.secondary} />
-                    <Text style={styles.ticketMetaText}>{t.paymentMethod} ({t.price} F)</Text>
+                    <Text style={styles.ticketMetaText}>{t.paymentMethod}</Text>
                   </View>
                   <View style={styles.ticketMetaItem}>
                     <MaterialIcons name="schedule" size={14} color={colors.outline} />
