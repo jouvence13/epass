@@ -31,11 +31,16 @@ export default function RegisterScreen({ navigation }: any) {
       return;
     }
 
+    if (role === 'STUDENT' && !matricule.trim()) {
+      setErrorMessage('Le numéro de matricule UAC est obligatoire pour l\'inscription d\'un étudiant.');
+      return;
+    }
+
     const res = await register({
       first_name: firstName.trim(),
       last_name: lastName.trim(),
       phone_number: phoneNumber.trim(),
-      matricule_uac: matricule.trim() || undefined,
+      matricule_uac: role === 'STUDENT' ? matricule.trim() : undefined,
       password: password,
       role: role,
     });
@@ -178,7 +183,7 @@ export default function RegisterScreen({ navigation }: any) {
           {/* Matricule (Étudiant) */}
           {role === 'STUDENT' && (
             <>
-              <Text style={[styles.label, { marginTop: spacing.md }]}>Matricule UAC (optionnel)</Text>
+              <Text style={[styles.label, { marginTop: spacing.md }]}>Matricule UAC *</Text>
               <View style={styles.inputWrap}>
                 <MaterialIcons name="badge" size={20} color={colors.outline} style={styles.inputIcon} />
                 <TextInput
