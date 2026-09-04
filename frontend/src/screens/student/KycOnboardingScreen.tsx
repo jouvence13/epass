@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -19,13 +19,41 @@ import { useAuth } from '../../context/AuthContext';
 import { ENDPOINTS } from '../../config/api';
 
 const STEPS = ['Matricule', 'Carte Étudiant', 'Pièce d’Identité (CIP)'];
-const ACADEMIC_YEARS = ['2025-2026', '2024-2025', '2023-2024', '2022-2023'];
+
+/**
+ * Calcule automatiquement toutes les années académiques depuis 2018
+ * jusqu'à l'année courante et future, de manière 100% dynamique.
+ */
+export function getDynamicAcademicYears(startYear = 2018) {
+  const now = new Date();
+  const calYear = now.getFullYear();
+  const currentMonth = now.getMonth(); // 0 = Jan, 8 = Sept
+
+  // Une année académique commence en août/septembre (mois >= 7)
+  const currentStartYear = currentMonth >= 7 ? calYear : calYear - 1;
+  const currentAcademicYear = `${currentStartYear}-${currentStartYear + 1}`;
+  const topYear = currentStartYear + 1; // Anticipe les préinscriptions pour l'année à venir
+
+  const allYears: string[] = [];
+  for (let y = topYear; y >= startYear; y--) {
+    allYears.push(`${y}-${y + 1}`);
+  }
+
+  return {
+    allYears,
+    currentAcademicYear,
+    recentYears: allYears.slice(0, 4),
+  };
+}
 
 export default function KycOnboardingScreen({ navigation }: any) {
   const { user, token, updateUserKycStatus } = useAuth();
+  const { allYears, currentAcademicYear, recentYears } = useMemo(() => getDynamicAcademicYears(2018), []);
+
   const [step, setStep] = useState(0);
   const [matricule, setMatricule] = useState(user?.matricule_uac || '');
-  const [academicYear, setAcademicYear] = useState('2025-2026');
+  const [academicYear, setAcademicYear] = useState(currentAcademicYear);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   const [studentCardPreview, setStudentCardPreview] = useState<string | null>(null);
   const [studentCardFile, setStudentCardFile] = useState<any>(null);
@@ -318,11 +346,90 @@ export default function KycOnboardingScreen({ navigation }: any) {
               />
 
               <Text style={[styles.inputLabel, { marginTop: spacing.lg }]}>
-                Année Académique en cours *
+                Année Académique *
               </Text>
+
+              {/* Bouton Sélecteur Principal Dynamique */}
+              <Pressable
+                style={[
+                  styles.dropdownSelector,
+                  isDropdownOpen && styles.dropdownSelectorOpen,
+                ]}
+                onPress={() => setIsDropdownOpen(!isDropdownOpen)}
+              >
+                <View style={styles.dropdownSelectorLeft}>
+                  <MaterialIcons name="event" size={22} color={colors.primary} />
+                  <Text style={styles.dropdownSelectorText}>{academicYear}</Text>
+                  {academicYear === currentAcademicYear && (
+                    <View style={styles.currentBadge}>
+                      <Text style={styles.currentBadgeText}>Année en cours</Text>
+                    </View>
+                  )}
+                </View>
+                <MaterialIcons
+                  name={isDropdownOpen ? 'expand-less' : 'expand-more'}
+                  size={24}
+                  color={colors.onSurfaceVariant}
+                />
+              </Pressable>
+
+              {/* Menu déroulant de toutes les années (2018 jusqu'aux années futures) */}
+              {isDropdownOpen && (
+                <View style={styles.dropdownMenu}>
+                  <Text style={styles.dropdownMenuHeader}>
+                    Toutes les années académiques (2018 à aujourd'hui) :
+                  </Text>
+                  <ScrollView
+                    style={styles.dropdownScroll}
+                    nestedScrollEnabled
+                    showsVerticalScrollIndicator
+                  >
+                    {allYears.map((yr) => {
+                      const isSelected = academicYear === yr;
+                      const isCurrent = yr === currentAcademicYear;
+                      return (
+                        <Pressable
+                          key={yr}
+                          style={[
+                            styles.dropdownItem,
+                            isSelected && styles.dropdownItemActive,
+                          ]}
+                          onPress={() => {
+                            setAcademicYear(yr);
+                            setIsDropdownOpen(false);
+                          }}
+                        >
+                          <MaterialIcons
+                            name={isSelected ? 'check-circle' : 'radio-button-unchecked'}
+                            size={18}
+                            color={isSelected ? colors.primary : colors.outline}
+                          />
+                          <Text
+                            style={[
+                              styles.dropdownItemText,
+                              isSelected && styles.dropdownItemTextActive,
+                            ]}
+                          >
+                            {yr}
+                          </Text>
+                          {isCurrent && (
+                            <View style={styles.currentBadge}>
+                              <Text style={styles.currentBadgeText}>En cours</Text>
+                            </View>
+                          )}
+                        </Pressable>
+                      );
+                    })}
+                  </ScrollView>
+                </View>
+              )}
+
+              {/* Accès Rapide : Années Récentes */}
+              <Text style={styles.quickAccessLabel}>Sélection rapide :</Text>
               <View style={styles.yearGrid}>
-                {ACADEMIC_YEARS.map((yr) => {
+                {recentYears.map((yr) => {
                   const isSelected = academicYear === yr;
+                  const isCurrent = yr === currentAcademicYear;
                   return (
                     <Pressable
                       key={yr}
@@ -330,7 +437,10 @@ export default function KycOnboardingScreen({ navigation }: any) {
                         styles.yearChip,
                         isSelected && styles.yearChipActive,
                       ]}
-                      onPress={() => setAcademicYear(yr)}
+                      onPress={() => {
+                        setAcademicYear(yr);
+                        setIsDropdownOpen(false);
+                      }}
                     >
                       <MaterialIcons
                         name={isSelected ? 'check-circle' : 'radio-button-unchecked'}
@@ -345,7 +455,7 @@ export default function KycOnboardingScreen({ navigation }: any) {
                       >
                         {yr}
                       </Text>
-                      {yr === '2025-2026' && (
+                      {isCurrent && (
                         <View style={styles.currentBadge}>
                           <Text style={styles.currentBadgeText}>Actuelle</Text>
                         </View>
@@ -517,6 +627,86 @@ const styles = StyleSheet.create({
     ...typography.bodyLg,
     color: colors.onSurface,
     backgroundColor: colors.surface,
+  },
+  dropdownSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    height: 52,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.surfaceContainerLowest,
+    marginBottom: spacing.xs,
+  },
+  dropdownSelectorOpen: {
+    borderColor: colors.primary,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    backgroundColor: colors.primaryFixed,
+  },
+  dropdownSelectorLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    flex: 1,
+  },
+  dropdownSelectorText: {
+    ...typography.headlineSm,
+    fontSize: 16,
+    color: colors.onSurface,
+    fontWeight: '700',
+  },
+  dropdownMenu: {
+    borderWidth: 1.5,
+    borderTopWidth: 0,
+    borderColor: colors.primary,
+    borderBottomLeftRadius: radius.md,
+    borderBottomRightRadius: radius.md,
+    backgroundColor: colors.surface,
+    padding: spacing.sm,
+    marginBottom: spacing.md,
+    maxHeight: 220,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  dropdownMenuHeader: {
+    ...typography.labelCaps,
+    color: colors.onSurfaceVariant,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  dropdownScroll: {
+    maxHeight: 170,
+  },
+  dropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: 10,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radius.sm,
+  },
+  dropdownItemActive: {
+    backgroundColor: colors.primaryFixed,
+  },
+  dropdownItemText: {
+    ...typography.bodyMd,
+    color: colors.onSurface,
+  },
+  dropdownItemTextActive: {
+    color: colors.primary,
+    fontWeight: '700',
+  },
+  quickAccessLabel: {
+    ...typography.labelCaps,
+    color: colors.onSurfaceVariant,
+    marginTop: spacing.md,
+    marginBottom: spacing.xs,
   },
   yearGrid: {
     flexDirection: 'row',
