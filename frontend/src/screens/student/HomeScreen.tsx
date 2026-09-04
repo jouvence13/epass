@@ -26,7 +26,10 @@ export default function HomeScreen({ navigation }: any) {
                 <MaterialIcons name="verified" size={24} color="#16a34a" />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.welcomeTitle}>Inscription Réussie ! 🎉</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <MaterialIcons name="celebration" size={20} color="#16a34a" />
+                  <Text style={styles.welcomeTitle}>Inscription Réussie !</Text>
+                </View>
                 <Text style={styles.welcomeSubtitle}>
                   Bienvenue <Text style={styles.bold}>{studentName}</Text> sur l'espace transport UAC-BusPass.
                 </Text>
@@ -64,7 +67,7 @@ export default function HomeScreen({ navigation }: any) {
 
         {/* En-tête Salutation */}
         <View style={styles.greetingWrap}>
-          <Text style={styles.greeting}>Bonjour, {user?.first_name || 'Étudiant'} 👋</Text>
+          <Text style={styles.greeting}>Bonjour, {user?.first_name || 'Étudiant'}</Text>
           <Text style={styles.p}>Bienvenue sur votre espace transit universitaire.</Text>
         </View>
 
