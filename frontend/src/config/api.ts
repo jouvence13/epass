@@ -4,14 +4,15 @@
 import { Platform } from 'react-native';
 
 // Adresse de base du Backend :
-// - Sur le Web / Navigateur : http://localhost:8000
-// - Sur l'émulateur Android : http://10.0.2.2:8000
-// - Sur un smartphone physique : Remplacer par l'IP locale de votre machine (ex: http://192.168.1.50:8000)
+// - Sur le Web / Navigateur : http://localhost:8001
+// - Sur l'émulateur Android : http://10.0.2.2:8001
+// - Sur un smartphone physique (Wi-Fi local) : http://192.168.1.87:8001
 const getBaseUrl = () => {
-  if (Platform.OS === 'android') {
-    return 'http://10.0.2.2:8001';
+  if (Platform.OS === 'web') {
+    return 'http://localhost:8001';
   }
-  return 'http://localhost:8001';
+  // Sur Android / iOS physique ou émulateur, utiliser l'IP LAN locale
+  return 'http://192.168.1.87:8001';
 };
 
 export const API_BASE_URL = getBaseUrl();
@@ -60,6 +61,19 @@ export const ENDPOINTS = {
   DRIVER_PROFILE: `${API_V1_URL}/driver/profile`,
   DRIVER_UPLOAD_DOCS: `${API_V1_URL}/kyc/driver/upload`,
   CONTROLLER_UPLOAD_DOCS: `${API_V1_URL}/kyc/controller/upload`,
+
+  // Administration CROUS & SuperAdmin
+  ADMIN_AUDIT_FIN: `${API_V1_URL}/admin/audit-fin`,
+  ADMIN_USERS: `${API_V1_URL}/admin/users`,
+  ADMIN_CREATE_USER: `${API_V1_URL}/admin/users`,
+  ADMIN_FLEET: `${API_V1_URL}/admin/fleet`,
+  ADMIN_CREATE_BUS: `${API_V1_URL}/admin/fleet/bus`,
+  ADMIN_ROUTES: `${API_V1_URL}/admin/routes`,
+  ADMIN_CREATE_ROUTE: `${API_V1_URL}/admin/routes`,
+  ADMIN_TRIPS: `${API_V1_URL}/admin/trips`,
+  ADMIN_CREATE_TRIP: `${API_V1_URL}/admin/trips`,
+  ADMIN_KYC_PENDING: `${API_V1_URL}/kyc/pending`,
+  ADMIN_KYC_VERIFY: `${API_V1_URL}/kyc/verify`,
 
   // WebSockets
   WS_STUDENT_TRACKING: (tripId: string) => `${WS_BASE_URL}/ws/student/track/${tripId}`,

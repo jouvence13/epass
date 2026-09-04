@@ -23,6 +23,13 @@ import DriverTabs from './DriverTabs';
 import ReportDelayScreen from '../screens/driver/ReportDelayScreen';
 import DriverProfileScreen from '../screens/driver/DriverProfileScreen';
 
+// Controller Screens
+import ControllerTabs from './ControllerTabs';
+import ReportFraudScreen from '../screens/controller/ReportFraudScreen';
+
+// Admin Screens
+import AdminTabs from './AdminTabs';
+
 const Stack = createNativeStackNavigator();
 
 export default function RootNavigator() {
@@ -65,18 +72,33 @@ export default function RootNavigator() {
             <Stack.Screen name="Notifications" component={NotificationsScreen} />
             <Stack.Screen name="Support" component={SupportScreen} />
           </>
-        ) : (
+        ) : user?.role === 'DRIVER' ? (
           // ================================================================
-          // STACK CHAUFFEUR & CONTRÔLEUR SÉCURISÉ (RBAC DRIVER / CONTROLLER)
+          // STACK CHAUFFEUR SÉCURISÉ (RBAC DRIVER)
           // ================================================================
           <>
             <Stack.Screen name="DriverTabs" component={DriverTabs} />
             <Stack.Screen name="DriverProfile" component={DriverProfileScreen} />
             <Stack.Screen name="ReportDelay" component={ReportDelayScreen} />
-            {/* Permet aux admins de prévisualiser l'espace étudiant si besoin */}
-            {(user?.role === 'ADMIN_CROUS' || user?.role === 'SUPERADMIN') && (
-              <Stack.Screen name="StudentTabs" component={StudentTabs} />
-            )}
+          </>
+        ) : user?.role === 'CONTROLLER' ? (
+          // ================================================================
+          // STACK CONTRÔLEUR SÉCURISÉ (RBAC CONTROLLER)
+          // ================================================================
+          <>
+            <Stack.Screen name="ControllerTabs" component={ControllerTabs} />
+            <Stack.Screen name="DriverProfile" component={DriverProfileScreen} />
+            <Stack.Screen name="ReportFraud" component={ReportFraudScreen} />
+            <Stack.Screen name="ReportDelay" component={ReportDelayScreen} />
+          </>
+        ) : (
+          // ================================================================
+          // STACK DIRECTION CROUS / SUPERADMIN (RBAC ADMIN)
+          // ================================================================
+          <>
+            <Stack.Screen name="AdminTabs" component={AdminTabs} />
+            <Stack.Screen name="DriverProfile" component={DriverProfileScreen} />
+            <Stack.Screen name="StudentTabs" component={StudentTabs} />
           </>
         )}
       </Stack.Navigator>
