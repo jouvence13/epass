@@ -18,19 +18,19 @@ type LoginRole = 'STUDENT' | 'DRIVER' | 'CONTROLLER';
 
 const ROLE_PRESETS: Record<LoginRole, { phone: string; pass: string; label: string; hint: string }> = {
   STUDENT: {
-    phone: '+22997001122',
+    phone: '+2290197001122',
     pass: 'Student1234',
     label: 'Étudiant',
     hint: 'Accès tickets, QR Code & suivi GPS',
   },
   DRIVER: {
-    phone: '+22997000001',
+    phone: '+2290197000001',
     pass: 'Driver1234',
     label: 'Chauffeur',
     hint: 'Bus #402, manifeste passagers & retards',
   },
   CONTROLLER: {
-    phone: '+22997000002',
+    phone: '+2290197000002',
     pass: 'Controller1234',
     label: 'Contrôleur',
     hint: 'Scan et validation des titres à bord',

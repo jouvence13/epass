@@ -323,7 +323,7 @@ export default function BookTicketScreen({ navigation }: any) {
                     <TextInput
                       value={phone}
                       onChangeText={setPhone}
-                      placeholder="ex: 97 00 11 22"
+                      placeholder="ex: 01 97 00 11 22"
                       placeholderTextColor={colors.outline}
                       keyboardType="phone-pad"
                       style={styles.input}
@@ -484,10 +484,10 @@ export default function BookTicketScreen({ navigation }: any) {
                   <Text style={[styles.inputLabel, { marginTop: spacing.sm }]}>
                     Numéro de téléphone :
                   </Text>
-                  <TextInput
+                    <TextInput
                     value={phone}
                     onChangeText={setPhone}
-                    placeholder="ex: 97 00 11 22"
+                    placeholder="ex: 01 97 00 11 22"
                     placeholderTextColor={colors.outline}
                     keyboardType="phone-pad"
                     style={styles.input}

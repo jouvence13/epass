@@ -10,7 +10,7 @@ import { useAuth } from '../../context/AuthContext';
 const ROWS: { icon: keyof typeof MaterialIcons.glyphMap; label: string; action: string }[] = [
   { icon: 'receipt-long', label: "Historique d'achats", action: 'History' },
   { icon: 'verified-user', label: 'Vérification KYC (Documents)', action: 'KycOnboarding' },
-  { icon: 'payments', label: 'Moyens de paiement (MTN / Moov)', action: 'PaymentMethods' },
+  { icon: 'payments', label: 'Moyens de paiement (MTN / Moov / Celtiis)', action: 'PaymentMethods' },
   { icon: 'notifications', label: 'Notifications', action: 'Notifications' },
   { icon: 'help-outline', label: 'Aide & support CROUS', action: 'Support' },
 ];
@@ -21,7 +21,7 @@ export default function ProfileScreen({ navigation }: any) {
   const fullName = user ? `${user.first_name} ${user.last_name}` : 'Étudiant UAC';
   const matriculeLabel = user?.matricule_uac
     ? `Matricule : ${user.matricule_uac}`
-    : `Téléphone : ${user?.phone_number || '+229 97 00 11 22'}`;
+    : `Téléphone : ${user?.phone_number || '+229 01 97 00 11 22'}`;
 
   const kycTone =
     user?.kyc_status === 'APPROVED'
@@ -53,7 +53,6 @@ export default function ProfileScreen({ navigation }: any) {
           </View>
           <Text style={styles.name}>{fullName}</Text>
           <Text style={styles.hint}>{matriculeLabel}</Text>
-          <Badge label={kycText} tone={kycTone as any} icon={kycIcon} />
         </View>
 
         <Card style={styles.section}>

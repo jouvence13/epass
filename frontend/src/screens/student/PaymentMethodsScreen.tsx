@@ -36,7 +36,7 @@ export default function PaymentMethodsScreen({ navigation }: any) {
       id: '1',
       type: 'MTN_MOMO',
       title: 'MTN Mobile Money',
-      account: user?.phone_number || '+229 97 45 67 89',
+      account: user?.phone_number || '+229 01 97 45 67 89',
       isDefault: true,
       color: '#fbbf24',
       icon: 'phone-android',
@@ -45,7 +45,7 @@ export default function PaymentMethodsScreen({ navigation }: any) {
       id: '2',
       type: 'MOOV_MONEY',
       title: 'Moov Money Flooz',
-      account: '+229 95 12 34 56',
+      account: '+229 01 95 12 34 56',
       isDefault: false,
       color: '#0284c7',
       icon: 'contactless',
@@ -54,7 +54,7 @@ export default function PaymentMethodsScreen({ navigation }: any) {
       id: '3',
       type: 'CELTIIS_CASH',
       title: 'Celtiis Cash Bénin',
-      account: '+229 40 88 99 00',
+      account: '+229 01 40 88 99 00',
       isDefault: false,
       color: '#0070ba',
       icon: 'smartphone',
@@ -299,12 +299,12 @@ export default function PaymentMethodsScreen({ navigation }: any) {
             </View>
 
             <Text style={[styles.modalLabel, { marginTop: spacing.md }]}>
-              Numéro de téléphone (sans +229) :
+              Numéro de téléphone Bénin (10 chiffres) :
             </Text>
             <TextInput
               value={newPhone}
               onChangeText={setNewPhone}
-              placeholder="ex: 97 00 11 22"
+              placeholder="ex: 01 97 00 11 22"
               placeholderTextColor={colors.outline}
               keyboardType="phone-pad"
               style={styles.modalInput}

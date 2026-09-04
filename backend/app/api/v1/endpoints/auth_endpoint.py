@@ -50,6 +50,40 @@ def _set_auth_cookies(response: Response, access_token: str, refresh_token: str)
     )
 
 
+def _normalize_phone_variants(phone: str) -> list[str]:
+    """
+    Génère toutes les variantes valides d'un numéro béninois (avec/sans +229, avec/sans préfixe 01).
+    """
+    clean = phone.replace(" ", "").replace("-", "")
+    variants = {clean}
+    no_plus = clean.lstrip("+")
+    variants.add(no_plus)
+    if no_plus.startswith("229"):
+        local = no_plus[3:]
+        variants.add(local)
+        variants.add("+" + no_plus)
+        if local.startswith("01"):
+            variants.add(local[2:])
+            variants.add("+229" + local[2:])
+            variants.add("229" + local[2:])
+        else:
+            variants.add("01" + local)
+            variants.add("+22901" + local)
+            variants.add("22901" + local)
+    else:
+        variants.add("+229" + no_plus)
+        variants.add("229" + no_plus)
+        if no_plus.startswith("01"):
+            variants.add(no_plus[2:])
+            variants.add("+229" + no_plus[2:])
+            variants.add("229" + no_plus[2:])
+        else:
+            variants.add("01" + no_plus)
+            variants.add("+22901" + no_plus)
+            variants.add("22901" + no_plus)
+    return list(variants)
+
+
 @router.post("/register", status_code=status.HTTP_201_CREATED)
 async def register_user(
     payload: UserRegistrationSchema,
@@ -60,11 +94,11 @@ async def register_user(
     Register a new student or user account. Initial KYC status is set to PENDING.
     Sets HttpOnly session cookie on response.
     """
-    # Nettoyage du numéro de téléphone
     phone_clean = payload.phone_number.replace(" ", "").replace("-", "")
+    phone_variants = _normalize_phone_variants(phone_clean)
     
     # Check uniqueness of matricule (if provided) and phone number
-    query_conditions = [Users.phone_number == phone_clean]
+    query_conditions = [Users.phone_number.in_(phone_variants)]
     if payload.matricule_uac:
         query_conditions.append(Users.matricule_uac == payload.matricule_uac.strip())
         
@@ -73,7 +107,7 @@ async def register_user(
     )
     existing_user = existing_user_query.scalars().first()
     if existing_user:
-        if existing_user.phone_number == phone_clean:
+        if existing_user.phone_number in phone_variants:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Ce numéro de téléphone est déjà enregistré."
@@ -131,8 +165,9 @@ async def login_user(
     Authenticate user by phone number and password. Returns JWT access and sets session cookie.
     """
     phone_clean = payload.phone_number.replace(" ", "").replace("-", "")
+    phone_variants = _normalize_phone_variants(phone_clean)
     user_query = await db.execute(
-        select(Users).where(Users.phone_number == phone_clean)
+        select(Users).where(Users.phone_number.in_(phone_variants))
     )
     user = user_query.scalars().first()
 
