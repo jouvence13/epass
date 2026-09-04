@@ -57,6 +57,9 @@ export const ENDPOINTS = {
   DRIVER_MANUAL_VALIDATE: (ticketId: string) => `${API_V1_URL}/driver/tickets/${ticketId}/manual-validate`,
   DRIVER_REPORT_DELAY: `${API_V1_URL}/driver/report-delay`,
   DRIVER_ALERTS: `${API_V1_URL}/driver/alerts`,
+  DRIVER_PROFILE: `${API_V1_URL}/driver/profile`,
+  DRIVER_UPLOAD_DOCS: `${API_V1_URL}/kyc/driver/upload`,
+  CONTROLLER_UPLOAD_DOCS: `${API_V1_URL}/kyc/controller/upload`,
 
   // WebSockets
   WS_STUDENT_TRACKING: (tripId: string) => `${WS_BASE_URL}/ws/student/track/${tripId}`,

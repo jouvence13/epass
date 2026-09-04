@@ -7,7 +7,6 @@ import ScanBoardingPassScreen from '../screens/driver/ScanBoardingPassScreen';
 import AlertsScreen from '../screens/driver/AlertsScreen';
 import TopBar from '../components/TopBar';
 import { colors } from '../theme/theme';
-
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
 
@@ -21,18 +20,21 @@ const ICONS: Record<string, keyof typeof MaterialIcons.glyphMap> = {
 };
 
 export default function DriverTabs() {
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
   const { showToast } = useNotifications();
+  const isController = user?.role === 'CONTROLLER';
 
   const handleLogout = () => {
     showToast({
       title: 'Déconnexion Réussie',
-      message: 'Votre session Chauffeur a été fermée.',
+      message: isController ? 'Votre session Contrôleur a été fermée.' : 'Votre session Chauffeur a été fermée.',
       type: 'info',
       category: 'GENERAL',
     });
     logout();
   };
+
+  const topBarTitle = isController ? 'CROUS-UAC Contrôle' : 'CROUS-UAC Chauffeur';
 
   return (
     <Tab.Navigator
@@ -42,7 +44,7 @@ export default function DriverTabs() {
             ? undefined
             : () => (
                 <TopBar
-                  title="CROUS-UAC Driver"
+                  title={topBarTitle}
                   dark
                   rightIcon="logout"
                   onRightPress={handleLogout}
@@ -55,10 +57,10 @@ export default function DriverTabs() {
         tabBarIcon: ({ color, size }) => <MaterialIcons name={ICONS[route.name]} size={size} color={color} />,
       })}
     >
-      <Tab.Screen name="Home" component={DriverHubScreen} />
-      <Tab.Screen name="Scan" component={ScanBoardingPassScreen} options={{ headerShown: false }} />
-      <Tab.Screen name="Users" component={PassengerLookupScreen} />
-      <Tab.Screen name="Alerts" component={AlertsScreen} />
+      <Tab.Screen name="Home" component={DriverHubScreen} options={{ tabBarLabel: 'Tableau de bord' }} />
+      <Tab.Screen name="Scan" component={ScanBoardingPassScreen} options={{ headerShown: false, tabBarLabel: 'Scanner' }} />
+      <Tab.Screen name="Users" component={PassengerLookupScreen} options={{ tabBarLabel: 'Passagers' }} />
+      <Tab.Screen name="Alerts" component={AlertsScreen} options={{ tabBarLabel: 'Alertes' }} />
     </Tab.Navigator>
   );
 }

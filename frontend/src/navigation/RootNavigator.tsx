@@ -21,6 +21,7 @@ import StudentTabs from './StudentTabs';
 // Driver Screens
 import DriverTabs from './DriverTabs';
 import ReportDelayScreen from '../screens/driver/ReportDelayScreen';
+import DriverProfileScreen from '../screens/driver/DriverProfileScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -70,6 +71,7 @@ export default function RootNavigator() {
           // ================================================================
           <>
             <Stack.Screen name="DriverTabs" component={DriverTabs} />
+            <Stack.Screen name="DriverProfile" component={DriverProfileScreen} />
             <Stack.Screen name="ReportDelay" component={ReportDelayScreen} />
             {/* Permet aux admins de prévisualiser l'espace étudiant si besoin */}
             {(user?.role === 'ADMIN_CROUS' || user?.role === 'SUPERADMIN') && (
