@@ -21,9 +21,9 @@ import ReportDelayScreen from '../screens/driver/ReportDelayScreen';
 const Stack = createNativeStackNavigator();
 
 export default function RootNavigator() {
-  const { user, isAuthenticated, isLoading } = useAuth();
+  const { user, isAuthenticated, isInitialLoading } = useAuth();
 
-  if (isLoading) {
+  if (isInitialLoading) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background }}>
         <ActivityIndicator size="large" color={colors.primary} />
@@ -33,7 +33,12 @@ export default function RootNavigator() {
 
   return (
     <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Navigator
+        screenOptions={{
+          headerShown: false,
+          animation: 'slide_from_right',
+        }}
+      >
         {!isAuthenticated ? (
           // ================================================================
           // STACK NON-AUTHENTIFIÉ (Connexion / Inscription / Choix du profil)

@@ -5,14 +5,70 @@ import { MaterialIcons } from '@expo/vector-icons';
 import Card from '../../components/Card';
 import Badge from '../../components/Badge';
 import { colors, radius, spacing, typography } from '../../theme/theme';
+import { useAuth } from '../../context/AuthContext';
 
 export default function HomeScreen({ navigation }: any) {
+  const { user, justRegistered, clearJustRegistered } = useAuth();
+
+  const studentName = user ? `${user.first_name} ${user.last_name}` : 'Étudiant';
+  const matricule = user?.matricule_uac || 'Étudiant UAC';
+
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
       <ScrollView contentContainerStyle={styles.scroll}>
-        <Text style={styles.greeting}>Bonjour, Étudiant 👋</Text>
-        <Text style={styles.p}>Bienvenue sur votre espace transit universitaire.</Text>
+        {/* ========================================================================= */}
+        {/* BANNIÈRE DE BIENVENUE ET NOTIFICATION DE SUCCÈS APRÈS INSCRIPTION         */}
+        {/* ========================================================================= */}
+        {justRegistered && (
+          <View style={styles.welcomeBanner}>
+            <View style={styles.welcomeHeader}>
+              <View style={styles.welcomeIconBadge}>
+                <MaterialIcons name="verified" size={24} color="#16a34a" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.welcomeTitle}>Inscription Réussie ! 🎉</Text>
+                <Text style={styles.welcomeSubtitle}>
+                  Bienvenue <Text style={styles.bold}>{studentName}</Text> sur l'espace transport UAC-BusPass.
+                </Text>
+              </View>
+              <Pressable onPress={clearJustRegistered} hitSlop={10} style={styles.closeBannerBtn}>
+                <MaterialIcons name="close" size={20} color="#166534" />
+              </Pressable>
+            </View>
 
+            <View style={styles.welcomeDetailsBox}>
+              <View style={styles.detailItem}>
+                <MaterialIcons name="badge" size={16} color="#166534" />
+                <Text style={styles.detailText}>Matricule : <Text style={styles.bold}>{matricule}</Text></Text>
+              </View>
+              <View style={styles.detailItem}>
+                <MaterialIcons name="phone" size={16} color="#166534" />
+                <Text style={styles.detailText}>Tél : <Text style={styles.bold}>{user?.phone_number}</Text></Text>
+              </View>
+            </View>
+
+            <View style={styles.welcomeActions}>
+              <Pressable
+                style={styles.kycActionBtn}
+                onPress={() => {
+                  clearJustRegistered();
+                  navigation.navigate('KycOnboarding');
+                }}
+              >
+                <MaterialIcons name="upload-file" size={18} color="#ffffff" />
+                <Text style={styles.kycActionText}>Téléverser mes documents KYC</Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
+
+        {/* En-tête Salutation */}
+        <View style={styles.greetingWrap}>
+          <Text style={styles.greeting}>Bonjour, {user?.first_name || 'Étudiant'} 👋</Text>
+          <Text style={styles.p}>Bienvenue sur votre espace transit universitaire.</Text>
+        </View>
+
+        {/* Ticket Actif Card */}
         <Card floating style={styles.heroCard}>
           <View style={{ flex: 1 }}>
             <Badge label="Verified" tone="success" icon="check-circle" />
@@ -24,6 +80,7 @@ export default function HomeScreen({ navigation }: any) {
           </Pressable>
         </Card>
 
+        {/* Grille de Navigation */}
         <View style={styles.grid}>
           <Pressable style={styles.tile} onPress={() => navigation.navigate('Booking')}>
             <View style={[styles.tileIcon, { backgroundColor: colors.primaryFixed }]}>
@@ -51,6 +108,7 @@ export default function HomeScreen({ navigation }: any) {
           </Pressable>
         </View>
 
+        {/* Prochain Trajet Section */}
         <Card style={styles.section}>
           <Text style={styles.sectionTitle}>Prochain trajet</Text>
           <View style={styles.tripRow}>
@@ -70,8 +128,94 @@ export default function HomeScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   scroll: { padding: spacing.containerMargin, paddingBottom: spacing.xl, gap: spacing.lg },
+  greetingWrap: { gap: 2 },
   greeting: { ...typography.headlineMd, color: colors.primary },
   p: { ...typography.bodyMd, color: colors.onSurfaceVariant },
+
+  // Bannière de bienvenue / Notification
+  welcomeBanner: {
+    backgroundColor: '#ecfdf5',
+    borderWidth: 1.5,
+    borderColor: '#86efac',
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    gap: spacing.sm,
+    shadowColor: '#16a34a',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  welcomeHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+  },
+  welcomeIconBadge: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#dcfce7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  welcomeTitle: {
+    ...typography.headlineSm,
+    fontSize: 17,
+    color: '#166534',
+  },
+  welcomeSubtitle: {
+    ...typography.bodyMd,
+    fontSize: 13,
+    color: '#15803d',
+    marginTop: 2,
+  },
+  bold: {
+    fontWeight: '700',
+  },
+  closeBannerBtn: {
+    padding: spacing.xs,
+  },
+  welcomeDetailsBox: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    backgroundColor: '#ffffff',
+    borderRadius: radius.md,
+    padding: spacing.sm,
+    gap: spacing.md,
+    borderWidth: 1,
+    borderColor: '#d1fae5',
+  },
+  detailItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  detailText: {
+    ...typography.bodySm,
+    fontSize: 12,
+    color: '#166534',
+  },
+  welcomeActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 2,
+  },
+  kycActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#16a34a',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs + 2,
+    borderRadius: radius.md,
+  },
+  kycActionText: {
+    ...typography.bodySm,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
+
   heroCard: {
     flexDirection: 'row', alignItems: 'center', backgroundColor: colors.primaryContainer, gap: spacing.md,
   },

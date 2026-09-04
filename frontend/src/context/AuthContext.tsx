@@ -20,6 +20,9 @@ interface AuthContextType {
   token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  isInitialLoading: boolean;
+  justRegistered: boolean;
+  clearJustRegistered: () => void;
   login: (phoneNumber: string, password: string) => Promise<{ success: boolean; error?: string }>;
   register: (
     payload: {
@@ -29,8 +32,7 @@ interface AuthContextType {
       last_name: string;
       matricule_uac?: string;
       role?: UserRole;
-    },
-    autoLogin?: boolean
+    }
   ) => Promise<{ success: boolean; error?: string; user?: any }>;
   logout: () => void;
   quickLogin: (roleKey: 'STUDENT' | 'DRIVER' | 'CONTROLLER' | 'ADMIN_CROUS') => Promise<void>;
@@ -89,16 +91,27 @@ const getStoredAuthData = (): { token: string | null; user: User | null } => {
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
+  const [justRegistered, setJustRegistered] = useState(false);
 
   useEffect(() => {
-    const stored = getStoredAuthData();
-    if (stored.token && stored.user) {
-      setToken(stored.token);
-      setUser(stored.user);
+    try {
+      const stored = getStoredAuthData();
+      if (stored.token && stored.user) {
+        setToken(stored.token);
+        setUser(stored.user);
+      }
+    } catch (e) {
+      console.warn('Init auth load error:', e);
+    } finally {
+      setIsInitialLoading(false);
     }
-    setIsLoading(false);
   }, []);
+
+  const clearJustRegistered = () => {
+    setJustRegistered(false);
+  };
 
   const login = async (phoneNumber: string, password: string) => {
     setIsLoading(true);
@@ -170,17 +183,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const register = async (
-    payload: {
-      phone_number: string;
-      password: string;
-      first_name: string;
-      last_name: string;
-      matricule_uac?: string;
-      role?: UserRole;
-    },
-    autoLogin: boolean = false
-  ) => {
+  const register = async (payload: {
+    phone_number: string;
+    password: string;
+    first_name: string;
+    last_name: string;
+    matricule_uac?: string;
+    role?: UserRole;
+  }) => {
     setIsLoading(true);
     const cleanPhone = payload.phone_number.replace(/\s+/g, '').replace(/-/g, '');
     try {
@@ -205,14 +215,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
       }
 
-      if (autoLogin) {
-        const loginRes = await login(cleanPhone, payload.password);
-        setIsLoading(false);
-        return loginRes;
+      // Auto-connexion directe et activation du flag justRegistered
+      const loginRes = await login(cleanPhone, payload.password);
+      if (loginRes.success) {
+        setJustRegistered(true);
       }
-
       setIsLoading(false);
-      return { success: true, user: data };
+      return loginRes;
     } catch (err: any) {
       setIsLoading(false);
       return {
@@ -225,6 +234,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = () => {
     setUser(null);
     setToken(null);
+    setJustRegistered(false);
     clearAuthData();
   };
 
@@ -257,6 +267,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         token,
         isAuthenticated: !!user && !!token,
         isLoading,
+        isInitialLoading,
+        justRegistered,
+        clearJustRegistered,
         login,
         register,
         logout,
