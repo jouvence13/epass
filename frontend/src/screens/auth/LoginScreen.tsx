@@ -14,12 +14,38 @@ import PrimaryButton from '../../components/PrimaryButton';
 import { colors, radius, spacing, typography } from '../../theme/theme';
 import { useAuth } from '../../context/AuthContext';
 
+type LoginRole = 'STUDENT' | 'DRIVER' | 'CONTROLLER';
+
+const ROLES: { key: LoginRole; label: string; icon: any; hint: string }[] = [
+  {
+    key: 'STUDENT',
+    label: 'Étudiant',
+    icon: 'school',
+    hint: 'Accès tickets, QR Code & suivi GPS des bus',
+  },
+  {
+    key: 'DRIVER',
+    label: 'Chauffeur',
+    icon: 'local-shipping',
+    hint: 'Gestion des trajets, retards & manifeste passagers',
+  },
+  {
+    key: 'CONTROLLER',
+    label: 'Contrôleur',
+    icon: 'qr-code-scanner',
+    hint: 'Scan et contrôle des titres de transport à bord',
+  },
+];
+
 export default function LoginScreen({ navigation }: any) {
   const { login, isLoading } = useAuth();
+  const [selectedRole, setSelectedRole] = useState<LoginRole>('STUDENT');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const activeRoleObj = ROLES.find(r => r.key === selectedRole) || ROLES[0];
 
   const handleLogin = async () => {
     setErrorMessage(null);
@@ -57,9 +83,39 @@ export default function LoginScreen({ navigation }: any) {
         {/* Conteneur Formulaire & Inputs de Connexion */}
         <Card style={styles.formCard}>
           <Text style={styles.cardTitle}>Connexion</Text>
-          <Text style={styles.cardSubtitle}>
-            Connectez-vous à votre espace (Étudiant, Chauffeur ou Contrôleur).
-          </Text>
+          
+          {/* Sélecteur de Rôle (Étudiant / Chauffeur / Contrôleur) */}
+          <Text style={styles.roleHeaderLabel}>Sélectionnez votre profil :</Text>
+          <View style={styles.roleSelector}>
+            {ROLES.map((roleItem) => {
+              const isActive = selectedRole === roleItem.key;
+              return (
+                <Pressable
+                  key={roleItem.key}
+                  style={[styles.roleOption, isActive && styles.roleOptionActive]}
+                  onPress={() => {
+                    setSelectedRole(roleItem.key);
+                    setErrorMessage(null);
+                  }}
+                >
+                  <MaterialIcons
+                    name={roleItem.icon}
+                    size={18}
+                    color={isActive ? colors.onPrimary : colors.onSurfaceVariant}
+                  />
+                  <Text
+                    style={[
+                      styles.roleText,
+                      isActive && { color: colors.onPrimary, fontWeight: '700' },
+                    ]}
+                  >
+                    {roleItem.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+          <Text style={styles.roleHint}>{activeRoleObj.hint}</Text>
 
           {/* Numéro de téléphone */}
           <Text style={[styles.label, { marginTop: spacing.md }]}>Numéro de téléphone</Text>
@@ -99,7 +155,7 @@ export default function LoginScreen({ navigation }: any) {
 
           {/* Bouton de Connexion */}
           <PrimaryButton
-            label={isLoading ? 'Connexion en cours...' : 'Se connecter'}
+            label={isLoading ? 'Connexion en cours...' : `Se connecter (${activeRoleObj.label})`}
             icon="login"
             onPress={handleLogin}
             disabled={isLoading}
@@ -146,8 +202,27 @@ const styles = StyleSheet.create({
   },
   errorText: { ...typography.bodyMd, color: colors.onErrorContainer, flex: 1 },
   formCard: { width: '100%', borderWidth: 1, borderColor: colors.surfaceVariant, padding: spacing.lg },
-  cardTitle: { ...typography.headlineSm, color: colors.primary, marginBottom: 2 },
-  cardSubtitle: { ...typography.bodySm, color: colors.onSurfaceVariant, marginBottom: spacing.md },
+  cardTitle: { ...typography.headlineSm, color: colors.primary, marginBottom: spacing.xs },
+  roleHeaderLabel: { ...typography.labelCaps, color: colors.onSurfaceVariant, marginBottom: spacing.xs },
+  roleSelector: {
+    flexDirection: 'row',
+    backgroundColor: colors.surfaceContainer,
+    borderRadius: radius.lg,
+    padding: 4,
+    marginBottom: spacing.xs,
+  },
+  roleOption: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md,
+    gap: 4,
+  },
+  roleOptionActive: { backgroundColor: colors.primary },
+  roleText: { ...typography.bodySm, color: colors.onSurfaceVariant },
+  roleHint: { ...typography.bodySm, fontSize: 12, color: colors.onSurfaceVariant, marginBottom: spacing.xs },
   label: { ...typography.labelCaps, color: colors.onSurfaceVariant, marginBottom: spacing.xs },
   inputWrap: {
     flexDirection: 'row',
