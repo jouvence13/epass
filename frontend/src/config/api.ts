@@ -3,16 +3,15 @@
  */
 import { Platform } from 'react-native';
 
-// Adresse de base du Backend :
-// - Sur le Web / Navigateur : http://localhost:8001
-// - Sur l'émulateur Android : http://10.0.2.2:8001
-// - Sur un smartphone physique (Wi-Fi local) : http://192.168.1.87:8001
+// URL Publique du Tunnel pour l'APK mobile (accessible partout dans le monde) :
+export const PUBLIC_TUNNEL_URL = 'https://14bc-2c0f-53c0-618-9c00-db91-3bc3-36df-8940.ngrok-free.app';
+
 const getBaseUrl = () => {
   if (Platform.OS === 'web') {
     return 'http://localhost:8001';
   }
-  // Sur Android / iOS physique ou émulateur, utiliser l'IP LAN locale
-  return 'http://192.168.1.87:8001';
+  // Sur mobile Android / iOS (APK autonome), utiliser le tunnel sécurisé distant
+  return PUBLIC_TUNNEL_URL;
 };
 
 export const API_BASE_URL = getBaseUrl();
