@@ -36,11 +36,14 @@ class Notifications(Base, TimestampMixin):
     )
     title: Mapped[str] = mapped_column(String(150), nullable=False)
     message: Mapped[str] = mapped_column(Text, nullable=False)
-    channel: Mapped[str] = mapped_column(String(20), nullable=False) # 'PUSH', 'SMS'
+    category: Mapped[str] = mapped_column(String(50), default="GENERAL", nullable=False)
+    tone: Mapped[str] = mapped_column(String(20), default="info", nullable=False)
+    read: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    channel: Mapped[str] = mapped_column(String(20), default="PUSH", nullable=False) # 'PUSH', 'SMS'
     is_sent: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    scheduled_for: Mapped[datetime] = mapped_column(
+    scheduled_for: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True),
-        nullable=False,
+        nullable=True,
         index=True
     )
     sent_at: Mapped[Optional[datetime]] = mapped_column(

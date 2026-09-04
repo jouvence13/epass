@@ -89,6 +89,9 @@ class Wallets(Base, TimestampMixin):
     balance: Mapped[float] = mapped_column(Numeric(10, 2), default=0.00, nullable=False)
     currency: Mapped[str] = mapped_column(String(10), default="FCFA", nullable=False)
 
+    # Relationships
+    user: Mapped["Users"] = relationship("Users", back_populates="wallet")
+
 
 class UserPaymentMethods(Base, TimestampMixin):
     __tablename__ = "user_payment_methods"
@@ -108,3 +111,6 @@ class UserPaymentMethods(Base, TimestampMixin):
     account_number: Mapped[str] = mapped_column(String(30), nullable=False)
     account_label: Mapped[str] = mapped_column(String(100), nullable=False)
     is_default: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
+    # Relationships
+    user: Mapped["Users"] = relationship("Users", back_populates="payment_methods")

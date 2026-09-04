@@ -21,6 +21,8 @@ from app.models.payment_model import (
     Payments,
     PaymentStatusEnum,
     PaymentGatewayEnum,
+    Wallets,
+    UserPaymentMethods,
 )
 from app.models.ticket_model import (
     Tickets,
@@ -48,6 +50,8 @@ __all__ = [
     "Payments",
     "PaymentStatusEnum",
     "PaymentGatewayEnum",
+    "Wallets",
+    "UserPaymentMethods",
     "Tickets",
     "TicketStatusEnum",
     "Notifications",

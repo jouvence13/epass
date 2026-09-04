@@ -94,6 +94,8 @@ class Users(Base, TimestampMixin):
     )
     tickets: Mapped[List["Tickets"]] = relationship("Tickets", back_populates="user", foreign_keys="Tickets.user_id")
     payments: Mapped[List["Payments"]] = relationship("Payments", back_populates="user")
+    wallet: Mapped[Optional["Wallets"]] = relationship("Wallets", back_populates="user", uselist=False, cascade="all, delete-orphan")
+    payment_methods: Mapped[List["UserPaymentMethods"]] = relationship("UserPaymentMethods", back_populates="user", cascade="all, delete-orphan")
     notifications: Mapped[List["Notifications"]] = relationship("Notifications", back_populates="user")
 
 

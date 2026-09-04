@@ -44,3 +44,51 @@ class PaymentOutSchema(BaseModel):
     phone_number: str
     status: PaymentStatusEnum
     created_at: datetime
+
+
+class PaymentMethodOutSchema(BaseModel):
+    id: str
+    type: str
+    title: str
+    account: str
+    isDefault: bool
+    color: str
+    icon: str
+    code: str
+
+
+class RechargeHistoryOutSchema(BaseModel):
+    id: str
+    amount: float
+    operator: str
+    phone: str
+    date: str
+    status: str
+
+
+class WalletRechargeRequestSchema(BaseModel):
+    amount: float = Field(..., gt=0, example=2000.0)
+    operator: str = Field(..., example="MTN")
+    phone_number: str = Field(..., example="+2290157774305")
+
+
+class AddPaymentMethodSchema(BaseModel):
+    provider_type: str = Field(..., example="MTN_MOMO")  # 'MTN_MOMO' | 'MOOV_MONEY' | 'CELTIIS_CASH'
+    account_number: str = Field(..., example="+2290157774305")
+    account_label: str = Field(..., example="Mon compte MTN")
+    is_default: bool = False
+
+
+class WalletOutSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    wallet_id: uuid.UUID
+    user_id: uuid.UUID
+    balance: float
+    currency: str = "FCFA"
+
+
+class WalletBalanceOutSchema(BaseModel):
+    balance: float
+    currency: str = "FCFA"
+

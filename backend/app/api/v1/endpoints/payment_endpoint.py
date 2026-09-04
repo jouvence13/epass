@@ -2,7 +2,6 @@ import uuid
 from datetime import datetime, timezone
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
 
@@ -15,42 +14,18 @@ from app.models.payment_model import (
     Wallets,
     UserPaymentMethods,
 )
+from app.schemas.payment_schema import (
+    PaymentMethodOutSchema,
+    RechargeHistoryOutSchema,
+    WalletRechargeRequestSchema,
+    AddPaymentMethodSchema,
+    WalletOutSchema,
+    WalletBalanceOutSchema,
+)
 from app.services.auth_service import get_current_authenticated_user
+from app.services.payment_service import payment_service
 
 router = APIRouter(prefix="/payments", tags=["Payments & Wallet"])
-
-
-class PaymentMethodOutSchema(BaseModel):
-    id: str
-    type: str
-    title: str
-    account: str
-    isDefault: bool
-    color: str
-    icon: str
-    code: str
-
-
-class RechargeHistoryOutSchema(BaseModel):
-    id: str
-    amount: float
-    operator: str
-    phone: str
-    date: str
-    status: str
-
-
-class WalletRechargeRequestSchema(BaseModel):
-    amount: float
-    operator: str
-    phone_number: str
-
-
-class AddPaymentMethodSchema(BaseModel):
-    provider_type: str  # 'MTN_MOMO' | 'MOOV_MONEY' | 'CELTIIS_CASH'
-    account_number: str
-    account_label: str
-    is_default: bool = False
 
 
 @router.get("/methods", response_model=List[PaymentMethodOutSchema])
