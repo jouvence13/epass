@@ -71,8 +71,8 @@ const MOCK_HISTORY: TicketHistoryItem[] = [
 ];
 
 export default function HistoryScreen({ navigation }: any) {
-  const { token } = useAuth();
-  const [history, setHistory] = useState<TicketHistoryItem[]>(MOCK_HISTORY);
+  const { token, tickets, user } = useAuth();
+  const [serverHistory, setServerHistory] = useState<TicketHistoryItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -87,7 +87,7 @@ export default function HistoryScreen({ navigation }: any) {
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data) && data.length > 0) {
-          setHistory(data);
+          setServerHistory(data);
         }
       }
     } catch (e) {
@@ -106,6 +106,23 @@ export default function HistoryScreen({ navigation }: any) {
     setRefreshing(true);
     fetchHistory();
   };
+
+  // Fusionner les tickets achetés localement en direct avec l'historique
+  const combinedHistory: TicketHistoryItem[] = [
+    ...tickets.map((t) => ({
+      ticket_id: t.id,
+      trip_id: `trip-${t.id}`,
+      route_name: t.route,
+      student_name: user ? `${user.first_name} ${user.last_name}` : 'Étudiant UAC',
+      student_id: `Matricule: ${user?.matricule_uac || 'UAC-2024-XXXX'}`,
+      code: t.code,
+      status: t.status === 'ACTIVE' ? 'Valid Ticket' : t.status === 'USED' ? 'Validated' : 'Expired',
+      raw_status: t.status === 'ACTIVE' ? 'ISSUED' : t.status === 'USED' ? 'VALIDATED' : 'EXPIRED',
+      avail_for_label: t.date,
+      bus_code: t.busId,
+    })),
+    ...(serverHistory.length > 0 ? serverHistory : MOCK_HISTORY.filter(m => !tickets.some(t => t.code === m.code))),
+  ];
 
   const getStatusBadge = (item: TicketHistoryItem) => {
     const isIssued = item.status === 'Valid Ticket' || item.raw_status === 'ISSUED';
@@ -142,7 +159,7 @@ export default function HistoryScreen({ navigation }: any) {
         </View>
       ) : (
         <FlatList
-          data={history}
+          data={combinedHistory}
           keyExtractor={(item) => item.ticket_id || item.code}
           contentContainerStyle={styles.list}
           refreshControl={

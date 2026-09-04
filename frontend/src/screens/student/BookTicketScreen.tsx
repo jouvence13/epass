@@ -34,7 +34,7 @@ const SLOTS: Slot[] = [
 ];
 
 export default function BookTicketScreen({ navigation }: any) {
-  const { user, walletBalance, operatorPhoneNumbers, debitWallet } = useAuth();
+  const { user, walletBalance, operatorPhoneNumbers, debitWallet, busSlots, purchaseTicket } = useAuth();
   const { showToast } = useNotifications();
   const [activeTab, setActiveTab] = useState<'SCAN_QR' | 'MANUAL_BOOKING'>('SCAN_QR');
 
@@ -100,7 +100,7 @@ export default function BookTicketScreen({ navigation }: any) {
   const handleSimulateScan = () => {
     setIsScanning(false);
     setScannedBusData({
-      busId: 'BUS-CROUS-402',
+      busId: 'Bus CROUS #402',
       line: 'Ligne A (Express Campus)',
       route: 'Calavi Campus → Cotonou Étoile Rouge',
       price: 100, // Tarif subventionné
@@ -114,6 +114,12 @@ export default function BookTicketScreen({ navigation }: any) {
 
   const handleConfirmPayment = (priceOverride?: number) => {
     const price = priceOverride || scannedBusData?.price || 100;
+    const isQR = activeTab === 'SCAN_QR';
+    const currentSlot = busSlots[selectedSlot] || busSlots[0];
+    const targetLine = isQR ? scannedBusData?.line || 'Ligne A (Express Campus)' : currentSlot.route;
+    const targetRoute = isQR ? scannedBusData?.route || 'Calavi Campus → Cotonou Étoile Rouge' : `${departure} → ${destination}`;
+    const targetBus = isQR ? scannedBusData?.busId || 'Bus CROUS #402' : 'Bus CROUS #402';
+    const slotId = isQR ? 'slot-1' : currentSlot.id;
 
     if (paymentOperator === 'WALLET') {
       if (walletBalance < price) {
@@ -144,16 +150,26 @@ export default function BookTicketScreen({ navigation }: any) {
         setIsProcessing(false);
         const success = debitWallet(price);
         if (success) {
+          // Création et enregistrement du ticket actif + décompte des places
+          const createdTicket = purchaseTicket({
+            line: targetLine,
+            route: targetRoute,
+            busId: targetBus,
+            price,
+            paymentMethod: 'Portefeuille CROUS',
+            slotId,
+          });
+
           showToast({
             title: 'Titre Validé en Temps Réel !',
-            message: `${price} FCFA débités du Portefeuille CROUS. Nouveau solde : ${(walletBalance - price).toLocaleString('fr-FR')} FCFA`,
+            message: `${price} FCFA débités du Portefeuille CROUS. Ticket code: ${createdTicket.code}`,
             type: 'success',
             category: 'WALLET',
           });
 
           Alert.alert(
             'Paiement Portefeuille Réussi !',
-            `Votre trajet a été débité instantanément (100 FCFA). Votre titre de transport est maintenant actif. Bon voyage !`,
+            `Votre titre de transport (${createdTicket.code}) a été validé avec succès. Vous pouvez le retrouver sur l'accueil et monter à bord.`,
             [
               {
                 text: 'Voir mon Ticket Actif',
@@ -183,6 +199,15 @@ export default function BookTicketScreen({ navigation }: any) {
           ? 'Moov Money (*855#)'
           : 'Celtiis Cash (*888#)';
 
+      const createdTicket = purchaseTicket({
+        line: targetLine,
+        route: targetRoute,
+        busId: targetBus,
+        price,
+        paymentMethod: opName,
+        slotId,
+      });
+
       showToast({
         title: 'Titre Validé avec Succès !',
         message: `${price} FCFA réglés via ${opName} (${cleanPhone}).`,
@@ -192,7 +217,7 @@ export default function BookTicketScreen({ navigation }: any) {
 
       Alert.alert(
         'Paiement Réussi !',
-        `Votre titre de transport a été validé avec succès via ${opName}. Vous pouvez maintenant monter à bord.`,
+        `Votre titre de transport (${createdTicket.code}) a été validé avec succès via ${opName}. Il est maintenant disponible sur votre accueil.`,
         [
           {
             text: 'Voir mon Ticket Actif',
@@ -449,9 +474,9 @@ export default function BookTicketScreen({ navigation }: any) {
 
             <Card style={styles.section}>
               <Text style={styles.sectionLabel}>ROTATIONS DISPONIBLES (AUJOURD'HUI)</Text>
-              {SLOTS.map((s, i) => (
+              {busSlots.map((s, i) => (
                 <Pressable
-                  key={s.time}
+                  key={s.id}
                   disabled={s.full}
                   onPress={() => setSelectedSlot(i)}
                   style={[
@@ -489,7 +514,7 @@ export default function BookTicketScreen({ navigation }: any) {
                           ]}
                         >
                           {' '}
-                          {s.seats}
+                          {s.bookedSeats}/{s.totalSeats} places
                         </Text>
                       </View>
                     </View>

@@ -8,10 +8,10 @@ import { colors, radius, spacing, typography } from '../../theme/theme';
 import { useAuth } from '../../context/AuthContext';
 
 export default function HomeScreen({ navigation }: any) {
-  const { user, justRegistered, clearJustRegistered } = useAuth();
+  const { user, justRegistered, clearJustRegistered, tickets, activeTicket, setActiveTicket, walletBalance } = useAuth();
 
   const studentName = user ? `${user.first_name} ${user.last_name}` : 'Étudiant';
-  const matricule = user?.matricule_uac || 'Étudiant UAC';
+  const activeTicketsList = tickets.filter((t) => t.status === 'ACTIVE');
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
@@ -38,61 +38,98 @@ export default function HomeScreen({ navigation }: any) {
           </View>
         )}
 
-        {/* En-tête Salutation */}
-        <View style={styles.greetingWrap}>
-          <Text style={styles.greeting}>Bonjour, {user?.first_name || 'Étudiant'}</Text>
-          <Text style={styles.p}>Bienvenue sur votre espace transit universitaire CROUS-UAC.</Text>
+        {/* En-tête Salutation & Solde Rapide */}
+        <View style={styles.greetingHeader}>
+          <View style={styles.greetingWrap}>
+            <Text style={styles.greeting}>Bonjour, {user?.first_name || 'Étudiant'}</Text>
+            <Text style={styles.p}>Espace transit universitaire CROUS-UAC</Text>
+          </View>
+          <Pressable
+            style={styles.walletMiniBadge}
+            onPress={() => navigation.navigate('PaymentMethods')}
+          >
+            <MaterialIcons name="account-balance-wallet" size={16} color={colors.primary} />
+            <Text style={styles.walletMiniText}>{walletBalance.toLocaleString('fr-FR')} F</Text>
+          </Pressable>
         </View>
 
-        {/* Ticket Actif Card / Statut Pass */}
-        {user?.kyc_status === 'APPROVED' ? (
-          <Card floating style={styles.heroCard}>
-            <View style={{ flex: 1 }}>
-              <Badge label="Pass Universitaire Actif" tone="success" icon="check-circle" />
-              <Text style={styles.heroTitle}>Ticket Campus Express</Text>
-              <Text style={styles.heroSub}>Ligne A (Calavi Campus ↔ Cotonou) • Valide</Text>
-            </View>
-            <Pressable style={styles.heroBtn} onPress={() => navigation.navigate('Tickets')}>
-              <MaterialIcons name="qr-code-2" size={28} color={colors.onPrimary} />
-            </Pressable>
-          </Card>
-        ) : user?.kyc_status === 'PENDING' ? (
-          <Card style={[styles.heroCard, { backgroundColor: '#fffbeb', borderColor: '#fde68a', borderWidth: 1 }]}>
-            <View style={{ flex: 1 }}>
-              <Badge label="KYC En Attente de Validation" tone="warning" icon="schedule" />
-              <Text style={[styles.heroTitle, { color: '#92400e' }]}>Dossier en cours d'examen</Text>
-              <Text style={[styles.heroSub, { color: '#b45309' }]}>Vos justificatifs sont en cours de modération par le CROUS.</Text>
-            </View>
-            <Pressable
-              style={[styles.heroBtn, { backgroundColor: '#d97706' }]}
-              onPress={() => navigation.navigate('KycOnboarding')}
-            >
-              <MaterialIcons name="hourglass-top" size={26} color="#ffffff" />
-            </Pressable>
-          </Card>
+        {/* ========================================================================= */}
+        {/* SECTION 1 : MES TICKETS PAYÉS & ACTIFS                                     */}
+        {/* ========================================================================= */}
+        <View style={styles.sectionHeadRow}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <MaterialIcons name="confirmation-number" size={22} color={colors.primary} />
+            <Text style={styles.sectionHeaderTitle}>Mes Tickets Payés & Actifs</Text>
+          </View>
+          <Badge label={`${activeTicketsList.length} Valide(s)`} tone="success" />
+        </View>
+
+        {activeTicketsList.length > 0 ? (
+          <View style={{ gap: spacing.md }}>
+            {activeTicketsList.map((t) => (
+              <Card key={t.id} floating style={styles.activeTicketCard}>
+                <View style={styles.ticketCardHeader}>
+                  <View style={{ flex: 1 }}>
+                    <Badge label="Ticket Valide & Payé" tone="success" icon="check-circle" />
+                    <Text style={styles.ticketRoute}>{t.route}</Text>
+                    <Text style={styles.ticketBusSub}>{t.line} • {t.busId}</Text>
+                  </View>
+                  <Pressable
+                    style={styles.qrOpenBtn}
+                    onPress={() => {
+                      setActiveTicket(t);
+                      navigation.navigate('Tickets');
+                    }}
+                  >
+                    <MaterialIcons name="qr-code-2" size={28} color={colors.onPrimary} />
+                    <Text style={styles.qrOpenBtnText}>Scanner</Text>
+                  </Pressable>
+                </View>
+
+                <View style={styles.ticketMetaRow}>
+                  <View style={styles.ticketMetaItem}>
+                    <MaterialIcons name="key" size={14} color={colors.primary} />
+                    <Text style={styles.ticketMetaCode}>{t.code}</Text>
+                  </View>
+                  <View style={styles.ticketMetaItem}>
+                    <MaterialIcons name="payments" size={14} color={colors.secondary} />
+                    <Text style={styles.ticketMetaText}>{t.paymentMethod} ({t.price} F)</Text>
+                  </View>
+                  <View style={styles.ticketMetaItem}>
+                    <MaterialIcons name="schedule" size={14} color={colors.outline} />
+                    <Text style={styles.ticketMetaText}>{t.date}</Text>
+                  </View>
+                </View>
+              </Card>
+            ))}
+          </View>
         ) : (
-          <Card style={[styles.heroCard, { backgroundColor: '#fef2f2', borderColor: '#fecaca', borderWidth: 1 }]}>
-            <View style={{ flex: 1 }}>
-              <Badge label="KYC Non Soumis" tone="neutral" icon="warning" />
-              <Text style={[styles.heroTitle, { color: '#991b1b' }]}>Activez votre tarif étudiant</Text>
-              <Text style={[styles.heroSub, { color: '#b91c1c' }]}>Téléversez votre carte étudiant et CIP pour débloquer vos tickets.</Text>
-            </View>
+          /* Aucun ticket actif -> Inviter à en acheter un */
+          <Card style={styles.noTicketCard}>
+            <MaterialIcons name="airplane-ticket" size={36} color={colors.outline} />
+            <Text style={styles.noTicketTitle}>Aucun titre de transport actif</Text>
+            <Text style={styles.noTicketSub}>
+              Achetez votre ticket subventionné à 100 FCFA pour voyager sereinement sur le réseau CROUS.
+            </Text>
             <Pressable
-              style={[styles.heroBtn, { backgroundColor: '#dc2626' }]}
-              onPress={() => navigation.navigate('KycOnboarding')}
+              style={styles.buyTicketActionBtn}
+              onPress={() => navigation.navigate('Booking')}
             >
-              <MaterialIcons name="upload-file" size={26} color="#ffffff" />
+              <MaterialIcons name="qr-code-scanner" size={18} color="#ffffff" />
+              <Text style={styles.buyTicketActionText}>Acheter un Ticket (100 FCFA)</Text>
             </Pressable>
           </Card>
         )}
 
-        {/* Grille de Navigation */}
+        {/* ========================================================================= */}
+        {/* GRILLE DE NAVIGATION PRINCIPALE                                           */}
+        {/* ========================================================================= */}
         <View style={styles.grid}>
           <Pressable style={styles.tile} onPress={() => navigation.navigate('Booking')}>
             <View style={[styles.tileIcon, { backgroundColor: colors.primaryFixed }]}>
               <MaterialIcons name="confirmation-number" size={24} color={colors.primary} />
             </View>
-            <Text style={styles.tileLabel}>Réserver un ticket</Text>
+            <Text style={styles.tileLabel}>Réserver / Payer</Text>
           </Pressable>
           <Pressable style={styles.tile} onPress={() => navigation.navigate('Tickets')}>
             <View style={[styles.tileIcon, { backgroundColor: colors.secondaryContainer }]}>
@@ -100,11 +137,11 @@ export default function HomeScreen({ navigation }: any) {
             </View>
             <Text style={styles.tileLabel}>Suivi en direct</Text>
           </Pressable>
-          <Pressable style={styles.tile} onPress={() => navigation.navigate('Profile')}>
-            <View style={[styles.tileIcon, { backgroundColor: colors.tertiaryFixed }]}>
-              <MaterialIcons name="badge" size={24} color={colors.onTertiaryFixedVariant} />
+          <Pressable style={styles.tile} onPress={() => navigation.navigate('PaymentMethods')}>
+            <View style={[styles.tileIcon, { backgroundColor: '#fef3c7' }]}>
+              <MaterialIcons name="account-balance-wallet" size={24} color="#d97706" />
             </View>
-            <Text style={styles.tileLabel}>Mon profil KYC</Text>
+            <Text style={styles.tileLabel}>Portefeuille</Text>
           </Pressable>
           <Pressable style={styles.tile} onPress={() => navigation.navigate('History')}>
             <View style={[styles.tileIcon, { backgroundColor: colors.surfaceContainerHigh }]}>
@@ -116,12 +153,12 @@ export default function HomeScreen({ navigation }: any) {
 
         {/* Prochain Trajet Section */}
         <Card style={styles.section}>
-          <Text style={styles.sectionTitle}>Prochain trajet</Text>
+          <Text style={styles.sectionTitle}>Prochains Départs CROUS</Text>
           <View style={styles.tripRow}>
             <MaterialIcons name="directions-bus" size={20} color={colors.primary} />
             <View style={{ flex: 1 }}>
-              <Text style={styles.tripTitle}>Calavi Campus → Cotonou Centre</Text>
-              <Text style={styles.hint}>Aujourd'hui, 07:30 - Ligne A</Text>
+              <Text style={styles.tripTitle}>Calavi Campus → Cotonou Étoile Rouge</Text>
+              <Text style={styles.hint}>Ligne A (Express) • Départ 07:30 • Tarif: 100 FCFA</Text>
             </View>
             <Badge label="Disponible" tone="success" />
           </View>
@@ -222,15 +259,149 @@ const styles = StyleSheet.create({
     color: '#ffffff',
   },
 
-  heroCard: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: colors.primaryContainer, gap: spacing.md,
+  greetingHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  heroTitle: { ...typography.headlineSm, color: colors.onPrimaryContainer, marginTop: spacing.xs },
-  heroSub: { ...typography.bodyMd, color: colors.onPrimaryContainer, opacity: 0.85 },
-  heroBtn: {
-    width: 56, height: 56, borderRadius: 28, backgroundColor: colors.primary,
-    alignItems: 'center', justifyContent: 'center',
+  greetingWrap: { gap: 2, flex: 1 },
+  greeting: { ...typography.headlineMd, color: colors.primary },
+  p: { ...typography.bodySm, color: colors.onSurfaceVariant },
+  walletMiniBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#fef3c7',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: radius.full,
+    borderWidth: 1,
+    borderColor: '#fde68a',
   },
+  walletMiniText: {
+    ...typography.labelCaps,
+    fontSize: 12,
+    color: '#92400e',
+    fontWeight: '700',
+  },
+
+  sectionHeadRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: spacing.xs,
+  },
+  sectionHeaderTitle: {
+    ...typography.headlineSm,
+    fontSize: 17,
+    color: colors.primary,
+  },
+
+  activeTicketCard: {
+    backgroundColor: colors.surfaceContainerLowest,
+    borderTopWidth: 4,
+    borderTopColor: colors.primary,
+    padding: spacing.md,
+    gap: spacing.sm,
+  },
+  ticketCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+  },
+  ticketRoute: {
+    ...typography.headlineSm,
+    fontSize: 16,
+    color: colors.primary,
+    marginTop: spacing.xs,
+  },
+  ticketBusSub: {
+    ...typography.bodySm,
+    color: colors.onSurfaceVariant,
+    marginTop: 2,
+  },
+  qrOpenBtn: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.md,
+    gap: 2,
+    minWidth: 64,
+  },
+  qrOpenBtnText: {
+    ...typography.labelCaps,
+    fontSize: 10,
+    color: colors.onPrimary,
+    fontWeight: '700',
+  },
+  ticketMetaRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.surfaceContainerLow,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.sm,
+    marginTop: spacing.xs,
+    gap: 8,
+  },
+  ticketMetaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  ticketMetaCode: {
+    ...typography.statusCode,
+    fontSize: 12,
+    color: colors.primary,
+  },
+  ticketMetaText: {
+    ...typography.bodySm,
+    fontSize: 11,
+    color: colors.onSurfaceVariant,
+  },
+
+  noTicketCard: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.lg,
+    gap: spacing.xs,
+    borderWidth: 1,
+    borderColor: colors.outlineVariant,
+    borderStyle: 'dashed',
+    backgroundColor: colors.surfaceContainerLowest,
+  },
+  noTicketTitle: {
+    ...typography.headlineSm,
+    fontSize: 15,
+    color: colors.onSurface,
+    marginTop: spacing.xs,
+  },
+  noTicketSub: {
+    ...typography.bodySm,
+    color: colors.onSurfaceVariant,
+    textAlign: 'center',
+    lineHeight: 18,
+    marginBottom: spacing.sm,
+  },
+  buyTicketActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md,
+  },
+  buyTicketActionText: {
+    ...typography.bodySm,
+    color: colors.onPrimary,
+    fontWeight: '700',
+  },
+
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md, justifyContent: 'space-between' },
   tile: {
     width: '47%', backgroundColor: colors.surfaceContainerLowest, borderRadius: radius.lg,

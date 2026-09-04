@@ -102,7 +102,7 @@ const BUS_LINES: Record<string, BusLineConfig> = {
 };
 
 export default function ActiveTicketScreen() {
-  const { user } = useAuth();
+  const { user, activeTicket } = useAuth();
   const [selectedLineKey, setSelectedLineKey] = useState<'LIGNE_A' | 'LIGNE_B' | 'LIGNE_C'>('LIGNE_A');
 
   const activeLine = BUS_LINES[selectedLineKey];
@@ -171,16 +171,18 @@ export default function ActiveTicketScreen() {
               color={colors.onSecondary}
             />
             <Text style={styles.validText}>
-              {isApproved ? 'Ticket Valide' : user?.kyc_status === 'PENDING' ? 'KYC En Attente' : 'KYC Non Soumis'}
+              {isApproved ? 'Ticket Valide & Payé' : user?.kyc_status === 'PENDING' ? 'KYC En Attente' : 'KYC Non Soumis'}
             </Text>
           </View>
-          <Text style={styles.route}>{activeLine.name} • {activeLine.code}</Text>
-          <Text style={styles.studentId}>Matricule : {user?.matricule_uac || 'UAC-2024-XXXX'}</Text>
+          <Text style={styles.route}>{activeTicket?.route || activeLine.code}</Text>
+          <Text style={styles.studentId}>
+            {activeTicket?.line || activeLine.name} • {activeTicket?.busId || activeLine.busNumber} • Matricule : {user?.matricule_uac || 'UAC-2024-XXXX'}
+          </Text>
 
           <View style={styles.qrWrap}>
             <View style={styles.qrBox}>
               <QRCode
-                value={`CROUS-UAC-TICKET-${user?.matricule_uac || 'ETUDIANT'}-A7B9`}
+                value={`CROUS-UAC-TICKET-${user?.matricule_uac || 'ETUDIANT'}-${activeTicket?.code || 'A7B9-X2M4'}`}
                 size={160}
                 color={colors.onBackground}
                 backgroundColor={colors.white}
@@ -195,7 +197,7 @@ export default function ActiveTicketScreen() {
             />
           </View>
 
-          <Text style={styles.code}>A7B9-X2M4</Text>
+          <Text style={styles.code}>{activeTicket?.code || 'A7B9-X2M4'}</Text>
 
           <PrimaryButton
             label="Recycler mon Ticket"
@@ -204,7 +206,9 @@ export default function ActiveTicketScreen() {
             onPress={() => Alert.alert('Ticket Universitaire', 'Votre ticket a été replacé dans la file active.')}
             style={{ width: '100%' }}
           />
-          <Text style={styles.availFor}>Valable pour la journée en cours • Tarif subventionné 100 FCFA</Text>
+          <Text style={styles.availFor}>
+            Valable pour la journée en cours • Payé via {activeTicket?.paymentMethod || 'Portefeuille CROUS'} (100 FCFA)
+          </Text>
         </Card>
 
         {/* ========================================================================= */}

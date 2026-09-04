@@ -15,6 +15,28 @@ export interface User {
   kyc_status?: KycStatus;
 }
 
+export interface StudentTicket {
+  id: string;
+  code: string;
+  line: string;
+  route: string;
+  busId: string;
+  price: number;
+  date: string;
+  status: 'ACTIVE' | 'USED' | 'EXPIRED';
+  paymentMethod: string;
+  timeSlot?: string;
+}
+
+export interface BusSlot {
+  id: string;
+  time: string;
+  route: string;
+  bookedSeats: number;
+  totalSeats: number;
+  full: boolean;
+}
+
 interface AuthContextType {
   user: User | null;
   token: string | null;
@@ -29,9 +51,21 @@ interface AuthContextType {
     MOOV: string;
     CELTIIS: string;
   };
+  tickets: StudentTicket[];
+  activeTicket: StudentTicket | null;
+  busSlots: BusSlot[];
   debitWallet: (amount: number) => boolean;
   rechargeWallet: (amount: number, operator: string, phone: string) => void;
   updateOperatorPhone: (operator: 'MTN' | 'MOOV' | 'CELTIIS', phone: string) => void;
+  purchaseTicket: (params: {
+    line: string;
+    route: string;
+    busId: string;
+    price: number;
+    paymentMethod: string;
+    slotId?: string;
+  }) => StudentTicket;
+  setActiveTicket: (ticket: StudentTicket) => void;
   login: (phoneNumber: string, password: string) => Promise<{ success: boolean; error?: string }>;
   register: (
     payload: {
@@ -165,6 +199,110 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       return updated;
     });
+  };
+
+  // Liste des rotations et places disponibles en direct
+  const [busSlots, setBusSlots] = useState<BusSlot[]>(() => {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      const saved = localStorage.getItem('epass_bus_slots');
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch (e) {}
+      }
+    }
+    return [
+      { id: 'slot-1', time: '07:30 - Rotation Matin', route: 'Ligne A (Calavi ↔ Cotonou)', bookedSeats: 32, totalSeats: 50, full: false },
+      { id: 'slot-2', time: '08:15 - Rotation Express', route: 'Ligne B (Calavi ↔ Godomey)', bookedSeats: 50, totalSeats: 50, full: true },
+      { id: 'slot-3', time: '09:00 - Rotation Campus', route: 'Ligne A (Calavi ↔ Cotonou)', bookedSeats: 18, totalSeats: 50, full: false },
+      { id: 'slot-4', time: '12:30 - Rotation Midi', route: 'Ligne C (Calavi ↔ Akpakpa)', bookedSeats: 40, totalSeats: 50, full: false },
+    ];
+  });
+
+  // Liste des titres de transport achetés par l'étudiant
+  const [tickets, setTickets] = useState<StudentTicket[]>(() => {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      const saved = localStorage.getItem('epass_student_tickets');
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch (e) {}
+      }
+    }
+    return [
+      {
+        id: 't-101',
+        code: 'A7B9-X2M4',
+        line: 'Campus Express • Ligne A',
+        route: 'Calavi Campus → Cotonou Étoile Rouge',
+        busId: 'Bus CROUS #402',
+        price: 100,
+        date: "Aujourd'hui, 07:30",
+        status: 'ACTIVE',
+        paymentMethod: 'Portefeuille CROUS',
+        timeSlot: '07:30 - Rotation Matin',
+      },
+    ];
+  });
+
+  const [activeTicket, setActiveTicket] = useState<StudentTicket | null>(() => {
+    return tickets.find((t) => t.status === 'ACTIVE') || tickets[0] || null;
+  });
+
+  const purchaseTicket = (params: {
+    line: string;
+    route: string;
+    busId: string;
+    price: number;
+    paymentMethod: string;
+    slotId?: string;
+  }): StudentTicket => {
+    // 1. Mise à jour dynamique du nombre de places pour le créneau
+    const targetSlotId = params.slotId || 'slot-1';
+    setBusSlots((prev) => {
+      const updated = prev.map((s) => {
+        if (s.id === targetSlotId || s.route.includes(params.line) || (targetSlotId === 'slot-1' && s.id === 'slot-1')) {
+          const nextBooked = Math.min(s.totalSeats, s.bookedSeats + 1);
+          return {
+            ...s,
+            bookedSeats: nextBooked,
+            full: nextBooked >= s.totalSeats,
+          };
+        }
+        return s;
+      });
+      if (Platform.OS === 'web' && typeof window !== 'undefined') {
+        localStorage.setItem('epass_bus_slots', JSON.stringify(updated));
+      }
+      return updated;
+    });
+
+    // 2. Génération du ticket payé
+    const randomSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
+    const newCode = `A7B9-${randomSuffix}`;
+    const newTicket: StudentTicket = {
+      id: `t-${Date.now()}`,
+      code: newCode,
+      line: params.line,
+      route: params.route,
+      busId: params.busId,
+      price: params.price,
+      date: `Aujourd'hui, ${new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`,
+      status: 'ACTIVE',
+      paymentMethod: params.paymentMethod,
+      timeSlot: params.slotId ? 'Réservation Garantie' : 'Rotation Immédiate',
+    };
+
+    setTickets((prev) => {
+      const updated = [newTicket, ...prev];
+      if (Platform.OS === 'web' && typeof window !== 'undefined') {
+        localStorage.setItem('epass_student_tickets', JSON.stringify(updated));
+      }
+      return updated;
+    });
+
+    setActiveTicket(newTicket);
+    return newTicket;
   };
 
   useEffect(() => {
@@ -387,9 +525,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         clearJustRegistered,
         walletBalance,
         operatorPhoneNumbers,
+        tickets,
+        activeTicket,
+        busSlots,
         debitWallet,
         rechargeWallet,
         updateOperatorPhone,
+        purchaseTicket,
+        setActiveTicket,
         login,
         register,
         logout,
