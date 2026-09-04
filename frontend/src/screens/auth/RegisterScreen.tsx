@@ -65,7 +65,8 @@ export default function RegisterScreen({ navigation }: any) {
           </View>
         )}
 
-        {/* Choix du Rôle */}
+        {/* Choix du Rôle Opérationnel (Admin exclu de l'auto-inscription) */}
+        <Text style={styles.roleLabel}>Sélectionnez votre profil :</Text>
         <View style={styles.roleSelector}>
           <Pressable
             style={[styles.roleOption, role === 'STUDENT' && styles.roleOptionActive]}
@@ -73,7 +74,7 @@ export default function RegisterScreen({ navigation }: any) {
           >
             <MaterialIcons
               name="school"
-              size={20}
+              size={18}
               color={role === 'STUDENT' ? colors.onPrimary : colors.onSurfaceVariant}
             />
             <Text
@@ -92,7 +93,7 @@ export default function RegisterScreen({ navigation }: any) {
           >
             <MaterialIcons
               name="local-shipping"
-              size={20}
+              size={18}
               color={role === 'DRIVER' ? colors.onPrimary : colors.onSurfaceVariant}
             />
             <Text
@@ -104,6 +105,33 @@ export default function RegisterScreen({ navigation }: any) {
               Chauffeur
             </Text>
           </Pressable>
+
+          <Pressable
+            style={[styles.roleOption, role === 'CONTROLLER' && styles.roleOptionActive]}
+            onPress={() => setRole('CONTROLLER')}
+          >
+            <MaterialIcons
+              name="qr-code-scanner"
+              size={18}
+              color={role === 'CONTROLLER' ? colors.onPrimary : colors.onSurfaceVariant}
+            />
+            <Text
+              style={[
+                styles.roleText,
+                role === 'CONTROLLER' && { color: colors.onPrimary, fontWeight: '700' },
+              ]}
+            >
+              Contrôleur
+            </Text>
+          </Pressable>
+        </View>
+
+        {/* Note de sécurité sur les rôles */}
+        <View style={styles.roleNotice}>
+          <MaterialIcons name="info-outline" size={16} color={colors.onSurfaceVariant} />
+          <Text style={styles.roleNoticeText}>
+            Les comptes d'administration CROUS sont nominatifs et créés par la direction.
+          </Text>
         </View>
 
         {/* Formulaire d'Inscription */}
@@ -217,12 +245,13 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   errorText: { ...typography.bodyMd, color: colors.onErrorContainer, flex: 1 },
+  roleLabel: { ...typography.labelCaps, color: colors.onSurfaceVariant, marginBottom: spacing.xs },
   roleSelector: {
     flexDirection: 'row',
     backgroundColor: colors.surfaceContainer,
     borderRadius: radius.lg,
     padding: 4,
-    marginBottom: spacing.lg,
+    marginBottom: spacing.xs,
   },
   roleOption: {
     flex: 1,
@@ -231,10 +260,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: spacing.sm,
     borderRadius: radius.md,
-    gap: spacing.xs,
+    gap: 4,
   },
   roleOptionActive: { backgroundColor: colors.primary },
-  roleText: { ...typography.bodyMd, color: colors.onSurfaceVariant },
+  roleText: { ...typography.bodySm, color: colors.onSurfaceVariant },
+  roleNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: spacing.md,
+    paddingHorizontal: 4,
+  },
+  roleNoticeText: { ...typography.bodySm, fontSize: 12, color: colors.onSurfaceVariant },
   formCard: { borderWidth: 1, borderColor: colors.surfaceVariant, padding: spacing.lg },
   row: { flexDirection: 'row', gap: spacing.md },
   label: { ...typography.labelCaps, color: colors.onSurfaceVariant, marginBottom: spacing.xs },

@@ -159,18 +159,6 @@ export default function LoginScreen({ navigation }: any) {
                 <Text style={styles.chipSub}>Validation des titres</Text>
               </View>
             </Pressable>
-
-            <Pressable
-              style={styles.quickChip}
-              onPress={() => handleQuickLogin('ADMIN_CROUS')}
-              disabled={isLoading}
-            >
-              <MaterialIcons name="admin-panel-settings" size={22} color={colors.primary} />
-              <View>
-                <Text style={styles.chipTitle}>Admin CROUS</Text>
-                <Text style={styles.chipSub}>Gestion flotte & KYC</Text>
-              </View>
-            </Pressable>
           </View>
         </View>
       </ScrollView>

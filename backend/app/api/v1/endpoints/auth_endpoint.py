@@ -54,13 +54,16 @@ async def register_user(
                 detail="Ce matricule UAC est déjà associé à un autre compte."
             )
 
+    allowed_register_roles = [UserRoleEnum.STUDENT, UserRoleEnum.DRIVER, UserRoleEnum.CONTROLLER]
+    user_role = payload.role if payload.role in allowed_register_roles else UserRoleEnum.STUDENT
+
     new_user = Users(
         matricule_uac=payload.matricule_uac,
         phone_number=payload.phone_number,
         first_name=payload.first_name,
         last_name=payload.last_name,
         password_hash=hash_password(payload.password),
-        role=payload.role or UserRoleEnum.STUDENT,
+        role=user_role,
         kyc_status=KycStatusEnum.PENDING,
         is_active=True
     )
