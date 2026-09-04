@@ -12,7 +12,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import Card from '../../components/Card';
 import PrimaryButton from '../../components/PrimaryButton';
 import { colors, radius, spacing, typography } from '../../theme/theme';
-import { useAuth, UserRole } from '../../context/AuthContext';
+import { useAuth } from '../../context/AuthContext';
 
 export default function RegisterScreen({ navigation }: any) {
   const { register, isLoading } = useAuth();
@@ -21,17 +21,16 @@ export default function RegisterScreen({ navigation }: any) {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [matricule, setMatricule] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState<UserRole>('STUDENT');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const handleRegister = async () => {
     setErrorMessage(null);
-    if (!firstName || !lastName || !phoneNumber || !password) {
+    if (!firstName.trim() || !lastName.trim() || !phoneNumber.trim() || !password.trim()) {
       setErrorMessage('Veuillez remplir tous les champs obligatoires.');
       return;
     }
 
-    if (role === 'STUDENT' && !matricule.trim()) {
+    if (!matricule.trim()) {
       setErrorMessage('Le numéro de matricule UAC est obligatoire pour l\'inscription d\'un étudiant.');
       return;
     }
@@ -40,9 +39,9 @@ export default function RegisterScreen({ navigation }: any) {
       first_name: firstName.trim(),
       last_name: lastName.trim(),
       phone_number: phoneNumber.trim(),
-      matricule_uac: role === 'STUDENT' ? matricule.trim() : undefined,
+      matricule_uac: matricule.trim(),
       password: password,
-      role: role,
+      role: 'STUDENT',
     });
 
     if (!res.success) {
@@ -58,8 +57,11 @@ export default function RegisterScreen({ navigation }: any) {
           <Pressable style={styles.backBtn} onPress={() => navigation.goBack()}>
             <MaterialIcons name="arrow-back" size={24} color={colors.primary} />
           </Pressable>
-          <Text style={styles.brand}>Créer un compte</Text>
-          <Text style={styles.tagline}>Rejoignez le réseau de transit universitaire UAC</Text>
+          <View style={styles.logoBadge}>
+            <MaterialIcons name="school" size={32} color={colors.onPrimary} />
+          </View>
+          <Text style={styles.brand}>Inscription Étudiant</Text>
+          <Text style={styles.tagline}>Création de votre compte de transport UAC-BusPass</Text>
         </View>
 
         {/* Message d'erreur */}
@@ -70,72 +72,12 @@ export default function RegisterScreen({ navigation }: any) {
           </View>
         )}
 
-        {/* Choix du Rôle Opérationnel (Admin exclu de l'auto-inscription) */}
-        <Text style={styles.roleLabel}>Sélectionnez votre profil :</Text>
-        <View style={styles.roleSelector}>
-          <Pressable
-            style={[styles.roleOption, role === 'STUDENT' && styles.roleOptionActive]}
-            onPress={() => setRole('STUDENT')}
-          >
-            <MaterialIcons
-              name="school"
-              size={18}
-              color={role === 'STUDENT' ? colors.onPrimary : colors.onSurfaceVariant}
-            />
-            <Text
-              style={[
-                styles.roleText,
-                role === 'STUDENT' && { color: colors.onPrimary, fontWeight: '700' },
-              ]}
-            >
-              Étudiant
-            </Text>
-          </Pressable>
-
-          <Pressable
-            style={[styles.roleOption, role === 'DRIVER' && styles.roleOptionActive]}
-            onPress={() => setRole('DRIVER')}
-          >
-            <MaterialIcons
-              name="local-shipping"
-              size={18}
-              color={role === 'DRIVER' ? colors.onPrimary : colors.onSurfaceVariant}
-            />
-            <Text
-              style={[
-                styles.roleText,
-                role === 'DRIVER' && { color: colors.onPrimary, fontWeight: '700' },
-              ]}
-            >
-              Chauffeur
-            </Text>
-          </Pressable>
-
-          <Pressable
-            style={[styles.roleOption, role === 'CONTROLLER' && styles.roleOptionActive]}
-            onPress={() => setRole('CONTROLLER')}
-          >
-            <MaterialIcons
-              name="qr-code-scanner"
-              size={18}
-              color={role === 'CONTROLLER' ? colors.onPrimary : colors.onSurfaceVariant}
-            />
-            <Text
-              style={[
-                styles.roleText,
-                role === 'CONTROLLER' && { color: colors.onPrimary, fontWeight: '700' },
-              ]}
-            >
-              Contrôleur
-            </Text>
-          </Pressable>
-        </View>
-
-        {/* Note de sécurité sur les rôles */}
-        <View style={styles.roleNotice}>
-          <MaterialIcons name="info-outline" size={16} color={colors.onSurfaceVariant} />
-          <Text style={styles.roleNoticeText}>
-            Les comptes d'administration CROUS sont nominatifs et créés par la direction.
+        {/* Note d'information de sécurité */}
+        <View style={styles.infoBox}>
+          <MaterialIcons name="info" size={20} color={colors.primary} />
+          <Text style={styles.infoText}>
+            L'auto-inscription est exclusivement réservée aux étudiants de l'Université d'Abomey-Calavi.
+            Les comptes chauffeurs et agents sont créés par l'administration.
           </Text>
         </View>
 
@@ -180,22 +122,18 @@ export default function RegisterScreen({ navigation }: any) {
             />
           </View>
 
-          {/* Matricule (Étudiant) */}
-          {role === 'STUDENT' && (
-            <>
-              <Text style={[styles.label, { marginTop: spacing.md }]}>Matricule UAC *</Text>
-              <View style={styles.inputWrap}>
-                <MaterialIcons name="badge" size={20} color={colors.outline} style={styles.inputIcon} />
-                <TextInput
-                  style={styles.inputField}
-                  placeholder="ex: UAC-2024-8492"
-                  placeholderTextColor={colors.outline}
-                  value={matricule}
-                  onChangeText={setMatricule}
-                />
-              </View>
-            </>
-          )}
+          {/* Matricule UAC (Obligatoire) */}
+          <Text style={[styles.label, { marginTop: spacing.md }]}>Matricule UAC *</Text>
+          <View style={styles.inputWrap}>
+            <MaterialIcons name="badge" size={20} color={colors.outline} style={styles.inputIcon} />
+            <TextInput
+              style={styles.inputField}
+              placeholder="ex: UAC-2024-8492"
+              placeholderTextColor={colors.outline}
+              value={matricule}
+              onChangeText={setMatricule}
+            />
+          </View>
 
           {/* Mot de passe */}
           <Text style={[styles.label, { marginTop: spacing.md }]}>Mot de passe *</Text>
@@ -213,8 +151,8 @@ export default function RegisterScreen({ navigation }: any) {
 
           {/* Bouton de Soumission */}
           <PrimaryButton
-            label={isLoading ? 'Inscription en cours...' : "S'inscrire"}
-            icon="check"
+            label={isLoading ? 'Inscription en cours...' : "Créer mon compte Étudiant"}
+            icon="school"
             onPress={handleRegister}
             disabled={isLoading}
             style={{ marginTop: spacing.lg }}
@@ -222,7 +160,7 @@ export default function RegisterScreen({ navigation }: any) {
 
           {/* Lien retour connexion */}
           <View style={styles.footerLink}>
-            <Text style={styles.footerText}>Déjà un compte ? </Text>
+            <Text style={styles.footerText}>Déjà inscrit ? </Text>
             <Pressable onPress={() => navigation.navigate('Login')}>
               <Text style={styles.linkText}>Se connecter</Text>
             </Pressable>
@@ -238,6 +176,15 @@ const styles = StyleSheet.create({
   scroll: { padding: spacing.containerMargin, paddingBottom: spacing.xxl },
   header: { alignItems: 'center', marginVertical: spacing.md, position: 'relative', width: '100%' },
   backBtn: { position: 'absolute', left: 0, top: 0, padding: spacing.xs },
+  logoBadge: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.xs,
+  },
   brand: { ...typography.displayLg, fontSize: 24, color: colors.primary, marginTop: spacing.xs },
   tagline: { ...typography.bodyMd, color: colors.onSurfaceVariant, marginTop: 2, textAlign: 'center' },
   errorBanner: {
@@ -250,33 +197,16 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   errorText: { ...typography.bodyMd, color: colors.onErrorContainer, flex: 1 },
-  roleLabel: { ...typography.labelCaps, color: colors.onSurfaceVariant, marginBottom: spacing.xs },
-  roleSelector: {
-    flexDirection: 'row',
-    backgroundColor: colors.surfaceContainer,
-    borderRadius: radius.lg,
-    padding: 4,
-    marginBottom: spacing.xs,
-  },
-  roleOption: {
-    flex: 1,
+  infoBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing.sm,
+    gap: spacing.sm,
+    backgroundColor: colors.secondaryContainer,
     borderRadius: radius.md,
-    gap: 4,
-  },
-  roleOptionActive: { backgroundColor: colors.primary },
-  roleText: { ...typography.bodySm, color: colors.onSurfaceVariant },
-  roleNotice: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+    padding: spacing.md,
     marginBottom: spacing.md,
-    paddingHorizontal: 4,
   },
-  roleNoticeText: { ...typography.bodySm, fontSize: 12, color: colors.onSurfaceVariant },
+  infoText: { ...typography.bodySm, color: colors.onSecondaryContainer, flex: 1, lineHeight: 18 },
   formCard: { borderWidth: 1, borderColor: colors.surfaceVariant, padding: spacing.lg },
   row: { flexDirection: 'row', gap: spacing.md },
   label: { ...typography.labelCaps, color: colors.onSurfaceVariant, marginBottom: spacing.xs },

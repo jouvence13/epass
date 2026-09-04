@@ -54,8 +54,14 @@ async def register_user(
                 detail="Ce matricule UAC est déjà associé à un autre compte."
             )
 
-    allowed_register_roles = [UserRoleEnum.STUDENT, UserRoleEnum.DRIVER, UserRoleEnum.CONTROLLER]
-    user_role = payload.role if payload.role in allowed_register_roles else UserRoleEnum.STUDENT
+    # Règle stricte : Seuls les étudiants peuvent s'inscrire publiquement
+    if not payload.matricule_uac or not payload.matricule_uac.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Le numéro de matricule UAC est obligatoire pour l'inscription d'un étudiant."
+        )
+
+    user_role = UserRoleEnum.STUDENT
 
     new_user = Users(
         matricule_uac=payload.matricule_uac,

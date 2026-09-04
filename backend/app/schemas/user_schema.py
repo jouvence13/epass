@@ -78,3 +78,13 @@ class KycModerationRequestSchema(BaseModel):
     user_id: uuid.UUID
     action: KycStatusEnum # APPROVED or REJECTED
     rejection_reason: Optional[str] = None
+
+
+class AdminCreateUserSchema(BaseModel):
+    matricule_uac: Optional[str] = Field(None, example="DRV-2024-001")
+    phone_number: str = Field(..., example="+22997000000")
+    first_name: str = Field(..., example="Chauffeur")
+    last_name: str = Field(..., example="CROUS")
+    password: str = Field(..., min_length=6, example="Driver1234")
+    role: UserRoleEnum = Field(..., example="DRIVER", description="Rôle utilisateur (STUDENT, DRIVER, CONTROLLER, ADMIN_CROUS)")
+    kyc_status: Optional[KycStatusEnum] = KycStatusEnum.APPROVED

@@ -7,6 +7,7 @@ from app.schemas.user_schema import (
     UserProfileSchema,
     KycSubmissionResponseSchema,
     KycModerationRequestSchema,
+    AdminCreateUserSchema,
 )
 from app.schemas.fleet_schema import (
     BusCreateSchema,

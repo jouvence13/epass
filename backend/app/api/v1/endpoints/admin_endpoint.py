@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 from typing import List, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, or_
 from geoalchemy2.functions import ST_X, ST_Y
 
 from app.core.database import get_async_db
@@ -13,6 +13,7 @@ from app.models.fleet_model import Buses, Stops, Routes, BusStatusEnum
 from app.models.trip_model import Trips, TripStatusEnum, GpsLogs
 from app.models.payment_model import Payments, PaymentStatusEnum, PaymentGatewayEnum
 from app.models.ticket_model import Tickets, TicketStatusEnum
+from app.schemas.user_schema import AdminCreateUserSchema, UserProfileSchema
 from app.schemas.fleet_schema import (
     BusCreateSchema,
     BusOutSchema,
@@ -25,6 +26,59 @@ from app.schemas.trip_schema import TripCreateSchema, TripOutSchema
 from app.services.auth_service import require_roles
 
 router = APIRouter(prefix="/admin", tags=["Admin & Fleet Management"])
+
+
+# ==============================================================================
+# User Management & Enrollment (SuperAdmin & Admin CROUS)
+# ==============================================================================
+
+@router.post("/users", response_model=UserProfileSchema, status_code=status.HTTP_201_CREATED)
+async def create_user_by_admin(
+    payload: AdminCreateUserSchema,
+    current_admin: Users = Depends(require_roles([UserRoleEnum.SUPERADMIN, UserRoleEnum.ADMIN_CROUS])),
+    db: AsyncSession = Depends(get_async_db)
+):
+    """
+    SuperAdmin & Admin CROUS: Create any staff or student user account (DRIVER, CONTROLLER, ADMIN_CROUS, STUDENT).
+    Règle stricte: Il est strictement impossible de créer un autre compte SUPERADMIN.
+    """
+    if payload.role == UserRoleEnum.SUPERADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Action interdite : Il est impossible de créer un compte avec le rôle SUPERADMIN."
+        )
+
+    # Check uniqueness of phone number and matricule
+    query_conditions = [Users.phone_number == payload.phone_number]
+    if payload.matricule_uac:
+        query_conditions.append(Users.matricule_uac == payload.matricule_uac)
+
+    existing = (await db.execute(select(Users).where(or_(*query_conditions)))).scalars().first()
+    if existing:
+        if existing.phone_number == payload.phone_number:
+            raise HTTPException(status_code=400, detail="Ce numéro de téléphone est déjà utilisé.")
+        if payload.matricule_uac and existing.matricule_uac == payload.matricule_uac:
+            raise HTTPException(status_code=400, detail="Ce matricule UAC est déjà assigné.")
+
+    now = datetime.now(timezone.utc)
+    new_user = Users(
+        matricule_uac=payload.matricule_uac,
+        phone_number=payload.phone_number,
+        first_name=payload.first_name,
+        last_name=payload.last_name,
+        password_hash=hash_password(payload.password),
+        role=payload.role,
+        kyc_status=payload.kyc_status or (
+            KycStatusEnum.APPROVED if payload.role != UserRoleEnum.STUDENT else KycStatusEnum.PENDING
+        ),
+        last_kyc_verification_date=now if payload.role != UserRoleEnum.STUDENT else None,
+        next_kyc_due_date=(now + timedelta(days=90)) if payload.role != UserRoleEnum.STUDENT else None,
+        is_active=True
+    )
+    db.add(new_user)
+    await db.commit()
+    await db.refresh(new_user)
+    return new_user
 
 
 # ==============================================================================
