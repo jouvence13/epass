@@ -8,6 +8,7 @@ import {
   TextInput,
   Modal,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -25,6 +26,15 @@ interface PaymentMethod {
   isDefault: boolean;
   color: string;
   icon: keyof typeof MaterialIcons.glyphMap;
+  code: string;
+}
+
+interface RechargeHistory {
+  id: string;
+  amount: number;
+  operator: string;
+  phone: string;
+  date: string;
 }
 
 export default function PaymentMethodsScreen({ navigation }: any) {
@@ -40,6 +50,7 @@ export default function PaymentMethodsScreen({ navigation }: any) {
       isDefault: true,
       color: '#fbbf24',
       icon: 'phone-android',
+      code: '*880#',
     },
     {
       id: '2',
@@ -49,6 +60,7 @@ export default function PaymentMethodsScreen({ navigation }: any) {
       isDefault: false,
       color: '#0284c7',
       icon: 'contactless',
+      code: '*855#',
     },
     {
       id: '3',
@@ -58,24 +70,50 @@ export default function PaymentMethodsScreen({ navigation }: any) {
       isDefault: false,
       color: '#0070ba',
       icon: 'smartphone',
+      code: '*888#',
     },
     {
       id: '4',
       type: 'CROUS_WALLET',
       title: 'Portefeuille Étudiant CROUS',
-      account: `Solde : ${walletBalance.toLocaleString('fr-FR')} FCFA`,
+      account: `Solde disponible : ${walletBalance.toLocaleString('fr-FR')} FCFA`,
       isDefault: false,
       color: colors.primary,
       icon: 'account-balance-wallet',
+      code: 'Subvention CROUS',
     },
   ]);
 
-  // Modal d'ajout de moyen de paiement
+  const [rechargeHistory, setRechargeHistory] = useState<RechargeHistory[]>([
+    {
+      id: 'r1',
+      amount: 2000,
+      operator: 'MTN Mobile Money',
+      phone: '+229 01 97 00 11 22',
+      date: "Hier, 14:20",
+    },
+    {
+      id: 'r2',
+      amount: 1000,
+      operator: 'Celtiis Cash',
+      phone: '+229 01 40 88 99 00',
+      date: '02 Sept, 09:15',
+    },
+  ]);
+
+  // Modal d'ajout ou d'édition de compte Mobile Money
   const [modalVisible, setModalVisible] = useState(false);
+  const [editingMethodId, setEditingMethodId] = useState<string | null>(null);
   const [selectedOperator, setSelectedOperator] = useState<'MTN' | 'MOOV' | 'CELTIIS'>('MTN');
-  const [newPhone, setNewPhone] = useState('');
+  const [inputPhoneNumber, setInputPhoneNumber] = useState('');
+
+  // Modal de Recharge du Portefeuille
   const [rechargeModalVisible, setRechargeModalVisible] = useState(false);
+  const [rechargeOperator, setRechargeOperator] = useState<'MTN' | 'MOOV' | 'CELTIIS'>('MTN');
+  const [rechargePhone, setRechargePhone] = useState(user?.phone_number || '01 97 00 11 22');
   const [rechargeAmount, setRechargeAmount] = useState('1000');
+  const [ussdPromptVisible, setUssdPromptVisible] = useState(false);
+  const [isProcessingUssd, setIsProcessingUssd] = useState(false);
 
   const setDefaultMethod = (id: string) => {
     setMethods((prev) =>
@@ -86,66 +124,148 @@ export default function PaymentMethodsScreen({ navigation }: any) {
     );
   };
 
-  const handleAddMethod = () => {
-    if (!newPhone.trim() || newPhone.length < 8) {
-      Alert.alert('Numéro invalide', 'Veuillez saisir un numéro de téléphone valide à 8 chiffres.');
-      return;
-    }
-
-    const cleanNumber = newPhone.startsWith('+229') ? newPhone : `+229 ${newPhone}`;
-    const newMethod: PaymentMethod = {
-      id: Date.now().toString(),
-      type:
-        selectedOperator === 'MTN'
-          ? 'MTN_MOMO'
-          : selectedOperator === 'MOOV'
-          ? 'MOOV_MONEY'
-          : 'CELTIIS_CASH',
-      title:
-        selectedOperator === 'MTN'
-          ? 'MTN Mobile Money'
-          : selectedOperator === 'MOOV'
-          ? 'Moov Money Flooz'
-          : 'Celtiis Cash Bénin',
-      account: cleanNumber,
-      isDefault: false,
-      color:
-        selectedOperator === 'MTN'
-          ? '#fbbf24'
-          : selectedOperator === 'MOOV'
-          ? '#0284c7'
-          : '#0070ba',
-      icon:
-        selectedOperator === 'MTN'
-          ? 'phone-android'
-          : selectedOperator === 'MOOV'
-          ? 'contactless'
-          : 'smartphone',
-    };
-
-    setMethods((prev) => [...prev, newMethod]);
-    setNewPhone('');
-    setModalVisible(false);
-    Alert.alert('Succès', 'Votre moyen de paiement a été ajouté avec succès.');
+  const openAddModal = () => {
+    setEditingMethodId(null);
+    setSelectedOperator('MTN');
+    setInputPhoneNumber('');
+    setModalVisible(true);
   };
 
-  const handleRechargeWallet = () => {
-    const amount = parseInt(rechargeAmount, 10);
-    if (isNaN(amount) || amount <= 0) {
-      Alert.alert('Montant invalide', 'Veuillez entrer un montant valide.');
+  const openEditModal = (method: PaymentMethod) => {
+    setEditingMethodId(method.id);
+    const op =
+      method.type === 'MTN_MOMO'
+        ? 'MTN'
+        : method.type === 'MOOV_MONEY'
+        ? 'MOOV'
+        : 'CELTIIS';
+    setSelectedOperator(op);
+    // Nettoie pour ne garder que le numéro local 10 chiffres
+    const clean = method.account.replace('+229', '').trim();
+    setInputPhoneNumber(clean);
+    setModalVisible(true);
+  };
+
+  const handleSaveMethod = () => {
+    if (!inputPhoneNumber.trim() || inputPhoneNumber.replace(/\s+/g, '').length < 8) {
+      Alert.alert('Numéro incomplet', 'Veuillez saisir un numéro de téléphone valide à 10 chiffres (ex: 01 97 00 11 22).');
       return;
     }
 
-    setWalletBalance((prev) => prev + amount);
-    setMethods((prev) =>
-      prev.map((m) =>
-        m.type === 'CROUS_WALLET'
-          ? { ...m, account: `Solde : ${(walletBalance + amount).toLocaleString('fr-FR')} FCFA` }
-          : m
-      )
-    );
+    const cleanInput = inputPhoneNumber.trim();
+    const formatted = cleanInput.startsWith('+229') ? cleanInput : `+229 ${cleanInput}`;
+
+    if (editingMethodId) {
+      // Modification du numéro existant
+      setMethods((prev) =>
+        prev.map((m) =>
+          m.id === editingMethodId
+            ? { ...m, account: formatted }
+            : m
+        )
+      );
+      setModalVisible(false);
+      Alert.alert('Numéro modifié', `Le numéro de votre compte ${selectedOperator} a été mis à jour.`);
+    } else {
+      // Création d'un nouveau compte
+      const newMethod: PaymentMethod = {
+        id: Date.now().toString(),
+        type:
+          selectedOperator === 'MTN'
+            ? 'MTN_MOMO'
+            : selectedOperator === 'MOOV'
+            ? 'MOOV_MONEY'
+            : 'CELTIIS_CASH',
+        title:
+          selectedOperator === 'MTN'
+            ? 'MTN Mobile Money'
+            : selectedOperator === 'MOOV'
+            ? 'Moov Money Flooz'
+            : 'Celtiis Cash Bénin',
+        account: formatted,
+        isDefault: false,
+        color:
+          selectedOperator === 'MTN'
+            ? '#fbbf24'
+            : selectedOperator === 'MOOV'
+            ? '#0284c7'
+            : '#0070ba',
+        icon:
+          selectedOperator === 'MTN'
+            ? 'phone-android'
+            : selectedOperator === 'MOOV'
+            ? 'contactless'
+            : 'smartphone',
+        code:
+          selectedOperator === 'MTN'
+            ? '*880#'
+            : selectedOperator === 'MOOV'
+            ? '*855#'
+            : '*888#',
+      };
+      setMethods((prev) => [...prev, newMethod]);
+      setModalVisible(false);
+      Alert.alert('Compte enregistré', 'Votre moyen de paiement a été ajouté avec succès.');
+    }
+  };
+
+  const handleInitiateRecharge = () => {
+    const amount = parseInt(rechargeAmount, 10);
+    if (isNaN(amount) || amount <= 0) {
+      Alert.alert('Montant invalide', 'Veuillez choisir ou saisir un montant de recharge valide.');
+      return;
+    }
+    if (!rechargePhone.trim() || rechargePhone.length < 8) {
+      Alert.alert('Numéro requis', 'Veuillez renseigner le numéro de téléphone qui sera débité.');
+      return;
+    }
+
     setRechargeModalVisible(false);
-    Alert.alert('Recharge réussie', `Votre portefeuille a été crédité de ${amount.toLocaleString('fr-FR')} FCFA via Mobile Money.`);
+    setUssdPromptVisible(true);
+  };
+
+  const handleConfirmUssdPayment = () => {
+    setIsProcessingUssd(true);
+    const amount = parseInt(rechargeAmount, 10);
+    const opName =
+      rechargeOperator === 'MTN'
+        ? 'MTN Mobile Money'
+        : rechargeOperator === 'MOOV'
+        ? 'Moov Money Flooz'
+        : 'Celtiis Cash';
+
+    setTimeout(() => {
+      setIsProcessingUssd(false);
+      setUssdPromptVisible(false);
+      const newBal = walletBalance + amount;
+      setWalletBalance(newBal);
+
+      // Met à jour la ligne du portefeuille
+      setMethods((prev) =>
+        prev.map((m) =>
+          m.type === 'CROUS_WALLET'
+            ? { ...m, account: `Solde disponible : ${newBal.toLocaleString('fr-FR')} FCFA` }
+            : m
+        )
+      );
+
+      // Ajoute à l'historique
+      const newHist: RechargeHistory = {
+        id: Date.now().toString(),
+        amount,
+        operator: opName,
+        phone: rechargePhone.startsWith('+229') ? rechargePhone : `+229 ${rechargePhone}`,
+        date: "À l'instant",
+      };
+      setRechargeHistory((prev) => [newHist, ...prev]);
+
+      Alert.alert(
+        'Recharge Validée !',
+        `Votre Portefeuille Universitaire CROUS a été crédité de ${amount.toLocaleString(
+          'fr-FR'
+        )} FCFA. Nouveau solde : ${newBal.toLocaleString('fr-FR')} FCFA.`
+      );
+    }, 1200);
   };
 
   return (
@@ -158,7 +278,7 @@ export default function PaymentMethodsScreen({ navigation }: any) {
           </Pressable>
           <View style={{ flex: 1 }}>
             <Text style={styles.title}>Moyens de Paiement</Text>
-            <Text style={styles.subtitle}>Gérez vos comptes MTN MoMo, Moov Money et portefeuille CROUS</Text>
+            <Text style={styles.subtitle}>Gérez vos numéros MTN, Moov, Celtiis et Portefeuille CROUS</Text>
           </View>
         </View>
 
@@ -166,9 +286,9 @@ export default function PaymentMethodsScreen({ navigation }: any) {
         <Card floating style={styles.balanceCard}>
           <View style={styles.balanceRow}>
             <View>
-              <Text style={styles.balanceLabel}>Portefeuille Universitaire</Text>
+              <Text style={styles.balanceLabel}>Portefeuille Universitaire CROUS</Text>
               <Text style={styles.balanceValue}>{walletBalance.toLocaleString('fr-FR')} FCFA</Text>
-              <Text style={styles.balanceHint}>Subvention CROUS applicable automatiquement</Text>
+              <Text style={styles.balanceHint}>Paiement instantané en 1 clic à 100 F par trajet</Text>
             </View>
             <Pressable
               style={styles.rechargeBtn}
@@ -182,11 +302,8 @@ export default function PaymentMethodsScreen({ navigation }: any) {
 
         {/* Liste des Moyens de Paiement */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Comptes enregistrés</Text>
-          <Pressable
-            style={styles.addSmallBtn}
-            onPress={() => setModalVisible(true)}
-          >
+          <Text style={styles.sectionTitle}>Comptes & Numéros Enregistrés</Text>
+          <Pressable style={styles.addSmallBtn} onPress={openAddModal}>
             <MaterialIcons name="add-circle-outline" size={18} color={colors.primary} />
             <Text style={styles.addSmallBtnText}>Ajouter</Text>
           </Pressable>
@@ -219,18 +336,65 @@ export default function PaymentMethodsScreen({ navigation }: any) {
                   <Text style={styles.methodAccount}>{method.account}</Text>
                 </View>
 
-                {!method.isDefault && (
-                  <Pressable
-                    style={styles.setDefaultBtn}
-                    onPress={() => setDefaultMethod(method.id)}
-                  >
-                    <Text style={styles.setDefaultBtnText}>Activer</Text>
-                  </Pressable>
-                )}
+                {/* Actions par carte */}
+                <View style={{ alignItems: 'flex-end', gap: 6 }}>
+                  {method.type !== 'CROUS_WALLET' ? (
+                    <Pressable
+                      style={styles.editBtn}
+                      onPress={() => openEditModal(method)}
+                    >
+                      <MaterialIcons name="edit" size={16} color={colors.primary} />
+                      <Text style={styles.editText}>Modifier</Text>
+                    </Pressable>
+                  ) : (
+                    <Pressable
+                      style={styles.rechargeMiniBtn}
+                      onPress={() => setRechargeModalVisible(true)}
+                    >
+                      <MaterialIcons name="add-card" size={16} color={colors.primary} />
+                      <Text style={styles.rechargeMiniText}>Créditer</Text>
+                    </Pressable>
+                  )}
+
+                  {!method.isDefault && method.type !== 'CROUS_WALLET' && (
+                    <Pressable
+                      style={styles.setDefaultBtn}
+                      onPress={() => setDefaultMethod(method.id)}
+                    >
+                      <Text style={styles.setDefaultBtnText}>Activer</Text>
+                    </Pressable>
+                  )}
+                </View>
               </View>
             </Card>
           ))}
         </View>
+
+        {/* Historique des Recharges */}
+        <View style={[styles.sectionHeader, { marginTop: spacing.md }]}>
+          <Text style={styles.sectionTitle}>Dernières Recharges du Portefeuille</Text>
+        </View>
+
+        <Card style={{ padding: 0, overflow: 'hidden' }}>
+          {rechargeHistory.map((item, idx) => (
+            <View
+              key={item.id}
+              style={[
+                styles.historyRow,
+                idx > 0 && styles.historyRowBorder,
+              ]}
+            >
+              <View style={styles.historyIconBox}>
+                <MaterialIcons name="account-balance-wallet" size={20} color={colors.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.historyOp}>{item.operator}</Text>
+                <Text style={styles.historyPhone}>{item.phone} • {item.date}</Text>
+              </View>
+              <Text style={styles.historyAmount}>+{item.amount.toLocaleString('fr-FR')} F</Text>
+            </View>
+          ))}
+        </Card>
 
         {/* Instructions de Sécurité Bénin */}
         <Card style={styles.securityCard}>
@@ -239,14 +403,16 @@ export default function PaymentMethodsScreen({ navigation }: any) {
             <View style={{ flex: 1 }}>
               <Text style={styles.securityTitle}>Paiement Sécurisé & Chiffré</Text>
               <Text style={styles.securityText}>
-                Toutes les transactions sont confirmées directement sur votre téléphone via le prompt USSD de votre opérateur (MTN *880#, Moov *855# ou Celtiis *888#).
+                Toutes les recharges et débits s'effectuent via le prompt USSD de votre opérateur : MTN (*880#), Moov (*855#) ou Celtiis (*888#).
               </Text>
             </View>
           </View>
         </Card>
       </ScrollView>
 
-      {/* Modal Ajout Moyen de Paiement */}
+      {/* ========================================================================= */}
+      {/* MODAL 1 : SAISIR OU MODIFIER UN NUMÉRO DE TÉLÉPHONE                       */}
+      {/* ========================================================================= */}
       <Modal
         visible={modalVisible}
         transparent
@@ -256,7 +422,9 @@ export default function PaymentMethodsScreen({ navigation }: any) {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Ajouter un compte Mobile Money</Text>
+              <Text style={styles.modalTitle}>
+                {editingMethodId ? 'Modifier mon numéro de téléphone' : 'Ajouter un compte Mobile Money'}
+              </Text>
               <Pressable onPress={() => setModalVisible(false)}>
                 <MaterialIcons name="close" size={24} color={colors.onSurface} />
               </Pressable>
@@ -299,11 +467,11 @@ export default function PaymentMethodsScreen({ navigation }: any) {
             </View>
 
             <Text style={[styles.modalLabel, { marginTop: spacing.md }]}>
-              Numéro de téléphone Bénin (10 chiffres) :
+              Saisissez votre numéro de téléphone (10 chiffres) :
             </Text>
             <TextInput
-              value={newPhone}
-              onChangeText={setNewPhone}
+              value={inputPhoneNumber}
+              onChangeText={setInputPhoneNumber}
               placeholder="ex: 01 97 00 11 22"
               placeholderTextColor={colors.outline}
               keyboardType="phone-pad"
@@ -311,16 +479,18 @@ export default function PaymentMethodsScreen({ navigation }: any) {
             />
 
             <PrimaryButton
-              label="Confirmer et Enregistrer"
+              label={editingMethodId ? 'Enregistrer la modification' : 'Ajouter ce moyen de paiement'}
               icon="save"
-              onPress={handleAddMethod}
+              onPress={handleSaveMethod}
               style={{ marginTop: spacing.lg }}
             />
           </View>
         </View>
       </Modal>
 
-      {/* Modal Recharger Portefeuille */}
+      {/* ========================================================================= */}
+      {/* MODAL 2 : RECHARGER LE PORTEFEUILLE UNIVERSITAIRE                          */}
+      {/* ========================================================================= */}
       <Modal
         visible={rechargeModalVisible}
         transparent
@@ -330,13 +500,69 @@ export default function PaymentMethodsScreen({ navigation }: any) {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Recharger mon Portefeuille</Text>
+              <View>
+                <Text style={styles.modalTitle}>Recharger mon Portefeuille</Text>
+                <Text style={styles.modalSub}>Créditez votre solde CROUS pour payer vos trajets en 1 tap</Text>
+              </View>
               <Pressable onPress={() => setRechargeModalVisible(false)}>
                 <MaterialIcons name="close" size={24} color={colors.onSurface} />
               </Pressable>
             </View>
 
-            <Text style={styles.modalLabel}>Montant à recharger (FCFA) :</Text>
+            {/* 1. Choix du compte / opérateur qui paye */}
+            <Text style={styles.modalLabel}>1. Payer depuis mon compte Mobile Money :</Text>
+            <View style={styles.operatorRow}>
+              <Pressable
+                style={[
+                  styles.operatorCard,
+                  rechargeOperator === 'MTN' && styles.operatorCardActive,
+                ]}
+                onPress={() => setRechargeOperator('MTN')}
+              >
+                <MaterialIcons name="phone-android" size={20} color="#000000" />
+                <Text style={styles.operatorText}>MTN (*880#)</Text>
+              </Pressable>
+
+              <Pressable
+                style={[
+                  styles.operatorCard,
+                  rechargeOperator === 'MOOV' && styles.operatorCardActive,
+                ]}
+                onPress={() => setRechargeOperator('MOOV')}
+              >
+                <MaterialIcons name="contactless" size={20} color="#0284c7" />
+                <Text style={styles.operatorText}>Moov (*855#)</Text>
+              </Pressable>
+
+              <Pressable
+                style={[
+                  styles.operatorCard,
+                  rechargeOperator === 'CELTIIS' && styles.operatorCardActive,
+                ]}
+                onPress={() => setRechargeOperator('CELTIIS')}
+              >
+                <MaterialIcons name="smartphone" size={20} color="#0070ba" />
+                <Text style={styles.operatorText}>Celtiis (*888#)</Text>
+              </Pressable>
+            </View>
+
+            {/* 2. Saisie du numéro débité */}
+            <Text style={[styles.modalLabel, { marginTop: spacing.sm }]}>
+              2. Numéro de téléphone débité :
+            </Text>
+            <TextInput
+              value={rechargePhone}
+              onChangeText={setRechargePhone}
+              placeholder="ex: 01 97 00 11 22"
+              placeholderTextColor={colors.outline}
+              keyboardType="phone-pad"
+              style={styles.modalInput}
+            />
+
+            {/* 3. Choix du montant */}
+            <Text style={[styles.modalLabel, { marginTop: spacing.sm }]}>
+              3. Montant à recharger (FCFA) :
+            </Text>
             <View style={styles.quickAmounts}>
               {['500', '1000', '2000', '5000'].map((amt) => (
                 <Pressable
@@ -362,19 +588,76 @@ export default function PaymentMethodsScreen({ navigation }: any) {
             <TextInput
               value={rechargeAmount}
               onChangeText={setRechargeAmount}
-              placeholder="Montant personnalisé"
+              placeholder="Ou saisissez un montant personnalisé"
               placeholderTextColor={colors.outline}
               keyboardType="numeric"
               style={styles.modalInput}
             />
 
             <PrimaryButton
-              label={`Recharger ${rechargeAmount || 0} FCFA`}
+              label={`Payer & Recharger ${rechargeAmount || 0} FCFA`}
               icon="account-balance-wallet"
-              onPress={handleRechargeWallet}
-              style={{ marginTop: spacing.lg }}
+              variant="gold"
+              onPress={handleInitiateRecharge}
+              style={{ marginTop: spacing.md }}
             />
           </View>
+        </View>
+      </Modal>
+
+      {/* ========================================================================= */}
+      {/* MODAL 3 : SIMULATION DU PROMPT USSD MOBILE MONEY                          */}
+      {/* ========================================================================= */}
+      <Modal
+        visible={ussdPromptVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setUssdPromptVisible(false)}
+      >
+        <View style={styles.ussdOverlay}>
+          <Card style={styles.ussdBox}>
+            <View style={styles.ussdHeader}>
+              <MaterialIcons name="security" size={28} color={colors.primary} />
+              <Text style={styles.ussdTitle}>Autorisation {rechargeOperator} Mobile Money</Text>
+            </View>
+
+            <Text style={styles.ussdPromptText}>
+              CROUS-UAC Transit sollicite le débit de{' '}
+              <Text style={{ fontWeight: '700', color: colors.primary }}>
+                {parseInt(rechargeAmount, 10).toLocaleString('fr-FR')} FCFA
+              </Text>{' '}
+              sur le numéro <Text style={{ fontWeight: '700' }}>{rechargePhone}</Text>.
+            </Text>
+
+            <View style={styles.ussdCodeBox}>
+              <Text style={styles.ussdCodeLabel}>Opérateur :</Text>
+              <Text style={styles.ussdCodeVal}>
+                {rechargeOperator === 'MTN'
+                  ? 'MTN Bénin (*880#)'
+                  : rechargeOperator === 'MOOV'
+                  ? 'Moov Bénin (*855#)'
+                  : 'Celtiis Bénin (*888#)'}
+              </Text>
+            </View>
+
+            {isProcessingUssd ? (
+              <View style={{ alignItems: 'center', paddingVertical: spacing.md, gap: spacing.xs }}>
+                <ActivityIndicator size="large" color={colors.primary} />
+                <Text style={styles.ussdProcessing}>Validation du paiement sécurisé...</Text>
+              </View>
+            ) : (
+              <View style={{ gap: spacing.sm, marginTop: spacing.md }}>
+                <PrimaryButton
+                  label="Confirmer avec mon Code Secret"
+                  icon="check-circle"
+                  onPress={handleConfirmUssdPayment}
+                />
+                <Pressable style={styles.ussdCancelBtn} onPress={() => setUssdPromptVisible(false)}>
+                  <Text style={styles.ussdCancelText}>Annuler la transaction</Text>
+                </Pressable>
+              </View>
+            )}
+          </Card>
         </View>
       </Modal>
     </SafeAreaView>
@@ -426,14 +709,51 @@ const styles = StyleSheet.create({
   },
   methodTitle: { ...typography.headlineSm, fontSize: 16, color: colors.onSurface },
   methodAccount: { ...typography.bodyMd, color: colors.onSurfaceVariant },
+  editBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    paddingVertical: 4,
+    paddingHorizontal: spacing.xs,
+  },
+  editText: { ...typography.bodySm, color: colors.primary, fontWeight: '700' },
+  rechargeMiniBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    paddingVertical: 4,
+    paddingHorizontal: spacing.xs,
+  },
+  rechargeMiniText: { ...typography.bodySm, color: colors.primary, fontWeight: '700' },
   setDefaultBtn: {
-    paddingVertical: 6,
+    paddingVertical: 4,
     paddingHorizontal: spacing.sm,
     borderRadius: radius.sm,
     borderWidth: 1,
     borderColor: colors.outlineVariant,
   },
   setDefaultBtnText: { ...typography.bodySm, color: colors.primary, fontWeight: '600' },
+  historyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    padding: spacing.md,
+  },
+  historyRowBorder: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.surfaceVariant,
+  },
+  historyIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.primaryFixed,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  historyOp: { ...typography.bodyMd, fontWeight: '700', color: colors.onSurface },
+  historyPhone: { ...typography.bodySm, color: colors.onSurfaceVariant },
+  historyAmount: { ...typography.headlineSm, fontSize: 15, color: colors.primary, fontWeight: '700' },
   securityCard: { backgroundColor: colors.surfaceContainerLow, borderWidth: 1, borderColor: colors.outlineVariant },
   securityRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },
   securityTitle: { ...typography.headlineSm, fontSize: 15, color: colors.primary, marginBottom: 2 },
@@ -448,28 +768,29 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: radius.xl,
     borderTopRightRadius: radius.xl,
     padding: spacing.xl,
-    gap: spacing.sm,
+    gap: spacing.xs,
   },
-  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.sm },
+  modalHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: spacing.xs },
   modalTitle: { ...typography.headlineMd, fontSize: 18, color: colors.primary },
-  modalLabel: { ...typography.labelCaps, color: colors.onSurfaceVariant },
-  operatorRow: { flexDirection: 'row', gap: spacing.md },
+  modalSub: { ...typography.bodySm, color: colors.onSurfaceVariant },
+  modalLabel: { ...typography.labelCaps, color: colors.onSurfaceVariant, marginTop: spacing.xs },
+  operatorRow: { flexDirection: 'row', gap: spacing.sm, marginVertical: spacing.xs },
   operatorCard: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: spacing.md,
+    padding: spacing.sm,
     borderRadius: radius.md,
     borderWidth: 1.5,
     borderColor: colors.outlineVariant,
     backgroundColor: colors.surfaceContainerLowest,
-    gap: spacing.xs,
+    gap: 2,
   },
   operatorCardActive: {
     borderColor: colors.primary,
     backgroundColor: colors.primaryFixed,
   },
-  operatorText: { ...typography.bodyMd, fontWeight: '700', textAlign: 'center' },
+  operatorText: { ...typography.bodySm, fontWeight: '700', textAlign: 'center' },
   modalInput: {
     height: 48,
     borderWidth: 1,
@@ -479,8 +800,9 @@ const styles = StyleSheet.create({
     ...typography.bodyLg,
     color: colors.onSurface,
     backgroundColor: colors.surface,
+    marginBottom: spacing.xs,
   },
-  quickAmounts: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.xs },
+  quickAmounts: { flexDirection: 'row', gap: spacing.sm, marginVertical: spacing.xs },
   quickAmountBtn: {
     flex: 1,
     paddingVertical: spacing.sm,
@@ -496,4 +818,33 @@ const styles = StyleSheet.create({
   },
   quickAmountText: { ...typography.bodyMd, color: colors.onSurface },
   quickAmountTextActive: { color: colors.primary, fontWeight: '700' },
+  ussdOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.lg,
+  },
+  ussdBox: {
+    width: '100%',
+    padding: spacing.lg,
+    borderWidth: 2,
+    borderColor: colors.primary,
+    gap: spacing.sm,
+  },
+  ussdHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  ussdTitle: { ...typography.headlineSm, fontSize: 16, color: colors.primary },
+  ussdPromptText: { ...typography.bodyMd, color: colors.onSurface, lineHeight: 22 },
+  ussdCodeBox: {
+    backgroundColor: colors.surfaceContainerLow,
+    padding: spacing.sm,
+    borderRadius: radius.sm,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  ussdCodeLabel: { ...typography.bodySm, color: colors.onSurfaceVariant },
+  ussdCodeVal: { ...typography.bodySm, fontWeight: '700', color: colors.onSurface },
+  ussdProcessing: { ...typography.bodyMd, color: colors.primary, fontWeight: '600' },
+  ussdCancelBtn: { alignItems: 'center', paddingVertical: spacing.xs },
+  ussdCancelText: { ...typography.bodySm, color: colors.error, textDecorationLine: 'underline' },
 });
