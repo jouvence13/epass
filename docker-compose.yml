@@ -1,0 +1,159 @@
+services:
+  # ============================================================================
+  # 1. Base de Données PostgreSQL 16 + Extension PostGIS 3.4
+  # ============================================================================
+  postgres:
+    image: postgis/postgis:16-3.4
+    container_name: uac_buspass_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-uac_buspass_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-uac_buspass_password}
+      POSTGRES_DB: ${POSTGRES_DB:-uac_buspass_db}
+    ports:
+      - "${POSTGRES_HOST_PORT:-5433}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-uac_buspass_user} -d ${POSTGRES_DB:-uac_buspass_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ============================================================================
+  # 2. Redis 7 (Cache, WebSockets PubSub & Celery Message Broker)
+  # ============================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: uac_buspass_redis
+    restart: always
+    ports:
+      - "${REDIS_HOST_PORT:-6380}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ============================================================================
+  # 3. API Backend FastAPI & WebSockets (Port 8000)
+  # ============================================================================
+  api:
+    build:
+      context: ./backend
+      dockerfile: docker/Dockerfile
+    container_name: uac_buspass_api
+    restart: always
+    ports:
+      - "${API_PORT:-8001}:8000"
+    env_file:
+      - ./backend/.env
+    environment:
+      - POSTGRES_SERVER=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=${POSTGRES_USER:-uac_buspass_user}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-uac_buspass_password}
+      - POSTGRES_DB=${POSTGRES_DB:-uac_buspass_db}
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-uac_buspass_user}:${POSTGRES_PASSWORD:-uac_buspass_password}@postgres:5432/${POSTGRES_DB:-uac_buspass_db}
+      - SYNC_DATABASE_URL=postgresql://${POSTGRES_USER:-uac_buspass_user}:${POSTGRES_PASSWORD:-uac_buspass_password}@postgres:5432/${POSTGRES_DB:-uac_buspass_db}
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+      - AUTO_SEED=true
+    volumes:
+      - ./backend:/app
+      - uploads_data:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ============================================================================
+  # 4. Celery Worker (Tâches d'arrière-plan: SMS, alertes, paiements)
+  # ============================================================================
+  celery_worker:
+    build:
+      context: ./backend
+      dockerfile: docker/Dockerfile
+    container_name: uac_buspass_celery_worker
+    restart: always
+    command: celery -A app.tasks.celery_app.celery_app worker --loglevel=info
+    env_file:
+      - ./backend/.env
+    environment:
+      - POSTGRES_SERVER=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=${POSTGRES_USER:-uac_buspass_user}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-uac_buspass_password}
+      - POSTGRES_DB=${POSTGRES_DB:-uac_buspass_db}
+      - SYNC_DATABASE_URL=postgresql://${POSTGRES_USER:-uac_buspass_user}:${POSTGRES_PASSWORD:-uac_buspass_password}@postgres:5432/${POSTGRES_DB:-uac_buspass_db}
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+      - AUTO_SEED=false
+    volumes:
+      - ./backend:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ============================================================================
+  # 5. Celery Beat (Planificateur périodique)
+  # ============================================================================
+  celery_beat:
+    build:
+      context: ./backend
+      dockerfile: docker/Dockerfile
+    container_name: uac_buspass_celery_beat
+    restart: always
+    command: celery -A app.tasks.celery_app.celery_app beat --loglevel=info
+    env_file:
+      - ./backend/.env
+    environment:
+      - POSTGRES_SERVER=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=${POSTGRES_USER:-uac_buspass_user}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-uac_buspass_password}
+      - POSTGRES_DB=${POSTGRES_DB:-uac_buspass_db}
+      - SYNC_DATABASE_URL=postgresql://${POSTGRES_USER:-uac_buspass_user}:${POSTGRES_PASSWORD:-uac_buspass_password}@postgres:5432/${POSTGRES_DB:-uac_buspass_db}
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+      - AUTO_SEED=false
+    volumes:
+      - ./backend:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ============================================================================
+  # 6. Frontend Mobile & Web (Expo / React Native - Port 8081)
+  # ============================================================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: uac_buspass_frontend
+    restart: always
+    ports:
+      - "8081:8081"
+      - "19000:19000"
+      - "19006:19006"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - CI=1
+    depends_on:
+      api:
+        condition: service_started
+
+volumes:
+  postgres_data:
+  redis_data:
+  uploads_data:
