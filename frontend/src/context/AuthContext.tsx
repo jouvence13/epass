@@ -45,6 +45,8 @@ interface AuthContextType {
   isInitialLoading: boolean;
   justRegistered: boolean;
   clearJustRegistered: () => void;
+  justLoggedOut: boolean;
+  clearJustLoggedOut: () => void;
   walletBalance: number;
   operatorPhoneNumbers: {
     MTN: string;
@@ -106,6 +108,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [justRegistered, setJustRegistered] = useState(false);
+  const [justLoggedOut, setJustLoggedOut] = useState(false);
+
+  const clearJustRegistered = () => setJustRegistered(false);
+  const clearJustLoggedOut = () => setJustLoggedOut(false);
 
   // Solde dynamique du Portefeuille Universitaire CROUS
   const [walletBalance, setWalletBalance] = useState<number>(2300);
@@ -501,10 +507,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [user, refreshTickets]);
 
-  const clearJustRegistered = () => {
-    setJustRegistered(false);
-  };
-
   const login = async (phoneNumber: string, password: string) => {
     setIsLoading(true);
     const cleanPhone = phoneNumber.replace(/\s+/g, '').replace(/-/g, '');
@@ -639,6 +641,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setTickets([]);
     setActiveTicket(null);
     setJustRegistered(false);
+    setJustLoggedOut(true);
   };
 
   const quickLogin = async (roleKey: 'STUDENT' | 'DRIVER' | 'CONTROLLER' | 'ADMIN_CROUS') => {
@@ -669,6 +672,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isInitialLoading,
         justRegistered,
         clearJustRegistered,
+        justLoggedOut,
+        clearJustLoggedOut,
         walletBalance,
         operatorPhoneNumbers,
         tickets,

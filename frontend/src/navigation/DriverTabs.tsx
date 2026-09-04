@@ -9,6 +9,7 @@ import TopBar from '../components/TopBar';
 import { colors } from '../theme/theme';
 
 import { useAuth } from '../context/AuthContext';
+import { useNotifications } from '../context/NotificationContext';
 
 const Tab = createBottomTabNavigator();
 
@@ -21,6 +22,17 @@ const ICONS: Record<string, keyof typeof MaterialIcons.glyphMap> = {
 
 export default function DriverTabs() {
   const { logout } = useAuth();
+  const { showToast } = useNotifications();
+
+  const handleLogout = () => {
+    showToast({
+      title: 'Déconnexion Réussie',
+      message: 'Votre session Chauffeur a été fermée.',
+      type: 'info',
+      category: 'GENERAL',
+    });
+    logout();
+  };
 
   return (
     <Tab.Navigator
@@ -33,7 +45,7 @@ export default function DriverTabs() {
                   title="CROUS-UAC Driver"
                   dark
                   rightIcon="logout"
-                  onRightPress={logout}
+                  onRightPress={handleLogout}
                 />
               ),
         tabBarActiveTintColor: colors.onSecondaryContainer,

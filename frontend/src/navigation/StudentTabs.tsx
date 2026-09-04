@@ -35,7 +35,17 @@ const TITLES: Record<string, string> = {
 
 export default function StudentTabs({ navigation }: any) {
   const { user, logout } = useAuth();
-  const { unreadCount } = useNotifications();
+  const { unreadCount, showToast } = useNotifications();
+
+  const handleLogout = () => {
+    showToast({
+      title: 'Déconnexion Réussie',
+      message: 'Votre session a été fermée en toute sécurité.',
+      type: 'info',
+      category: 'GENERAL',
+    });
+    logout();
+  };
 
   return (
     <Tab.Navigator
@@ -48,7 +58,7 @@ export default function StudentTabs({ navigation }: any) {
             onProfilePress={() => navigation.navigate('Profile')}
             userInitial={user?.first_name ? user.first_name[0].toUpperCase() : 'E'}
             rightIcon="logout"
-            onRightPress={logout}
+            onRightPress={handleLogout}
           />
         ),
         tabBarActiveTintColor: colors.primary,

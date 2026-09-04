@@ -6,6 +6,7 @@ import Card from '../../components/Card';
 import Badge from '../../components/Badge';
 import { colors, radius, spacing, typography } from '../../theme/theme';
 import { useAuth } from '../../context/AuthContext';
+import { useNotifications } from '../../context/NotificationContext';
 
 const ROWS: { icon: keyof typeof MaterialIcons.glyphMap; label: string; action: string }[] = [
   { icon: 'receipt-long', label: "Historique d'achats", action: 'History' },
@@ -17,6 +18,17 @@ const ROWS: { icon: keyof typeof MaterialIcons.glyphMap; label: string; action: 
 
 export default function ProfileScreen({ navigation }: any) {
   const { user, logout } = useAuth();
+  const { showToast } = useNotifications();
+
+  const handleLogout = () => {
+    showToast({
+      title: 'Déconnexion Réussie',
+      message: 'Votre session a été fermée en toute sécurité.',
+      type: 'info',
+      category: 'GENERAL',
+    });
+    logout();
+  };
 
   const fullName = user ? `${user.first_name} ${user.last_name}` : 'Étudiant UAC';
   const matriculeLabel = user?.matricule_uac
@@ -76,7 +88,7 @@ export default function ProfileScreen({ navigation }: any) {
           ))}
         </Card>
 
-        <Pressable style={styles.logout} onPress={logout}>
+        <Pressable style={styles.logout} onPress={handleLogout}>
           <MaterialIcons name="logout" size={20} color={colors.error} />
           <Text style={styles.logoutText}>Se déconnecter</Text>
         </Pressable>

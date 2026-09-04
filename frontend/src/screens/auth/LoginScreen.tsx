@@ -38,7 +38,7 @@ const ROLES: { key: LoginRole; label: string; icon: any; hint: string }[] = [
 ];
 
 export default function LoginScreen({ navigation }: any) {
-  const { login, isLoading } = useAuth();
+  const { login, isLoading, justLoggedOut, clearJustLoggedOut } = useAuth();
   const [selectedRole, setSelectedRole] = useState<LoginRole>('STUDENT');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [password, setPassword] = useState('');
@@ -71,6 +71,24 @@ export default function LoginScreen({ navigation }: any) {
           <Text style={styles.brand}>CROUS-UAC</Text>
           <Text style={styles.tagline}>Plateforme de transit universitaire</Text>
         </View>
+
+        {/* Bannière de confirmation de Déconnexion */}
+        {justLoggedOut && (
+          <View style={styles.logoutBanner}>
+            <View style={styles.logoutIconBadge}>
+              <MaterialIcons name="check-circle" size={20} color="#166534" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.logoutBannerTitle}>Déconnexion réussie</Text>
+              <Text style={styles.logoutBannerText}>
+                Votre session a été fermée en toute sécurité.
+              </Text>
+            </View>
+            <Pressable onPress={clearJustLoggedOut} hitSlop={10} style={styles.closeBannerBtn}>
+              <MaterialIcons name="close" size={18} color="#166534" />
+            </Pressable>
+          </View>
+        )}
 
         {/* Message d'erreur */}
         {errorMessage && (
@@ -190,6 +208,39 @@ const styles = StyleSheet.create({
   },
   brand: { ...typography.displayLg, fontSize: 26, color: colors.primary },
   tagline: { ...typography.bodyMd, color: colors.onSurfaceVariant, marginTop: 2 },
+  logoutBanner: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ecfdf5',
+    borderWidth: 1,
+    borderColor: '#a7f3d0',
+    borderRadius: radius.md,
+    padding: spacing.md,
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  logoutIconBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#d1fae5',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logoutBannerTitle: {
+    ...typography.bodyMd,
+    fontWeight: '700',
+    color: '#065f46',
+  },
+  logoutBannerText: {
+    ...typography.bodySm,
+    color: '#047857',
+    marginTop: 1,
+  },
+  closeBannerBtn: {
+    padding: 4,
+  },
   errorBanner: {
     width: '100%',
     flexDirection: 'row',
