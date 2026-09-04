@@ -1,17 +1,200 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Pressable,
+  Modal,
+  TextInput,
+  Alert,
+  ActivityIndicator,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import Card from '../../components/Card';
 import Badge from '../../components/Badge';
+import PrimaryButton from '../../components/PrimaryButton';
 import { colors, radius, spacing, typography } from '../../theme/theme';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth, BusSlot } from '../../context/AuthContext';
+import { useNotifications } from '../../context/NotificationContext';
 
 export default function HomeScreen({ navigation }: any) {
-  const { user, justRegistered, clearJustRegistered, tickets, activeTicket, setActiveTicket, walletBalance } = useAuth();
+  const {
+    user,
+    justRegistered,
+    clearJustRegistered,
+    tickets,
+    activeTicket,
+    setActiveTicket,
+    walletBalance,
+    operatorPhoneNumbers,
+    busSlots,
+    debitWallet,
+    purchaseTicket,
+  } = useAuth();
+  const { showToast } = useNotifications();
 
   const studentName = user ? `${user.first_name} ${user.last_name}` : 'Étudiant';
   const activeTicketsList = tickets.filter((t) => t.status === 'ACTIVE');
+
+  // État du Modal de Détails & Paiement de Départ (Bottom Sheet)
+  const [selectedDeparture, setSelectedDeparture] = useState<BusSlot | null>(null);
+  const [departureModalVisible, setDepartureModalVisible] = useState(false);
+  const [paymentOp, setPaymentOp] = useState<'WALLET' | 'MTN' | 'MOOV' | 'CELTIIS'>('WALLET');
+  const [phone, setPhone] = useState(operatorPhoneNumbers.MTN || '+2290157774305');
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const handleOpenDeparture = (slot: BusSlot) => {
+    setSelectedDeparture(slot);
+    setPaymentOp('WALLET');
+    setPhone(operatorPhoneNumbers.MTN || '+2290157774305');
+    setDepartureModalVisible(true);
+  };
+
+  const handleSelectOp = (op: 'WALLET' | 'MTN' | 'MOOV' | 'CELTIIS') => {
+    setPaymentOp(op);
+    if (op !== 'WALLET') {
+      setPhone(operatorPhoneNumbers[op] || '+2290157774305');
+    }
+  };
+
+  const handleConfirmDeparturePayment = () => {
+    if (!selectedDeparture) return;
+
+    if (selectedDeparture.full) {
+      Alert.alert('Bus Complet', 'Ce bus est déjà complet (50/50 places occupées). Veuillez choisir une autre rotation.');
+      return;
+    }
+
+    const price = 100;
+
+    if (paymentOp === 'WALLET') {
+      if (walletBalance < price) {
+        Alert.alert(
+          'Solde CROUS Insuffisant',
+          `Votre solde actuel (${walletBalance.toLocaleString(
+            'fr-FR'
+          )} FCFA) est insuffisant. Veuillez recharger votre portefeuille.`,
+          [
+            { text: 'Annuler', style: 'cancel' },
+            {
+              text: 'Recharger',
+              onPress: () => {
+                setDepartureModalVisible(false);
+                navigation.navigate('PaymentMethods');
+              },
+            },
+          ]
+        );
+        showToast({
+          title: 'Solde Insuffisant',
+          message: 'Veuillez recharger votre portefeuille CROUS.',
+          type: 'error',
+          category: 'WALLET',
+        });
+        return;
+      }
+
+      setIsProcessing(true);
+      setTimeout(() => {
+        setIsProcessing(false);
+        const ok = debitWallet(price);
+        if (ok) {
+          const newTicket = purchaseTicket({
+            line: selectedDeparture.route,
+            route: selectedDeparture.route.includes('Godomey')
+              ? 'Calavi Campus → Échangeur Godomey'
+              : selectedDeparture.route.includes('Akpakpa')
+              ? 'Calavi Campus → Akpakpa Sacré-Cœur'
+              : 'Calavi Campus → Cotonou Étoile Rouge',
+            busId: 'Bus CROUS #402',
+            price: 100,
+            paymentMethod: 'Portefeuille CROUS',
+            slotId: selectedDeparture.id,
+          });
+
+          setDepartureModalVisible(false);
+
+          showToast({
+            title: 'Titre Validé en Temps Réel !',
+            message: `100 FCFA débités du Portefeuille CROUS. Ticket : ${newTicket.code}`,
+            type: 'success',
+            category: 'WALLET',
+          });
+
+          Alert.alert(
+            'Place Réservée avec Succès !',
+            `Votre billet (${newTicket.code}) pour le départ de ${selectedDeparture.time} est validé. Retrouvez-le sur l'accueil ou présentez le QR Code.`,
+            [
+              {
+                text: 'Voir mon Ticket Actif',
+                onPress: () => {
+                  setActiveTicket(newTicket);
+                  navigation.navigate('Tickets');
+                },
+              },
+            ]
+          );
+        }
+      }, 700);
+      return;
+    }
+
+    // Mobile Money
+    const cleanPhone = phone.replace(/\s+/g, '').trim();
+    if (!cleanPhone || cleanPhone.length < 8) {
+      Alert.alert('Numéro requis', 'Veuillez saisir un numéro de téléphone valide.');
+      return;
+    }
+
+    setIsProcessing(true);
+    setTimeout(() => {
+      setIsProcessing(false);
+      const opName =
+        paymentOp === 'MTN'
+          ? 'MTN Mobile Money (*880#)'
+          : paymentOp === 'MOOV'
+          ? 'Moov Money (*855#)'
+          : 'Celtiis Cash (*888#)';
+
+      const newTicket = purchaseTicket({
+        line: selectedDeparture.route,
+        route: selectedDeparture.route.includes('Godomey')
+          ? 'Calavi Campus → Échangeur Godomey'
+          : selectedDeparture.route.includes('Akpakpa')
+          ? 'Calavi Campus → Akpakpa Sacré-Cœur'
+          : 'Calavi Campus → Cotonou Étoile Rouge',
+        busId: 'Bus CROUS #402',
+        price: 100,
+        paymentMethod: opName,
+        slotId: selectedDeparture.id,
+      });
+
+      setDepartureModalVisible(false);
+
+      showToast({
+        title: 'Titre Validé !',
+        message: `100 FCFA réglés via ${opName} (${cleanPhone}).`,
+        type: 'success',
+        category: 'PAYMENT',
+      });
+
+      Alert.alert(
+        'Paiement Réussi !',
+        `Votre billet (${newTicket.code}) a été validé avec succès.`,
+        [
+          {
+            text: 'Voir mon Ticket Actif',
+            onPress: () => {
+              setActiveTicket(newTicket);
+              navigation.navigate('Tickets');
+            },
+          },
+        ]
+      );
+    }, 900);
+  };
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
@@ -154,19 +337,213 @@ export default function HomeScreen({ navigation }: any) {
           </Pressable>
         </View>
 
-        {/* Prochain Trajet Section */}
+        {/* ========================================================================= */}
+        {/* SECTION 2 : PROCHAINS DÉPARTS CROUS (DYNAMIQUE AVEC MODAL DE PAIEMENT)    */}
+        {/* ========================================================================= */}
         <Card style={styles.section}>
-          <Text style={styles.sectionTitle}>Prochains Départs CROUS</Text>
-          <View style={styles.tripRow}>
-            <MaterialIcons name="directions-bus" size={20} color={colors.primary} />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.tripTitle}>Calavi Campus → Cotonou Étoile Rouge</Text>
-              <Text style={styles.hint}>Ligne A (Express) • Départ 07:30 • Tarif: 100 FCFA</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.xs }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <MaterialIcons name="schedule" size={20} color={colors.primary} />
+              <Text style={styles.sectionTitle}>Prochains Départs CROUS</Text>
             </View>
-            <Badge label="Disponible" tone="success" />
+            <Text style={styles.tapToBookHint}>Appuyez pour réserver</Text>
+          </View>
+
+          <View style={styles.departuresList}>
+            {busSlots.map((slot) => {
+              const freeSeats = Math.max(0, slot.totalSeats - slot.bookedSeats);
+              return (
+                <Pressable
+                  key={slot.id}
+                  style={[styles.departureRow, slot.full && styles.departureRowFull]}
+                  onPress={() => handleOpenDeparture(slot)}
+                >
+                  <View style={styles.busIconSquare}>
+                    <MaterialIcons name="directions-bus" size={20} color={slot.full ? colors.outline : colors.primary} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.departureTitle, slot.full && { color: colors.onSurfaceVariant }]}>
+                      {slot.time}
+                    </Text>
+                    <Text style={styles.departureRouteSub}>{slot.route}</Text>
+                    <View style={styles.departureMetaRow}>
+                      <MaterialIcons
+                        name={slot.full ? 'person-off' : 'groups'}
+                        size={13}
+                        color={slot.full ? colors.error : colors.secondary}
+                      />
+                      <Text style={[styles.departureSeatsText, slot.full && { color: colors.error }]}>
+                        {slot.full ? 'Bus Complet (50/50)' : `${freeSeats} place(s) libre(s) • ${slot.bookedSeats}/50`}
+                      </Text>
+                      <Text style={styles.departurePricePill}>100 F</Text>
+                    </View>
+                  </View>
+                  <View style={{ alignItems: 'flex-end', gap: 4 }}>
+                    <Badge label={slot.full ? 'Complet' : 'Disponible'} tone={slot.full ? 'error' : 'success'} />
+                    <MaterialIcons name="chevron-right" size={20} color={colors.outline} />
+                  </View>
+                </Pressable>
+              );
+            })}
           </View>
         </Card>
       </ScrollView>
+
+      {/* ========================================================================= */}
+      {/* BOTTOM SHEET MODAL : DÉTAILS DE LA ROTATION & PAIEMENT DU TICKET           */}
+      {/* ========================================================================= */}
+      <Modal
+        visible={departureModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setDepartureModalVisible(false)}
+      >
+        <View style={styles.bottomSheetOverlay}>
+          <Pressable style={styles.bottomSheetBackdrop} onPress={() => setDepartureModalVisible(false)} />
+          <View style={styles.bottomSheetContent}>
+            {/* Poignée de drag */}
+            <View style={styles.sheetHandle} />
+
+            {selectedDeparture && (
+              <>
+                <View style={styles.sheetHeader}>
+                  <View style={{ flex: 1 }}>
+                    <Badge
+                      label={selectedDeparture.full ? 'Rotation Complète' : 'Places Disponibles'}
+                      tone={selectedDeparture.full ? 'error' : 'success'}
+                      icon={selectedDeparture.full ? 'person-off' : 'check-circle'}
+                    />
+                    <Text style={styles.sheetTitle}>{selectedDeparture.time}</Text>
+                    <Text style={styles.sheetSub}>{selectedDeparture.route} • Bus CROUS #402</Text>
+                  </View>
+                  <Pressable onPress={() => setDepartureModalVisible(false)} style={styles.closeSheetBtn}>
+                    <MaterialIcons name="close" size={24} color={colors.onSurface} />
+                  </Pressable>
+                </View>
+
+                {/* Résumé de l'itinéraire & tarif */}
+                <View style={styles.sheetDetailsCard}>
+                  <View style={styles.sheetDetailRow}>
+                    <MaterialIcons name="trip-origin" size={18} color={colors.primary} />
+                    <Text style={styles.sheetDetailLabel}>Départ :</Text>
+                    <Text style={styles.sheetDetailVal}>Campus UAC Calavi</Text>
+                  </View>
+                  <View style={styles.sheetDetailRow}>
+                    <MaterialIcons name="location-on" size={18} color={colors.secondary} />
+                    <Text style={styles.sheetDetailLabel}>Terminus :</Text>
+                    <Text style={styles.sheetDetailVal}>
+                      {selectedDeparture.route.includes('Godomey')
+                        ? 'Échangeur Godomey'
+                        : selectedDeparture.route.includes('Akpakpa')
+                        ? 'Akpakpa Sacré-Cœur'
+                        : 'Cotonou Étoile Rouge'}
+                    </Text>
+                  </View>
+                  <View style={styles.sheetDivider} />
+                  <View style={styles.sheetDetailRow}>
+                    <MaterialIcons name="airline-seat-recline-normal" size={18} color={colors.primary} />
+                    <Text style={styles.sheetDetailLabel}>Disponibilité :</Text>
+                    <Text style={[styles.sheetDetailVal, { color: selectedDeparture.full ? colors.error : colors.secondary, fontWeight: '700' }]}>
+                      {selectedDeparture.full ? 'Complet (50/50)' : `${50 - selectedDeparture.bookedSeats} places restantes (${selectedDeparture.bookedSeats}/50)`}
+                    </Text>
+                  </View>
+                  <View style={styles.sheetDetailRow}>
+                    <MaterialIcons name="payments" size={18} color={colors.primary} />
+                    <Text style={styles.sheetDetailLabel}>Tarif Subventionné CROUS :</Text>
+                    <Text style={[styles.sheetDetailVal, { color: colors.primary, fontWeight: '700', fontSize: 16 }]}>
+                      100 FCFA
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Choix du moyen de paiement */}
+                <Text style={styles.modalSectionTitle}>CHOISIR LE MOYEN DE PAIEMENT</Text>
+                <View style={styles.modalOperatorGrid}>
+                  {/* PORTEFEUILLE CROUS */}
+                  <Pressable
+                    style={[styles.modalOpTile, paymentOp === 'WALLET' && styles.modalOpTileActive]}
+                    onPress={() => handleSelectOp('WALLET')}
+                  >
+                    <View style={[styles.modalOpBadge, { backgroundColor: colors.primary }]}>
+                      <MaterialIcons name="account-balance-wallet" size={16} color="#ffffff" />
+                    </View>
+                    <Text style={styles.modalOpTitle}>Portefeuille</Text>
+                    <Text style={styles.modalOpSub}>Solde: {walletBalance.toLocaleString('fr-FR')} F</Text>
+                  </Pressable>
+
+                  {/* MTN */}
+                  <Pressable
+                    style={[styles.modalOpTile, paymentOp === 'MTN' && styles.modalOpTileActive]}
+                    onPress={() => handleSelectOp('MTN')}
+                  >
+                    <View style={[styles.modalOpBadge, { backgroundColor: '#fbbf24' }]}>
+                      <Text style={styles.modalOpBadgeText}>MTN</Text>
+                    </View>
+                    <Text style={styles.modalOpTitle}>MTN MoMo</Text>
+                    <Text style={styles.modalOpSub}>*880#</Text>
+                  </Pressable>
+
+                  {/* MOOV */}
+                  <Pressable
+                    style={[styles.modalOpTile, paymentOp === 'MOOV' && styles.modalOpTileActive]}
+                    onPress={() => handleSelectOp('MOOV')}
+                  >
+                    <View style={[styles.modalOpBadge, { backgroundColor: '#0284c7' }]}>
+                      <Text style={[styles.modalOpBadgeText, { color: '#ffffff' }]}>Moov</Text>
+                    </View>
+                    <Text style={styles.modalOpTitle}>Moov Money</Text>
+                    <Text style={styles.modalOpSub}>*855#</Text>
+                  </Pressable>
+
+                  {/* CELTIIS */}
+                  <Pressable
+                    style={[styles.modalOpTile, paymentOp === 'CELTIIS' && styles.modalOpTileActive]}
+                    onPress={() => handleSelectOp('CELTIIS')}
+                  >
+                    <View style={[styles.modalOpBadge, { backgroundColor: '#0070ba' }]}>
+                      <Text style={[styles.modalOpBadgeText, { color: '#ffffff' }]}>Celtiis</Text>
+                    </View>
+                    <Text style={styles.modalOpTitle}>Celtiis Cash</Text>
+                    <Text style={styles.modalOpSub}>*888#</Text>
+                  </Pressable>
+                </View>
+
+                {paymentOp !== 'WALLET' && (
+                  <View style={{ marginTop: spacing.sm }}>
+                    <Text style={styles.modalInputLabel}>Numéro Mobile Money débité :</Text>
+                    <TextInput
+                      value={phone}
+                      onChangeText={setPhone}
+                      placeholder="ex: 0197001122"
+                      placeholderTextColor={colors.outline}
+                      keyboardType="phone-pad"
+                      style={styles.modalPhoneInput}
+                    />
+                  </View>
+                )}
+
+                {/* Bouton de Confirmation */}
+                <PrimaryButton
+                  label={
+                    isProcessing
+                      ? 'Paiement en cours...'
+                      : selectedDeparture.full
+                      ? 'Rotation Complète'
+                      : paymentOp === 'WALLET'
+                      ? 'Payer avec mon Portefeuille (100 FCFA)'
+                      : 'Payer & Réserver mon Siège (100 FCFA)'
+                  }
+                  icon={selectedDeparture.full ? 'person-off' : paymentOp === 'WALLET' ? 'account-balance-wallet' : 'confirmation-number'}
+                  variant={selectedDeparture.full ? 'muted' : 'gold'}
+                  onPress={handleConfirmDeparturePayment}
+                  disabled={isProcessing || selectedDeparture.full}
+                  style={{ marginTop: spacing.md }}
+                />
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -407,14 +784,244 @@ const styles = StyleSheet.create({
 
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md, justifyContent: 'space-between' },
   tile: {
-    width: '47%', backgroundColor: colors.surfaceContainerLowest, borderRadius: radius.lg,
-    padding: spacing.md, gap: spacing.sm, borderWidth: 1, borderColor: colors.surfaceVariant,
+    width: '47%',
+    backgroundColor: colors.surfaceContainerLowest,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    gap: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.surfaceVariant,
   },
   tileIcon: { width: 44, height: 44, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
   tileLabel: { ...typography.bodyLg, fontWeight: '600', color: colors.onSurface },
   section: { gap: spacing.sm },
-  sectionTitle: { ...typography.headlineSm, color: colors.primary },
-  tripRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  tripTitle: { ...typography.bodyLg, fontWeight: '600' },
-  hint: { ...typography.bodyMd, color: colors.onSurfaceVariant },
+  sectionTitle: { ...typography.headlineSm, color: colors.primary, fontSize: 16 },
+  tapToBookHint: {
+    ...typography.bodySm,
+    fontSize: 11,
+    color: colors.primary,
+    fontWeight: '600',
+  },
+
+  // Prochains Départs CROUS
+  departuresList: {
+    gap: spacing.sm,
+    marginTop: spacing.xs,
+  },
+  departureRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.surfaceContainerLow,
+    padding: spacing.sm + 2,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.outlineVariant,
+  },
+  departureRowFull: {
+    backgroundColor: '#fef2f2',
+    borderColor: '#fecaca',
+    opacity: 0.85,
+  },
+  busIconSquare: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.sm,
+    backgroundColor: colors.surfaceContainerLowest,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.surfaceVariant,
+  },
+  departureTitle: {
+    ...typography.bodyLg,
+    fontWeight: '700',
+    color: colors.onSurface,
+    fontSize: 14,
+  },
+  departureRouteSub: {
+    ...typography.bodySm,
+    color: colors.onSurfaceVariant,
+    fontSize: 12,
+    marginTop: 1,
+  },
+  departureMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 4,
+  },
+  departureSeatsText: {
+    ...typography.bodySm,
+    fontSize: 11,
+    color: colors.secondary,
+    fontWeight: '600',
+  },
+  departurePricePill: {
+    ...typography.labelCaps,
+    fontSize: 10,
+    color: colors.primary,
+    backgroundColor: colors.primaryFixed,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: radius.xs,
+    fontWeight: '700',
+  },
+
+  // Bottom Sheet Modal
+  bottomSheetOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+  },
+  bottomSheetBackdrop: {
+    flex: 1,
+  },
+  bottomSheetContent: {
+    backgroundColor: colors.surfaceContainerLowest,
+    borderTopLeftRadius: radius.xl,
+    borderTopRightRadius: radius.xl,
+    padding: spacing.lg,
+    paddingBottom: spacing.xl + 10,
+    gap: spacing.md,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 20,
+    maxHeight: '90%',
+  },
+  sheetHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.outlineVariant,
+    alignSelf: 'center',
+    marginBottom: spacing.xs,
+  },
+  sheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  sheetTitle: {
+    ...typography.headlineMd,
+    fontSize: 18,
+    color: colors.primary,
+    marginTop: spacing.xs,
+  },
+  sheetSub: {
+    ...typography.bodySm,
+    color: colors.onSurfaceVariant,
+    marginTop: 2,
+  },
+  closeSheetBtn: {
+    padding: spacing.xs,
+    borderRadius: radius.full,
+    backgroundColor: colors.surfaceContainerLow,
+  },
+
+  sheetDetailsCard: {
+    backgroundColor: colors.surfaceContainerLow,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    gap: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.surfaceVariant,
+  },
+  sheetDetailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  sheetDetailLabel: {
+    ...typography.bodySm,
+    color: colors.onSurfaceVariant,
+    width: 140,
+  },
+  sheetDetailVal: {
+    ...typography.bodySm,
+    fontWeight: '600',
+    color: colors.onSurface,
+    flex: 1,
+    textAlign: 'right',
+  },
+  sheetDivider: {
+    height: 1,
+    backgroundColor: colors.outlineVariant,
+    marginVertical: 2,
+  },
+
+  modalSectionTitle: {
+    ...typography.labelCaps,
+    fontSize: 11,
+    color: colors.outline,
+    letterSpacing: 0.8,
+    marginTop: spacing.xs,
+  },
+  modalOperatorGrid: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+    justifyContent: 'space-between',
+  },
+  modalOpTile: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: 4,
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceContainerLow,
+    borderWidth: 1.5,
+    borderColor: colors.surfaceVariant,
+    gap: 4,
+  },
+  modalOpTileActive: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primaryFixed,
+  },
+  modalOpBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalOpBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#000000',
+  },
+  modalOpTitle: {
+    ...typography.bodySm,
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.onSurface,
+    textAlign: 'center',
+  },
+  modalOpSub: {
+    ...typography.bodySm,
+    fontSize: 9,
+    color: colors.onSurfaceVariant,
+    textAlign: 'center',
+  },
+  modalInputLabel: {
+    ...typography.bodySm,
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.onSurfaceVariant,
+    marginBottom: spacing.xs,
+  },
+  modalPhoneInput: {
+    backgroundColor: colors.surfaceContainerLow,
+    borderWidth: 1,
+    borderColor: colors.outlineVariant,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    fontSize: 14,
+    color: colors.onSurface,
+    fontWeight: '600',
+  },
 });
