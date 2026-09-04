@@ -22,6 +22,7 @@ export const ENDPOINTS = {
   // Authentification
   LOGIN: `${API_V1_URL}/auth/login`,
   REGISTER: `${API_V1_URL}/auth/register`,
+  LOGOUT: `${API_V1_URL}/auth/logout`,
   REFRESH_TOKEN: `${API_V1_URL}/auth/refresh`,
   MY_PROFILE: `${API_V1_URL}/auth/me`,
 

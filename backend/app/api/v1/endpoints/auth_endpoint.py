@@ -1,9 +1,10 @@
 import uuid
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, or_
 
+from app.core.config import settings
 from app.core.database import get_async_db
 from app.core.security import (
     hash_password,
@@ -25,13 +26,39 @@ from app.services.auth_service import get_current_authenticated_user
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
+def _set_auth_cookies(response: Response, access_token: str, refresh_token: str):
+    """
+    Enregistre les cookies de session sécurisés HttpOnly (protection anti-XSS et CSRF Lax).
+    """
+    response.set_cookie(
+        key="epass_session",
+        value=access_token,
+        httponly=True,
+        samesite="lax",
+        secure=False,
+        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        path="/"
+    )
+    response.set_cookie(
+        key="epass_refresh",
+        value=refresh_token,
+        httponly=True,
+        samesite="lax",
+        secure=False,
+        max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 86400,
+        path="/"
+    )
+
+
 @router.post("/register", status_code=status.HTTP_201_CREATED)
 async def register_user(
     payload: UserRegistrationSchema,
+    response: Response,
     db: AsyncSession = Depends(get_async_db)
 ):
     """
     Register a new student or user account. Initial KYC status is set to PENDING.
+    Sets HttpOnly session cookie on response.
     """
     # Nettoyage du numéro de téléphone
     phone_clean = payload.phone_number.replace(" ", "").replace("-", "")
@@ -80,9 +107,16 @@ async def register_user(
     await db.commit()
     await db.refresh(new_user)
 
+    # Génération automatique du token de session et dépôt du cookie
+    access_token = create_access_token(subject=str(new_user.user_id), role=new_user.role.value)
+    refresh_token = create_refresh_token(subject=str(new_user.user_id), role=new_user.role.value)
+    _set_auth_cookies(response, access_token, refresh_token)
+
     return {
         "message": "Inscription réussie avec succès. Téléversez vos justificatifs académiques pour valider votre compte.",
         "user_id": new_user.user_id,
+        "access_token": access_token,
+        "role": new_user.role,
         "kyc_status": new_user.kyc_status
     }
 
@@ -90,10 +124,11 @@ async def register_user(
 @router.post("/login", response_model=TokenResponseSchema)
 async def login_user(
     payload: UserLoginSchema,
+    response: Response,
     db: AsyncSession = Depends(get_async_db)
 ):
     """
-    Authenticate user by phone number and password. Returns JWT access and refresh tokens.
+    Authenticate user by phone number and password. Returns JWT access and sets session cookie.
     """
     phone_clean = payload.phone_number.replace(" ", "").replace("-", "")
     user_query = await db.execute(
@@ -115,6 +150,7 @@ async def login_user(
 
     access_token = create_access_token(subject=str(user.user_id), role=user.role.value)
     refresh_token = create_refresh_token(subject=str(user.user_id), role=user.role.value)
+    _set_auth_cookies(response, access_token, refresh_token)
 
     return TokenResponseSchema(
         access_token=access_token,
@@ -124,6 +160,16 @@ async def login_user(
         role=user.role,
         kyc_status=user.kyc_status
     )
+
+
+@router.post("/logout")
+async def logout_user(response: Response):
+    """
+    Logout user and clear session cookies.
+    """
+    response.delete_cookie(key="epass_session", path="/")
+    response.delete_cookie(key="epass_refresh", path="/")
+    return {"message": "Déconnexion réussie. Session et cookies réinitialisés."}
 
 
 @router.post("/refresh", response_model=TokenResponseSchema)

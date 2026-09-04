@@ -112,6 +112,7 @@ export default function KycOnboardingScreen({ navigation }: any) {
 
       const response = await fetch(ENDPOINTS.UPLOAD_KYC, {
         method: 'POST',
+        credentials: 'include',
         headers: {
           Authorization: `Bearer ${token}`,
         },

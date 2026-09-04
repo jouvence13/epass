@@ -96,17 +96,49 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [justRegistered, setJustRegistered] = useState(false);
 
   useEffect(() => {
-    try {
-      const stored = getStoredAuthData();
-      if (stored.token && stored.user) {
-        setToken(stored.token);
-        setUser(stored.user);
+    const initAuth = async () => {
+      try {
+        // Tentative de récupération directe de la session via le Cookie HttpOnly
+        const cookieRes = await fetch(ENDPOINTS.MY_PROFILE, {
+          credentials: 'include',
+        });
+
+        if (cookieRes.ok) {
+          const p = await cookieRes.json();
+          const userData: User = {
+            user_id: p.user_id,
+            phone_number: p.phone_number,
+            first_name: p.first_name,
+            last_name: p.last_name,
+            role: p.role,
+            matricule_uac: p.matricule_uac,
+            kyc_status: p.kyc_status,
+          };
+          setUser(userData);
+          setToken('cookie_session');
+          saveAuthData('cookie_session', userData);
+          setIsInitialLoading(false);
+          return;
+        }
+      } catch (e) {
+        console.warn('Cookie session check error:', e);
       }
-    } catch (e) {
-      console.warn('Init auth load error:', e);
-    } finally {
-      setIsInitialLoading(false);
-    }
+
+      // Fallback sur stockage local si cookie indisponible
+      try {
+        const stored = getStoredAuthData();
+        if (stored.token && stored.user) {
+          setToken(stored.token);
+          setUser(stored.user);
+        }
+      } catch (e) {
+        console.warn('Init auth load error:', e);
+      } finally {
+        setIsInitialLoading(false);
+      }
+    };
+
+    initAuth();
   }, []);
 
   const clearJustRegistered = () => {
@@ -119,6 +151,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const response = await fetch(ENDPOINTS.LOGIN, {
         method: 'POST',
+        credentials: 'include', // Envoi et réception automatique des Cookies de session
         headers: {
           'Content-Type': 'application/json',
         },
@@ -138,8 +171,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
       }
 
-      // Fetch user profile
+      // Récupération du profil utilisateur (avec Cookie de session)
       const profileRes = await fetch(ENDPOINTS.MY_PROFILE, {
+        credentials: 'include',
         headers: {
           Authorization: `Bearer ${data.access_token}`,
         },
@@ -196,6 +230,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const response = await fetch(ENDPOINTS.REGISTER, {
         method: 'POST',
+        credentials: 'include', // Dépôt du Cookie de session à l'inscription
         headers: {
           'Content-Type': 'application/json',
         },
@@ -231,7 +266,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await fetch(ENDPOINTS.LOGOUT, {
+        method: 'POST',
+        credentials: 'include',
+      });
+    } catch (e) {
+      console.warn('Logout API error:', e);
+    }
     setUser(null);
     setToken(null);
     setJustRegistered(false);

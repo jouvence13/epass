@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 from typing import List, Optional
 
 # FastAPI fournit les outils pour créer des APIs et gérer la sécurité HTTP
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 # SQLAlchemy pour interagir avec la base de données PostgreSQL de manière asynchrone
@@ -26,39 +26,40 @@ from app.core.database import get_async_db
 from app.core.security import decode_token, verify_password
 from app.models.user_model import Users, UserRoleEnum, KycStatusEnum
 
-# 'HTTPBearer' indique à Swagger et à FastAPI que l'authentification se fait via l'en-tête :
-# Authorization: Bearer <token_jwt>
-# Le paramètre 'auto_error=False' permet de gérer nous-mêmes le message d'erreur si le token est manquant.
+# 'HTTPBearer' indique à Swagger et à FastAPI le schéma de fallback
 security_scheme = HTTPBearer(auto_error=False)
 
 
 async def get_current_authenticated_user(
+    request: Request,
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security_scheme),
     db: AsyncSession = Depends(get_async_db)
 ) -> Users:
     """
-    DÉPENDANCE FASTAPI : Récupère l'utilisateur connecté à partir du jeton JWT.
+    DÉPENDANCE FASTAPI : Récupère l'utilisateur connecté à partir du Cookie de session ou du jeton JWT.
     
-    Fonctionnement étape par étape :
-    1. Vérifie si le header 'Authorization: Bearer ...' est présent dans la requête.
-    2. Décode et vérifie la signature cryptographique du jeton JWT (HMAC-SHA256).
-    3. Vérifie que le jeton n'est pas expiré et qu'il s'agit bien d'un token d'accès ('access').
-    4. Récupère l'utilisateur dans PostgreSQL via son UUID.
-    5. Vérifie que le compte utilisateur est actif (non suspendu).
+    Priorité :
+    1. Cookie HttpOnly de session ('epass_session' ou 'access_token').
+    2. Header HTTP 'Authorization: Bearer <token>' (Fallback mobile / API externe).
     """
 
-    # 1. Vérification de la présence des identifiants dans la requête HTTP
-    if not credentials:
+    # 1. Extraction prioritaire depuis les Cookies de session
+    token = request.cookies.get("epass_session") or request.cookies.get("access_token")
+    
+    # 2. Fallback depuis l'en-tête Authorization Bearer
+    if not token and credentials:
+        token = credentials.credentials
+
+    # 3. Vérification de la présence d'une preuve d'authentification
+    if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Jeton d'authentification manquant. Veuillez vous connecter.",
+            detail="Session non authentifiée ou cookie expiré. Veuillez vous connecter.",
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    # 2. Récupération de la chaîne brute du jeton JWT
-    token = credentials.credentials
+    # 4. Décodage et vérification de la signature du jeton
     try:
-        # Décoder le jeton et vérifier sa signature avec notre clé secrète (SECRET_KEY)
         payload = decode_token(token)
     except ValueError as e:
         # Si le jeton est falsifié, corrompu ou expiré, lever une erreur 401
