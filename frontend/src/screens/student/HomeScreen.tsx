@@ -229,6 +229,62 @@ export default function HomeScreen({ navigation }: any) {
         </View>
 
         {/* ========================================================================= */}
+        {/* BANNIÈRE D'ÉTAT DU KYC ACADÉMIQUE                                         */}
+        {/* ========================================================================= */}
+        {user?.kyc_status !== 'APPROVED' && (
+          <View
+            style={[
+              styles.homeKycCard,
+              user?.kyc_status === 'PENDING' ? styles.homeKycPending : styles.homeKycRequired,
+            ]}
+          >
+            <View style={styles.homeKycHeaderRow}>
+              <View
+                style={[
+                  styles.homeKycIconBox,
+                  { backgroundColor: user?.kyc_status === 'PENDING' ? '#fef3c7' : colors.primaryFixed },
+                ]}
+              >
+                <MaterialIcons
+                  name={user?.kyc_status === 'PENDING' ? 'schedule' : 'verified-user'}
+                  size={20}
+                  color={user?.kyc_status === 'PENDING' ? '#d97706' : colors.primary}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={[
+                    styles.homeKycTitle,
+                    { color: user?.kyc_status === 'PENDING' ? '#92400e' : colors.primary },
+                  ]}
+                >
+                  {user?.kyc_status === 'PENDING'
+                    ? 'Dossier KYC en cours d’examen'
+                    : 'Vérification Académique Requise'}
+                </Text>
+                <Text style={styles.homeKycSubtitle}>
+                  {user?.kyc_status === 'PENDING'
+                    ? 'Pièces transmises au CROUS • Validation sous 24h ouvrées'
+                    : 'Fournissez votre Carte d’Étudiant UAC et votre CIP'}
+                </Text>
+              </View>
+              <Pressable
+                style={[
+                  styles.homeKycBtn,
+                  { backgroundColor: user?.kyc_status === 'PENDING' ? '#d97706' : colors.primary },
+                ]}
+                onPress={() => navigation.navigate('KycOnboarding')}
+              >
+                <Text style={styles.homeKycBtnText}>
+                  {user?.kyc_status === 'PENDING' ? 'Voir l’état' : 'Certifier'}
+                </Text>
+                <MaterialIcons name="chevron-right" size={16} color="#ffffff" />
+              </Pressable>
+            </View>
+          </View>
+        )}
+
+        {/* ========================================================================= */}
         {/* SECTION 1 : MES TICKETS PAYÉS & ACTIFS                                     */}
         {/* ========================================================================= */}
         <View style={styles.sectionHeadRow}>
@@ -543,6 +599,57 @@ export default function HomeScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   scroll: { padding: spacing.containerMargin, paddingBottom: spacing.xl, gap: spacing.lg },
+
+  // Bannière KYC sur l'accueil
+  homeKycCard: {
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    borderWidth: 1.5,
+  },
+  homeKycRequired: {
+    backgroundColor: colors.primaryFixed,
+    borderColor: colors.primary,
+  },
+  homeKycPending: {
+    backgroundColor: '#fffbeb',
+    borderColor: '#f59e0b',
+  },
+  homeKycHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  homeKycIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  homeKycTitle: {
+    ...typography.headlineSm,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  homeKycSubtitle: {
+    ...typography.bodySm,
+    fontSize: 12,
+    color: colors.onSurfaceVariant,
+    marginTop: 1,
+  },
+  homeKycBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: radius.full,
+    gap: 2,
+  },
+  homeKycBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
 
   // Bannière de bienvenue / Notification
   welcomeBanner: {

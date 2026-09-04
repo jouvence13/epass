@@ -15,6 +15,7 @@ import Badge from '../../components/Badge';
 import PrimaryButton from '../../components/PrimaryButton';
 import { colors, radius, spacing, typography } from '../../theme/theme';
 import { useAuth } from '../../context/AuthContext';
+import { useNotifications } from '../../context/NotificationContext';
 import { ENDPOINTS } from '../../config/api';
 
 interface TicketHistoryItem {
@@ -33,6 +34,7 @@ interface TicketHistoryItem {
 
 export default function HistoryScreen({ navigation }: any) {
   const { token, tickets, user } = useAuth();
+  const { showToast } = useNotifications();
   const [serverHistory, setServerHistory] = useState<TicketHistoryItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -70,6 +72,35 @@ export default function HistoryScreen({ navigation }: any) {
     fetchHistory();
   };
 
+  const handleBookingPress = () => {
+    const kycStatus = user?.kyc_status;
+    if (kycStatus === 'APPROVED') {
+      showToast({
+        title: 'Réservation de trajet',
+        message: 'Sélectionnez votre départ ou scannez le QR code du bus.',
+        type: 'info',
+        category: 'GENERAL',
+      });
+      navigation.navigate('StudentTabs', { screen: 'Booking' });
+    } else if (kycStatus === 'PENDING') {
+      showToast({
+        title: 'Dossier KYC en cours d’examen',
+        message: 'Votre dossier académique est en cours de validation par le CROUS. Vous recevrez une alerte dès approbation.',
+        type: 'warning',
+        category: 'KYC',
+      });
+      navigation.navigate('KycOnboarding');
+    } else {
+      showToast({
+        title: 'Vérification KYC requise',
+        message: 'Pour débloquer les billets à 100 FCFA, vous devez fournir : 1. Carte Étudiant UAC, 2. Pièce d’identité (CIP / CNI).',
+        type: 'warning',
+        category: 'KYC',
+      });
+      navigation.navigate('KycOnboarding');
+    }
+  };
+
   // Liste des billets synchronisée avec le backend
   const combinedHistory: TicketHistoryItem[] = serverHistory.length > 0
     ? serverHistory
@@ -98,6 +129,9 @@ export default function HistoryScreen({ navigation }: any) {
     }
     return <Badge label="Expiré" tone="error" icon="cancel" />;
   };
+
+  const isKycApproved = user?.kyc_status === 'APPROVED';
+  const isKycPending = user?.kyc_status === 'PENDING';
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -134,13 +168,41 @@ export default function HistoryScreen({ navigation }: any) {
               </View>
               <Text style={styles.emptyTitle}>Aucun billet trouvé</Text>
               <Text style={styles.emptySubtitle}>
-                Vous n'avez pas encore acheté de billet de bus pour vos trajets.
+                Vous n'avez pas encore acheté de billet de bus pour vos trajets universitaires.
               </Text>
+
+              {/* Encadré d'information KYC selon le statut du compte */}
+              {!isKycApproved && (
+                <View style={[styles.kycNoticeBox, isKycPending ? styles.kycNoticePending : styles.kycNoticeRequired]}>
+                  <View style={styles.kycNoticeHeader}>
+                    <MaterialIcons
+                      name={isKycPending ? 'schedule' : 'warning-amber'}
+                      size={22}
+                      color={isKycPending ? colors.tertiary : colors.primary}
+                    />
+                    <Text style={[styles.kycNoticeTitle, { color: isKycPending ? colors.tertiary : colors.primary }]}>
+                      {isKycPending ? 'Vérification KYC en cours d’examen' : 'Vérification KYC requise avant réservation'}
+                    </Text>
+                  </View>
+                  <Text style={styles.kycNoticeText}>
+                    {isKycPending
+                      ? 'Votre dossier académique a été soumis. La commission CROUS examine vos pièces sous 24h ouvrées. Vous recevrez une notification dès validation pour réserver à 100 FCFA.'
+                      : 'Pour accéder aux tarifs subventionnés (100 FCFA) et réserver des places, vous devez fournir : 1. Votre Carte d’Étudiant UAC (Année en cours), 2. Votre Certificat CIP ou CNI.'}
+                  </Text>
+                </View>
+              )}
+
               <PrimaryButton
-                label="Réserver mon premier trajet"
-                icon="add-circle"
-                onPress={() => navigation.navigate('Booking')}
-                style={{ marginTop: spacing.lg }}
+                label={
+                  isKycApproved
+                    ? 'Réserver mon premier trajet'
+                    : isKycPending
+                    ? 'Consulter l’état de mon KYC'
+                    : 'Fournir mes pièces KYC (Carte & CIP)'
+                }
+                icon={isKycApproved ? 'add-circle' : isKycPending ? 'schedule' : 'verified-user'}
+                onPress={handleBookingPress}
+                style={{ marginTop: spacing.md, width: '100%' }}
               />
             </View>
           }
@@ -150,7 +212,7 @@ export default function HistoryScreen({ navigation }: any) {
               <Pressable
                 onPress={() => {
                   if (isIssued) {
-                    navigation.navigate('Tickets');
+                    navigation.navigate('StudentTabs', { screen: 'Tickets' });
                   }
                 }}
               >
@@ -289,5 +351,39 @@ const styles = StyleSheet.create({
     color: colors.onSurfaceVariant,
     textAlign: 'center',
     paddingHorizontal: spacing.xl,
+    marginBottom: spacing.xs,
+  },
+  kycNoticeBox: {
+    width: '100%',
+    padding: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1.5,
+    marginTop: spacing.md,
+    marginBottom: spacing.xs,
+    gap: spacing.xs,
+  },
+  kycNoticeRequired: {
+    backgroundColor: colors.primaryFixed,
+    borderColor: colors.primary,
+  },
+  kycNoticePending: {
+    backgroundColor: '#fffbeb',
+    borderColor: '#f59e0b',
+  },
+  kycNoticeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  kycNoticeTitle: {
+    ...typography.headlineSm,
+    fontSize: 14,
+    fontWeight: '700',
+    flex: 1,
+  },
+  kycNoticeText: {
+    ...typography.bodySm,
+    color: colors.onSurface,
+    lineHeight: 18,
   },
 });

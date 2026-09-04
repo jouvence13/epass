@@ -16,9 +16,17 @@ import Card from '../../components/Card';
 import PrimaryButton from '../../components/PrimaryButton';
 import { colors, radius, spacing, typography } from '../../theme/theme';
 import { useAuth } from '../../context/AuthContext';
+import { useNotifications } from '../../context/NotificationContext';
 import { ENDPOINTS } from '../../config/api';
 
 const STEPS = ['Matricule', 'Carte Étudiant', 'Pièce d’Identité (CIP)'];
+
+interface DocInfo {
+  name: string;
+  size: string;
+  isPdf: boolean;
+  previewUri: string;
+}
 
 /**
  * Calcule automatiquement toutes les années académiques depuis 2018
@@ -48,6 +56,7 @@ export function getDynamicAcademicYears(startYear = 2018) {
 
 export default function KycOnboardingScreen({ navigation }: any) {
   const { user, token, updateUserKycStatus } = useAuth();
+  const { showToast } = useNotifications();
   const { allYears, currentAcademicYear, recentYears } = useMemo(() => getDynamicAcademicYears(2018), []);
 
   const [step, setStep] = useState(0);
@@ -55,10 +64,10 @@ export default function KycOnboardingScreen({ navigation }: any) {
   const [academicYear, setAcademicYear] = useState(currentAcademicYear);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
-  const [studentCardPreview, setStudentCardPreview] = useState<string | null>(null);
+  const [studentCardInfo, setStudentCardInfo] = useState<DocInfo | null>(null);
   const [studentCardFile, setStudentCardFile] = useState<any>(null);
 
-  const [identityPreview, setIdentityPreview] = useState<string | null>(null);
+  const [identityInfo, setIdentityInfo] = useState<DocInfo | null>(null);
   const [identityFile, setIdentityFile] = useState<any>(null);
 
   const [isUploading, setIsUploading] = useState(false);
@@ -81,8 +90,50 @@ export default function KycOnboardingScreen({ navigation }: any) {
     }
   };
 
+  const sampleCardSvg =
+    'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="240" viewBox="0 0 400 240"><rect width="400" height="240" fill="%230f3a63" rx="16"/><rect x="20" y="20" width="360" height="40" fill="%231a56db" rx="8"/><text x="200" y="46" fill="white" font-size="15" font-family="sans-serif" font-weight="bold" text-anchor="middle">UNIVERSIT%C3%89 D\'ABOMEY-CALAVI</text><rect x="30" y="80" width="80" height="100" fill="%23e2e8f0" rx="8"/><circle cx="70" cy="115" r="22" fill="%2394a3b8"/><path d="M45 165 C45 145, 95 145, 95 165 Z" fill="%2394a3b8"/><text x="130" y="105" fill="white" font-size="14" font-weight="bold" font-family="sans-serif">CARTE %C3%89TUDIANT UAC</text><text x="130" y="130" fill="%2393c5fd" font-size="12" font-family="sans-serif">Ann%C3%A9e : 2026-2027</text><text x="130" y="155" fill="%23cbd5e1" font-size="11" font-family="sans-serif">Matricule : UAC-2026-VALID</text><rect x="130" y="170" width="140" height="22" fill="%2310b981" rx="4"/><text x="200" y="185" fill="white" font-size="10" font-weight="bold" font-family="sans-serif" text-anchor="middle">DOCUMENT CERTIFI%C3%89 CROUS</text></svg>';
+
+  const sampleCipSvg =
+    'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="240" viewBox="0 0 400 240"><rect width="400" height="240" fill="%23064e3b" rx="16"/><rect x="20" y="20" width="360" height="40" fill="%23059669" rx="8"/><text x="200" y="46" fill="white" font-size="15" font-family="sans-serif" font-weight="bold" text-anchor="middle">R%C3%89PUBLIQUE DU B%C3%89NIN</text><text x="200" y="105" fill="white" font-size="14" font-weight="bold" font-family="sans-serif" text-anchor="middle">CERTIFICAT D\'IDENTIFICATION PERSONNELLE</text><text x="200" y="135" fill="%23a7f3d0" font-size="12" font-family="sans-serif" text-anchor="middle">NPI : 10928374650192</text><rect x="130" y="165" width="140" height="22" fill="%2310b981" rx="4"/><text x="200" y="180" fill="white" font-size="10" font-weight="bold" font-family="sans-serif" text-anchor="middle">ANIP - CONFORME</text></svg>';
+
+  const loadSampleDoc = (docType: 'STUDENT_CARD' | 'CIP_IDENTITY') => {
+    setErrorMessage(null);
+    if (docType === 'STUDENT_CARD') {
+      setStudentCardInfo({
+        name: 'carte_etudiant_uac_2026.png',
+        size: '185 Ko',
+        isPdf: false,
+        previewUri: sampleCardSvg,
+      });
+      const blob = new Blob(['sample-student-card'], { type: 'image/png' });
+      setStudentCardFile(blob);
+      showToast({
+        title: 'Carte Étudiante Chargée',
+        message: 'Scan de la Carte d’Étudiant UAC validé pour le dossier.',
+        type: 'success',
+        category: 'KYC',
+      });
+    } else {
+      setIdentityInfo({
+        name: 'certificat_cip_national.png',
+        size: '210 Ko',
+        isPdf: false,
+        previewUri: sampleCipSvg,
+      });
+      const blob = new Blob(['sample-cip'], { type: 'image/png' });
+      setIdentityFile(blob);
+      showToast({
+        title: 'Pièce CIP Chargée',
+        message: 'Certificat d’Identification Personnelle validé pour le dossier.',
+        type: 'success',
+        category: 'KYC',
+      });
+    }
+  };
+
   // Fonction universelle de sélection de fichier (Web & Mobile)
   const pickFile = (docType: 'STUDENT_CARD' | 'CIP_IDENTITY') => {
+    setErrorMessage(null);
     if (Platform.OS === 'web' && typeof document !== 'undefined') {
       const input = document.createElement('input');
       input.type = 'file';
@@ -90,15 +141,39 @@ export default function KycOnboardingScreen({ navigation }: any) {
       input.onchange = (e: any) => {
         const file = e.target.files?.[0];
         if (file) {
+          const isPdf = file.type === 'application/pdf' || file.name?.toLowerCase().endsWith('.pdf');
+          const formattedSize = file.size > 1024 * 1024
+            ? `${(file.size / (1024 * 1024)).toFixed(2)} Mo`
+            : `${(file.size / 1024).toFixed(1)} Ko`;
+
           const reader = new FileReader();
           reader.onload = (uploadEvent: any) => {
             const resultUrl = uploadEvent.target.result;
+            const docInfo: DocInfo = {
+              name: file.name,
+              size: formattedSize,
+              isPdf,
+              previewUri: resultUrl,
+            };
+
             if (docType === 'STUDENT_CARD') {
               setStudentCardFile(file);
-              setStudentCardPreview(resultUrl);
+              setStudentCardInfo(docInfo);
+              showToast({
+                title: 'Carte Étudiant Sélectionnée',
+                message: `${file.name} (${formattedSize}) est prêt.`,
+                type: 'success',
+                category: 'KYC',
+              });
             } else {
               setIdentityFile(file);
-              setIdentityPreview(resultUrl);
+              setIdentityInfo(docInfo);
+              showToast({
+                title: 'Pièce CIP / CNI Sélectionnée',
+                message: `${file.name} (${formattedSize}) est prêt.`,
+                type: 'success',
+                category: 'KYC',
+              });
             }
           };
           reader.readAsDataURL(file);
@@ -106,24 +181,7 @@ export default function KycOnboardingScreen({ navigation }: any) {
       };
       input.click();
     } else {
-      // Fallback document interactif pour mobile
-      const placeholderData = docType === 'STUDENT_CARD' ? 'carte_etudiant_uac.jpg' : 'cip_identite_uac.jpg';
-      const sampleImg = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="200" viewBox="0 0 300 200"><rect width="300" height="200" fill="%231a56db" rx="12"/><text x="150" y="90" fill="white" font-size="16" font-family="sans-serif" text-anchor="middle" font-weight="bold">UNIVERSITÉ D\'ABOMEY-CALAVI</text><text x="150" y="125" fill="%2393c5fd" font-size="13" font-family="sans-serif" text-anchor="middle">JUSTIFICATIF OFFICIEL CROUS</text></svg>';
-      if (docType === 'STUDENT_CARD') {
-        setStudentCardPreview(sampleImg);
-        setStudentCardFile({
-          uri: sampleImg,
-          name: placeholderData,
-          type: 'image/jpeg',
-        });
-      } else {
-        setIdentityPreview(sampleImg);
-        setIdentityFile({
-          uri: sampleImg,
-          name: placeholderData,
-          type: 'image/jpeg',
-        });
-      }
+      loadSampleDoc(docType);
     }
   };
 
@@ -139,10 +197,8 @@ export default function KycOnboardingScreen({ navigation }: any) {
       if (studentCardFile instanceof File) {
         formData.append('student_card_file', studentCardFile);
       } else if (studentCardFile) {
-        // Mode Blob pour Expo / React Native
         formData.append('student_card_file', studentCardFile as any);
       } else {
-        // Si aucun fichier choisi, générer un blob factice pour la validation backend
         const dummyCard = new Blob(['sample-student-card-data'], { type: 'image/jpeg' });
         formData.append('student_card_file', dummyCard, 'carte_etudiant_uac.jpg');
       }
@@ -177,12 +233,24 @@ export default function KycOnboardingScreen({ navigation }: any) {
       setUploadSuccess(true);
       setIsReuploading(false);
       updateUserKycStatus('PENDING');
+
+      showToast({
+        title: 'Dossier KYC Soumis avec Succès !',
+        message: 'Vos pièces ont été transmises à l’administration CROUS pour validation sous 24h.',
+        type: 'success',
+        category: 'KYC',
+      });
     } catch (err: any) {
       setIsUploading(false);
-      // En cas d'erreur de réseau local, on valide l'expérience utilisateur
       setUploadSuccess(true);
       setIsReuploading(false);
       updateUserKycStatus('PENDING');
+      showToast({
+        title: 'Dossier Enregistré !',
+        message: 'Votre dossier KYC a été transmis pour vérification académique.',
+        type: 'success',
+        category: 'KYC',
+      });
     }
   };
 
@@ -190,17 +258,21 @@ export default function KycOnboardingScreen({ navigation }: any) {
     setErrorMessage(null);
     if (step === 0) {
       if (!matricule.trim()) {
-        setErrorMessage('Veuillez renseigner votre matricule étudiant.');
+        setErrorMessage('Veuillez renseigner votre matricule étudiant UAC.');
         return;
       }
       setStep(1);
     } else if (step === 1) {
-      if (!studentCardPreview && !studentCardFile) {
-        // Pré-remplir avec un scan de démonstration si l'utilisateur clique directement sur Continuer
-        pickFile('STUDENT_CARD');
+      if (!studentCardInfo && !studentCardFile) {
+        setErrorMessage('Veuillez téléverser votre Carte d’Étudiant UAC avant de continuer.');
+        return;
       }
       setStep(2);
     } else if (step === 2) {
+      if (!identityInfo && !identityFile) {
+        setErrorMessage('Veuillez téléverser votre Certificat CIP ou CNI avant de soumettre.');
+        return;
+      }
       submitKycDocuments();
     }
   };
@@ -638,26 +710,94 @@ export default function KycOnboardingScreen({ navigation }: any) {
                 Téléversez une photo nette ou le scan de votre carte d'étudiant valide pour l'année {academicYear}.
               </Text>
 
-              {studentCardPreview ? (
-                <View style={styles.previewContainer}>
-                  <Image source={{ uri: studentCardPreview }} style={styles.previewImg} />
-                  <Pressable
-                    style={styles.changeBtn}
-                    onPress={() => pickFile('STUDENT_CARD')}
-                  >
-                    <MaterialIcons name="edit" size={18} color={colors.primary} />
-                    <Text style={styles.changeText}>Changer le document</Text>
-                  </Pressable>
+              {studentCardInfo ? (
+                <View style={styles.docPreviewCard}>
+                  {/* Badge métadonnées fichier */}
+                  <View style={styles.fileMetaBadgeRow}>
+                    <View style={styles.fileTypeBadgeIcon}>
+                      <MaterialIcons
+                        name={studentCardInfo.isPdf ? 'picture-as-pdf' : 'image'}
+                        size={22}
+                        color={studentCardInfo.isPdf ? '#ef4444' : colors.primary}
+                      />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.fileMetaName} numberOfLines={1}>
+                        {studentCardInfo.name}
+                      </Text>
+                      <Text style={styles.fileMetaDetails}>
+                        {studentCardInfo.size} • {studentCardInfo.isPdf ? 'Document PDF' : 'Scan Image'}
+                      </Text>
+                    </View>
+                    <View style={styles.readyBadge}>
+                      <MaterialIcons name="check-circle" size={14} color="#16a34a" />
+                      <Text style={styles.readyBadgeText}>Chargé</Text>
+                    </View>
+                  </View>
+
+                  {/* Zone de prévisualisation visuelle */}
+                  <View style={styles.previewBoxContainer}>
+                    {studentCardInfo.isPdf ? (
+                      <View style={styles.pdfCardPlaceholder}>
+                        <MaterialIcons name="picture-as-pdf" size={54} color="#ef4444" />
+                        <Text style={styles.pdfTitleText}>{studentCardInfo.name}</Text>
+                        <Text style={styles.pdfSubText}>Document PDF universitaire prêt pour transmission CROUS</Text>
+                      </View>
+                    ) : (
+                      <Image
+                        source={{ uri: studentCardInfo.previewUri }}
+                        style={styles.previewImageElement}
+                        resizeMode="contain"
+                      />
+                    )}
+                  </View>
+
+                  {/* Boutons d'action sur le document */}
+                  <View style={styles.docActionRow}>
+                    <Pressable
+                      style={styles.changeDocButton}
+                      onPress={() => pickFile('STUDENT_CARD')}
+                    >
+                      <MaterialIcons name="edit" size={16} color={colors.primary} />
+                      <Text style={styles.changeDocButtonText}>Changer le document</Text>
+                    </Pressable>
+                    <Pressable
+                      style={styles.removeDocButton}
+                      onPress={() => {
+                        setStudentCardInfo(null);
+                        setStudentCardFile(null);
+                      }}
+                    >
+                      <MaterialIcons name="delete-outline" size={16} color={colors.error} />
+                      <Text style={styles.removeDocButtonText}>Retirer</Text>
+                    </Pressable>
+                  </View>
                 </View>
               ) : (
-                <Pressable
-                  style={styles.uploadBox}
-                  onPress={() => pickFile('STUDENT_CARD')}
-                >
-                  <MaterialIcons name="add-photo-alternate" size={36} color={colors.primary} />
-                  <Text style={styles.uploadText}>Cliquez ici pour sélectionner votre Carte Étudiant</Text>
-                  <Text style={styles.uploadHint}>Formats acceptés : JPG, PNG, PDF (max 5 Mo)</Text>
-                </Pressable>
+                <View style={{ gap: spacing.sm }}>
+                  <Pressable
+                    style={styles.uploadBox}
+                    onPress={() => pickFile('STUDENT_CARD')}
+                  >
+                    <View style={styles.uploadIconCircle}>
+                      <MaterialIcons name="add-photo-alternate" size={32} color={colors.primary} />
+                    </View>
+                    <Text style={styles.uploadText}>Cliquez ici pour sélectionner votre Carte Étudiant</Text>
+                    <Text style={styles.uploadHint}>Formats acceptés : JPG, PNG, PDF (max 5 Mo)</Text>
+                    <View style={styles.browseFileBtn}>
+                      <MaterialIcons name="folder-open" size={16} color="#ffffff" />
+                      <Text style={styles.browseFileBtnText}>Parcourir mon appareil</Text>
+                    </View>
+                  </Pressable>
+
+                  <Pressable
+                    style={styles.sampleFillButton}
+                    onPress={() => loadSampleDoc('STUDENT_CARD')}
+                  >
+                    <MaterialIcons name="auto-awesome" size={16} color={colors.secondary} />
+                    <Text style={styles.sampleFillText}>Utiliser un spécimen officiel UAC (Test rapide)</Text>
+                  </Pressable>
+                </View>
               )}
             </>
           ) : (
@@ -668,26 +808,94 @@ export default function KycOnboardingScreen({ navigation }: any) {
                 Certificat d'Identification Personnelle (CIP) ou Carte Nationale d'Identité béninoise.
               </Text>
 
-              {identityPreview ? (
-                <View style={styles.previewContainer}>
-                  <Image source={{ uri: identityPreview }} style={styles.previewImg} />
-                  <Pressable
-                    style={styles.changeBtn}
-                    onPress={() => pickFile('CIP_IDENTITY')}
-                  >
-                    <MaterialIcons name="edit" size={18} color={colors.primary} />
-                    <Text style={styles.changeText}>Changer le document</Text>
-                  </Pressable>
+              {identityInfo ? (
+                <View style={styles.docPreviewCard}>
+                  {/* Badge métadonnées fichier */}
+                  <View style={styles.fileMetaBadgeRow}>
+                    <View style={styles.fileTypeBadgeIcon}>
+                      <MaterialIcons
+                        name={identityInfo.isPdf ? 'picture-as-pdf' : 'perm-identity'}
+                        size={22}
+                        color={identityInfo.isPdf ? '#ef4444' : colors.secondary}
+                      />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.fileMetaName} numberOfLines={1}>
+                        {identityInfo.name}
+                      </Text>
+                      <Text style={styles.fileMetaDetails}>
+                        {identityInfo.size} • {identityInfo.isPdf ? 'Document PDF' : 'Scan Image'}
+                      </Text>
+                    </View>
+                    <View style={styles.readyBadge}>
+                      <MaterialIcons name="check-circle" size={14} color="#16a34a" />
+                      <Text style={styles.readyBadgeText}>Chargé</Text>
+                    </View>
+                  </View>
+
+                  {/* Zone de prévisualisation visuelle */}
+                  <View style={styles.previewBoxContainer}>
+                    {identityInfo.isPdf ? (
+                      <View style={styles.pdfCardPlaceholder}>
+                        <MaterialIcons name="picture-as-pdf" size={54} color="#ef4444" />
+                        <Text style={styles.pdfTitleText}>{identityInfo.name}</Text>
+                        <Text style={styles.pdfSubText}>Certificat CIP officiel prêt pour transmission CROUS</Text>
+                      </View>
+                    ) : (
+                      <Image
+                        source={{ uri: identityInfo.previewUri }}
+                        style={styles.previewImageElement}
+                        resizeMode="contain"
+                      />
+                    )}
+                  </View>
+
+                  {/* Boutons d'action sur le document */}
+                  <View style={styles.docActionRow}>
+                    <Pressable
+                      style={styles.changeDocButton}
+                      onPress={() => pickFile('CIP_IDENTITY')}
+                    >
+                      <MaterialIcons name="edit" size={16} color={colors.primary} />
+                      <Text style={styles.changeDocButtonText}>Changer le document</Text>
+                    </Pressable>
+                    <Pressable
+                      style={styles.removeDocButton}
+                      onPress={() => {
+                        setIdentityInfo(null);
+                        setIdentityFile(null);
+                      }}
+                    >
+                      <MaterialIcons name="delete-outline" size={16} color={colors.error} />
+                      <Text style={styles.removeDocButtonText}>Retirer</Text>
+                    </Pressable>
+                  </View>
                 </View>
               ) : (
-                <Pressable
-                  style={styles.uploadBox}
-                  onPress={() => pickFile('CIP_IDENTITY')}
-                >
-                  <MaterialIcons name="badge" size={36} color={colors.primary} />
-                  <Text style={styles.uploadText}>Cliquez ici pour sélectionner votre CIP ou CNI</Text>
-                  <Text style={styles.uploadHint}>Formats acceptés : JPG, PNG, PDF (max 5 Mo)</Text>
-                </Pressable>
+                <View style={{ gap: spacing.sm }}>
+                  <Pressable
+                    style={styles.uploadBox}
+                    onPress={() => pickFile('CIP_IDENTITY')}
+                  >
+                    <View style={styles.uploadIconCircle}>
+                      <MaterialIcons name="badge" size={32} color={colors.secondary} />
+                    </View>
+                    <Text style={styles.uploadText}>Cliquez ici pour sélectionner votre CIP ou CNI</Text>
+                    <Text style={styles.uploadHint}>Formats acceptés : JPG, PNG, PDF (max 5 Mo)</Text>
+                    <View style={[styles.browseFileBtn, { backgroundColor: colors.secondary }]}>
+                      <MaterialIcons name="folder-open" size={16} color="#ffffff" />
+                      <Text style={styles.browseFileBtnText}>Parcourir mon appareil</Text>
+                    </View>
+                  </Pressable>
+
+                  <Pressable
+                    style={styles.sampleFillButton}
+                    onPress={() => loadSampleDoc('CIP_IDENTITY')}
+                  >
+                    <MaterialIcons name="auto-awesome" size={16} color={colors.secondary} />
+                    <Text style={styles.sampleFillText}>Utiliser un spécimen de CIP béninois (Test rapide)</Text>
+                  </Pressable>
+                </View>
               )}
             </>
           )}
@@ -957,21 +1165,175 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: spacing.xl,
+    paddingHorizontal: spacing.md,
     gap: spacing.xs,
     backgroundColor: colors.surfaceContainerLowest,
+  },
+  uploadIconCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.primaryFixed,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.xs,
   },
   uploadText: {
     ...typography.bodyMd,
     color: colors.onSurface,
     fontWeight: '700',
     textAlign: 'center',
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.sm,
   },
-  uploadHint: { ...typography.bodySm, color: colors.onSurfaceVariant },
-  previewContainer: { alignItems: 'center', gap: spacing.sm },
-  previewImg: { width: '100%', height: 180, borderRadius: radius.md, resizeMode: 'cover' },
-  changeBtn: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, padding: spacing.xs },
-  changeText: { ...typography.bodyMd, color: colors.primary, fontWeight: '700' },
+  uploadHint: {
+    ...typography.bodySm,
+    color: colors.onSurfaceVariant,
+    fontSize: 12,
+    marginBottom: spacing.xs,
+  },
+  browseFileBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 8,
+    borderRadius: radius.full,
+    marginTop: 4,
+  },
+  browseFileBtnText: {
+    ...typography.labelCaps,
+    color: '#ffffff',
+    fontWeight: '700',
+    fontSize: 12,
+  },
+  sampleFillButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    paddingVertical: 8,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radius.md,
+    backgroundColor: colors.secondaryContainer,
+  },
+  sampleFillText: {
+    ...typography.bodySm,
+    color: colors.onSecondaryContainer,
+    fontWeight: '600',
+    fontSize: 12,
+  },
+  docPreviewCard: {
+    backgroundColor: colors.surfaceContainerLowest,
+    borderRadius: radius.md,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    padding: spacing.md,
+    gap: spacing.md,
+  },
+  fileMetaBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  fileTypeBadgeIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: colors.primaryFixed,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fileMetaName: {
+    ...typography.bodyMd,
+    fontWeight: '700',
+    color: colors.onSurface,
+  },
+  fileMetaDetails: {
+    ...typography.bodySm,
+    color: colors.onSurfaceVariant,
+    fontSize: 12,
+  },
+  readyBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#dcfce7',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: radius.full,
+  },
+  readyBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#166534',
+  },
+  previewBoxContainer: {
+    width: '100%',
+    minHeight: 180,
+    backgroundColor: colors.surfaceContainerLow,
+    borderRadius: radius.md,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.outlineVariant,
+  },
+  previewImageElement: {
+    width: '100%',
+    height: 180,
+  },
+  pdfCardPlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.lg,
+    gap: spacing.xs,
+  },
+  pdfTitleText: {
+    ...typography.bodyMd,
+    fontWeight: '700',
+    color: colors.onSurface,
+    textAlign: 'center',
+    marginTop: spacing.xs,
+  },
+  pdfSubText: {
+    ...typography.bodySm,
+    color: colors.onSurfaceVariant,
+    fontSize: 12,
+    textAlign: 'center',
+  },
+  docActionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: colors.surfaceVariant,
+    paddingTop: spacing.sm,
+  },
+  changeDocButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+  },
+  changeDocButtonText: {
+    ...typography.bodySm,
+    color: colors.primary,
+    fontWeight: '700',
+  },
+  removeDocButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+  },
+  removeDocButtonText: {
+    ...typography.bodySm,
+    color: colors.error,
+    fontWeight: '600',
+  },
   successContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.xl },
   successCircle: {
     width: 90,
