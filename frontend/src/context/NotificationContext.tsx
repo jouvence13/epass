@@ -32,6 +32,7 @@ interface NotificationContextType {
   }) => void;
   markAllAsRead: () => void;
   clearNotification: (id: string) => void;
+  refreshNotifications: () => Promise<void>;
 }
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
@@ -41,33 +42,33 @@ import { ENDPOINTS } from '../config/api';
 export function NotificationProvider({ children }: { children: React.ReactNode }) {
   const [notifications, setNotifications] = useState<GlobalNotification[]>([]);
 
-  useEffect(() => {
-    const fetchNotifications = async () => {
-      try {
-        const res = await fetch(ENDPOINTS.NOTIFICATIONS, {
-          credentials: 'include',
-        });
-        if (res.ok) {
-          const data = await res.json();
-          if (Array.isArray(data)) {
-            const mapped: GlobalNotification[] = data.map((item: any) => ({
-              id: item.id,
-              category: item.category || 'GENERAL',
-              title: item.title,
-              message: item.message,
-              time: item.time,
-              read: item.read ?? false,
-              type: item.tone === 'success' ? 'success' : item.tone === 'warning' ? 'warning' : 'info',
-              icon: item.icon || 'notifications',
-            }));
-            setNotifications(mapped);
-          }
+  const fetchNotifications = async () => {
+    try {
+      const res = await fetch(ENDPOINTS.NOTIFICATIONS, {
+        credentials: 'include',
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          const mapped: GlobalNotification[] = data.map((item: any) => ({
+            id: item.id,
+            category: item.category || 'GENERAL',
+            title: item.title,
+            message: item.message,
+            time: item.time,
+            read: item.read ?? false,
+            type: item.tone === 'success' ? 'success' : item.tone === 'warning' ? 'warning' : 'info',
+            icon: item.icon || 'notifications',
+          }));
+          setNotifications(mapped);
         }
-      } catch (e) {
-        console.warn('Fetch notifications error:', e);
       }
-    };
+    } catch (e) {
+      console.warn('Fetch notifications error:', e);
+    }
+  };
 
+  useEffect(() => {
     fetchNotifications();
   }, []);
 
@@ -115,9 +116,29 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       icon,
     };
 
+    // 1. Mise à jour immédiate de la liste globale des notifications
     setNotifications((prev) => [newNotif, ...prev]);
 
-    // Affichage de la bannière toast animée en haut
+    // 2. Sauvegarde persistante dans PostgreSQL en arrière-plan
+    (async () => {
+      try {
+        await fetch(ENDPOINTS.CREATE_NOTIFICATION, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            title,
+            message,
+            category,
+            tone: type,
+          }),
+        });
+      } catch (e) {
+        console.warn('Failed to persist notification to DB:', e);
+      }
+    })();
+
+    // 3. Affichage de la bannière toast animée en haut
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     setActiveToast({ id: newNotif.id, title, message, type, icon });
 
@@ -183,6 +204,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         showToast,
         markAllAsRead,
         clearNotification,
+        refreshNotifications: fetchNotifications,
       }}
     >
       {children}

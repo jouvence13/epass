@@ -33,6 +33,7 @@ export const ENDPOINTS = {
   // Notifications
   NOTIFICATIONS: `${API_V1_URL}/notifications/my-notifications`,
   MARK_NOTIFICATIONS_READ: `${API_V1_URL}/notifications/mark-all-read`,
+  CREATE_NOTIFICATION: `${API_V1_URL}/notifications/create`,
 
   // Paiements & Portefeuille
   PAYMENT_METHODS: `${API_V1_URL}/payments/methods`,

@@ -133,3 +133,41 @@ async def mark_all_notifications_read(
     )
     await db.commit()
     return {"message": "Toutes les notifications ont été marquées comme lues."}
+
+
+class CreateNotificationSchema(BaseModel):
+    title: str
+    message: str
+    category: Optional[str] = "GENERAL"
+    tone: Optional[str] = "info"
+
+
+@router.post("/create", response_model=NotificationOutSchema)
+async def create_user_notification(
+    payload: CreateNotificationSchema,
+    current_user: Users = Depends(get_current_authenticated_user),
+    db: AsyncSession = Depends(get_async_db)
+):
+    """
+    Creates and persists a notification for the current user in PostgreSQL.
+    """
+    notif = Notifications(
+        user_id=current_user.user_id,
+        title=payload.title,
+        message=payload.message,
+        is_sent=False
+    )
+    db.add(notif)
+    await db.commit()
+    await db.refresh(notif)
+
+    return NotificationOutSchema(
+        id=str(notif.notification_id),
+        category=payload.category or "GENERAL",
+        title=notif.title,
+        message=notif.message,
+        time="À l'instant",
+        read=False,
+        icon="notifications-active",
+        tone=payload.tone or "info"
+    )

@@ -6,6 +6,7 @@ import {
   ScrollView,
   Pressable,
   ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -13,67 +14,34 @@ import Card from '../../components/Card';
 import Badge from '../../components/Badge';
 import { colors, radius, spacing, typography } from '../../theme/theme';
 import { useAuth } from '../../context/AuthContext';
-import { ENDPOINTS } from '../../config/api';
-
-interface NotificationItem {
-  id: string;
-  category: 'TRAFFIC' | 'KYC' | 'PAYMENT' | 'SCHEDULE';
-  title: string;
-  message: string;
-  time: string;
-  read: boolean;
-  icon: keyof typeof MaterialIcons.glyphMap;
-  tone: 'info' | 'warning' | 'success' | 'neutral';
-}
+import { useNotifications } from '../../context/NotificationContext';
 
 export default function NotificationsScreen({ navigation }: any) {
   const { user } = useAuth();
+  const { notifications, unreadCount, markAllAsRead, refreshNotifications } = useNotifications();
   const [filter, setFilter] = useState<'ALL' | 'TRAFFIC' | 'KYC' | 'PAYMENT'>('ALL');
-  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const fetchNotifications = async () => {
-    try {
-      const res = await fetch(ENDPOINTS.NOTIFICATIONS, {
-        credentials: 'include',
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setNotifications(data);
-      }
-    } catch (e) {
-      console.warn('Error fetching notifications:', e);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchNotifications();
-  }, []);
-
-  const markAllAsRead = async () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-    try {
-      await fetch(ENDPOINTS.MARK_NOTIFICATIONS_READ, {
-        method: 'POST',
-        credentials: 'include',
-      });
-    } catch (e) {
-      console.warn('Error marking notifications as read:', e);
-    }
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await refreshNotifications();
+    setRefreshing(false);
   };
 
   const filteredList = notifications.filter((n) => {
     if (filter === 'ALL') return true;
+    if (filter === 'PAYMENT') return n.category === 'PAYMENT' || n.category === 'WALLET';
     return n.category === filter;
   });
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
-
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />
+        }
+      >
         {/* Header */}
         <View style={styles.header}>
           <Pressable style={styles.backBtn} onPress={() => navigation.goBack()}>
@@ -141,11 +109,11 @@ export default function NotificationsScreen({ navigation }: any) {
                   <View
                     style={[
                       styles.iconCircle,
-                      item.tone === 'success'
+                      item.type === 'success'
                         ? { backgroundColor: colors.primaryFixed }
-                        : item.tone === 'warning'
+                        : item.type === 'warning'
                         ? { backgroundColor: '#fef3c7' }
-                        : item.tone === 'info'
+                        : item.type === 'info'
                         ? { backgroundColor: '#e0f2fe' }
                         : { backgroundColor: colors.surfaceContainer },
                     ]}
@@ -154,11 +122,11 @@ export default function NotificationsScreen({ navigation }: any) {
                       name={item.icon}
                       size={22}
                       color={
-                        item.tone === 'success'
+                        item.type === 'success'
                           ? colors.primary
-                          : item.tone === 'warning'
+                          : item.type === 'warning'
                           ? '#d97706'
-                          : item.tone === 'info'
+                          : item.type === 'info'
                           ? '#0284c7'
                           : colors.onSurfaceVariant
                       }
