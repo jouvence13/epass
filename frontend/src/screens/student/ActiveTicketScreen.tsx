@@ -18,7 +18,7 @@ import Badge from '../../components/Badge';
 import PrimaryButton from '../../components/PrimaryButton';
 import { colors, radius, spacing, typography } from '../../theme/theme';
 import { useAuth } from '../../context/AuthContext';
-import { useNotification } from '../../context/NotificationContext';
+import { useNotifications } from '../../context/NotificationContext';
 
 interface RouteStop {
   id: string;
@@ -105,7 +105,7 @@ const BUS_LINES: Record<string, BusLineConfig> = {
 
 export default function ActiveTicketScreen() {
   const { user, tickets, activeTicket, setActiveTicket, busSlots, recycleTicket } = useAuth();
-  const { showToast } = useNotification();
+  const { showToast } = useNotifications();
   const [selectedLineKey, setSelectedLineKey] = useState<'LIGNE_A' | 'LIGNE_B' | 'LIGNE_C'>('LIGNE_A');
 
   // État du Modal de Recyclage

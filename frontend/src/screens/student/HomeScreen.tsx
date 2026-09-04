@@ -551,9 +551,6 @@ export default function HomeScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   scroll: { padding: spacing.containerMargin, paddingBottom: spacing.xl, gap: spacing.lg },
-  greetingWrap: { gap: 2 },
-  greeting: { ...typography.headlineMd, color: colors.primary },
-  p: { ...typography.bodyMd, color: colors.onSurfaceVariant },
 
   // Bannière de bienvenue / Notification
   welcomeBanner: {

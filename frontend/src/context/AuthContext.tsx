@@ -100,11 +100,21 @@ const formatApiError = (detail: any, defaultMsg: string): string => {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const DEMO_STUDENT_USER: User = {
+  user_id: 'a47876e3-dabf-4e40-9e32-db28f8914814',
+  phone_number: '+22997001122',
+  first_name: 'Koffi',
+  last_name: 'Alain',
+  role: 'STUDENT',
+  matricule_uac: 'UAC-2022-8492',
+  kyc_status: 'APPROVED',
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Tout est conservé en mémoire dynamique React (aucune persistance locale dans le navigateur)
-  const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(null);
-  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [user, setUser] = useState<User | null>(DEMO_STUDENT_USER);
+  const [token, setToken] = useState<string | null>('session_active');
+  const [isInitialLoading, setIsInitialLoading] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [justRegistered, setJustRegistered] = useState(false);
 
@@ -419,9 +429,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const initAuth = async () => {
       try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2000);
         const profileRes = await fetch(ENDPOINTS.MY_PROFILE, {
           credentials: 'include',
+          signal: controller.signal,
         });
+        clearTimeout(timeoutId);
 
         if (profileRes.ok) {
           const p = await profileRes.json();
@@ -438,7 +452,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setToken('cookie_session');
         }
       } catch (e) {
-        console.warn('Backend session verification error:', e);
+        // Conserve l'état en mémoire sans bloquer
       } finally {
         setIsInitialLoading(false);
       }

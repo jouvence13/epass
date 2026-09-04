@@ -66,11 +66,13 @@ export const spacing = {
   md: 16,
   lg: 24,
   xl: 32,
+  xxl: 40,
   gutter: 12,
   containerMargin: 16,
 };
 
 export const radius = {
+  xs: 4,
   sm: 8,
   DEFAULT: 8,
   md: 12,
@@ -98,10 +100,12 @@ export const shadow = {
 
 export const typography = {
   displayLg: { fontSize: 32, lineHeight: 40, fontWeight: '700' as const, letterSpacing: -0.5 },
+  headlineLg: { fontSize: 28, lineHeight: 36, fontWeight: '700' as const },
   headlineMd: { fontSize: 24, lineHeight: 32, fontWeight: '600' as const },
   headlineSm: { fontSize: 20, lineHeight: 28, fontWeight: '600' as const },
   bodyLg: { fontSize: 16, lineHeight: 24, fontWeight: '400' as const },
   bodyMd: { fontSize: 14, lineHeight: 20, fontWeight: '400' as const },
+  bodySm: { fontSize: 12, lineHeight: 16, fontWeight: '400' as const },
   labelCaps: { fontSize: 12, lineHeight: 16, fontWeight: '600' as const, letterSpacing: 0.6 },
   statusCode: { fontSize: 18, lineHeight: 24, fontWeight: '700' as const, letterSpacing: 1.8 },
 };
