@@ -4,7 +4,7 @@
 import { Platform } from 'react-native';
 
 // URL Publique du Tunnel pour l'APK mobile (accessible partout dans le monde) :
-export const PUBLIC_TUNNEL_URL = 'https://14bc-2c0f-53c0-618-9c00-db91-3bc3-36df-8940.ngrok-free.app';
+export const PUBLIC_TUNNEL_URL = 'https://fb40-2c0f-53c0-618-9c00-db91-3bc3-36df-8940.ngrok-free.app';
 
 const getBaseUrl = () => {
   if (Platform.OS === 'web') {
