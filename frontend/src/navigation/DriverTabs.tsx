@@ -19,9 +19,13 @@ const ICONS: Record<string, keyof typeof MaterialIcons.glyphMap> = {
   Alerts: 'notifications',
 };
 
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 export default function DriverTabs() {
+  const insets = useSafeAreaInsets();
   const { user, logout } = useAuth();
   const { showToast } = useNotifications();
+
   const isController = user?.role === 'CONTROLLER';
 
   const handleLogout = () => {
@@ -35,6 +39,8 @@ export default function DriverTabs() {
   };
 
   const topBarTitle = isController ? 'CROUS-UAC Contrôle' : 'CROUS-UAC Chauffeur';
+  const bottomPadding = insets.bottom > 0 ? insets.bottom : 8;
+  const tabHeight = 56 + bottomPadding;
 
   return (
     <Tab.Navigator
@@ -52,7 +58,13 @@ export default function DriverTabs() {
               ),
         tabBarActiveTintColor: colors.onSecondaryContainer,
         tabBarInactiveTintColor: colors.onSurfaceVariant,
-        tabBarStyle: { borderTopColor: colors.outlineVariant, height: 64, paddingBottom: 8, paddingTop: 6 },
+        tabBarStyle: {
+          backgroundColor: colors.surface,
+          borderTopColor: colors.outlineVariant,
+          height: tabHeight,
+          paddingBottom: bottomPadding,
+          paddingTop: 6,
+        },
         tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
         tabBarIcon: ({ color, size }) => <MaterialIcons name={ICONS[route.name]} size={size} color={color} />,
       })}

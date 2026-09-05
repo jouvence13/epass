@@ -33,7 +33,10 @@ const TITLES: Record<string, string> = {
   Profile: 'Mon Profil Étudiant',
 };
 
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 export default function StudentTabs({ navigation }: any) {
+  const insets = useSafeAreaInsets();
   const { user, logout } = useAuth();
   const { unreadCount, showToast } = useNotifications();
 
@@ -46,6 +49,9 @@ export default function StudentTabs({ navigation }: any) {
     });
     logout();
   };
+
+  const bottomPadding = insets.bottom > 0 ? insets.bottom : 8;
+  const tabHeight = 56 + bottomPadding;
 
   return (
     <Tab.Navigator
@@ -67,9 +73,9 @@ export default function StudentTabs({ navigation }: any) {
           backgroundColor: colors.surface,
           borderTopColor: colors.outlineVariant,
           borderTopWidth: 1,
-          height: 66,
-          paddingBottom: 8,
-          paddingTop: 8,
+          height: tabHeight,
+          paddingBottom: bottomPadding,
+          paddingTop: 6,
         },
         tabBarLabel: LABELS[route.name],
         tabBarLabelStyle: {

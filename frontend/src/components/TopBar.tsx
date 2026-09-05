@@ -44,10 +44,14 @@ export default function TopBar({
           ) : (
             <MaterialIcons name="directions-bus" size={22} color={fg} style={{ marginRight: 8 }} />
           )}
-          <View>
-            <Text style={[styles.title, { color: fg }]}>{title}</Text>
+          <View style={{ flexShrink: 1, marginRight: 8 }}>
+            <Text numberOfLines={1} ellipsizeMode="tail" style={[styles.title, { color: fg }]}>
+              {title}
+            </Text>
             {subtitle ? (
               <Text
+                numberOfLines={1}
+                ellipsizeMode="tail"
                 style={[
                   styles.subtitle,
                   { color: dark ? colors.primaryFixedDim : colors.onSurfaceVariant },
