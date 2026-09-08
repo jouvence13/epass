@@ -76,6 +76,7 @@ export const ENDPOINTS = {
   ADMIN_ASSIGN_BUS: `${API_V1_URL}/admin/fleet/assign`,
   ADMIN_USERS: `${API_V1_URL}/admin/users`,
   ADMIN_CREATE_USER: `${API_V1_URL}/admin/users`,
+  ADMIN_ASSIGN_CAMPUS: (userId: string) => `${API_V1_URL}/admin/users/${userId}/campus`,
   ADMIN_FLEET: `${API_V1_URL}/admin/fleet`,
   ADMIN_CREATE_BUS: `${API_V1_URL}/admin/fleet/bus`,
   ADMIN_ROUTES: `${API_V1_URL}/admin/routes`,

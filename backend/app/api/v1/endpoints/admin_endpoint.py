@@ -9,11 +9,12 @@ from sqlalchemy.orm import selectinload
 from app.core.database import get_async_db
 from app.core.security import hash_password
 from app.models.user_model import Users, UserRoleEnum, KycStatusEnum
+from app.models.campus_model import Campuses
 from app.models.fleet_model import Buses, Stops, Routes, BusStatusEnum
 from app.models.trip_model import Trips, TripStatusEnum
 from app.models.payment_model import Payments, PaymentStatusEnum
 from app.models.ticket_model import Tickets, TicketStatusEnum
-from app.schemas.user_schema import AdminCreateUserSchema, UserProfileSchema
+from app.schemas.user_schema import AdminCreateUserSchema, UserProfileSchema, AdminAssignCampusSchema
 from app.schemas.fleet_schema import (
     BusCreateSchema,
     BusOutSchema,
@@ -61,11 +62,20 @@ async def create_user_by_admin(
         query_conditions.append(Users.matricule_uac == payload.matricule_uac)
 
     existing = (await db.execute(select(Users).where(or_(*query_conditions)))).scalars().first()
-    if existing:
-        if existing.phone_number == payload.phone_number:
-            raise HTTPException(status_code=400, detail="Ce numéro de téléphone est déjà utilisé.")
-        if payload.matricule_uac and existing.matricule_uac == payload.matricule_uac:
-            raise HTTPException(status_code=400, detail="Ce matricule UAC est déjà assigné.")
+    # Résolution du campus assigné
+    campus_code = (payload.campus_code or "UAC").strip().upper()
+    if current_admin.role in {UserRoleEnum.ADMIN, UserRoleEnum.ADMIN_CAMPUS, UserRoleEnum.ADMIN_CROUS}:
+        # Directeur de campus affecte obligatoirement à son propre campus
+        resolved_campus_id = current_admin.campus_id
+        resolved_campus_code = current_admin.campus_code or "UAC"
+    else:
+        # SuperAdmin peut attribuer n'importe quel campus
+        campus_query = await db.execute(
+            select(Campuses).where(or_(Campuses.code == campus_code, Campuses.campus_id == payload.campus_id))
+        )
+        campus_obj = campus_query.scalars().first()
+        resolved_campus_id = campus_obj.campus_id if campus_obj else None
+        resolved_campus_code = campus_obj.code if campus_obj else campus_code
 
     now = datetime.now(timezone.utc)
     new_user = Users(
@@ -78,6 +88,8 @@ async def create_user_by_admin(
         kyc_status=payload.kyc_status or (
             KycStatusEnum.APPROVED if payload.role != UserRoleEnum.STUDENT else KycStatusEnum.PENDING
         ),
+        campus_id=resolved_campus_id,
+        campus_code=resolved_campus_code,
         last_kyc_verification_date=now if payload.role != UserRoleEnum.STUDENT else None,
         next_kyc_due_date=(now + timedelta(days=90)) if payload.role != UserRoleEnum.STUDENT else None,
         is_active=True
@@ -227,12 +239,85 @@ async def list_users(
     current_admin: Users = Depends(require_roles([UserRoleEnum.ADMIN, UserRoleEnum.ADMIN_CAMPUS, UserRoleEnum.ADMIN_CROUS, UserRoleEnum.SUPERADMIN])),
     db: AsyncSession = Depends(get_async_db)
 ):
-    """Admin: List all registered users with optional role filter."""
+    """Admin: List all registered users with optional role filter and campus information."""
     query = select(Users).order_by(Users.created_at.desc())
     if role:
         query = query.where(Users.role == role)
     result = await db.execute(query)
-    return result.scalars().all()
+    users = result.scalars().all()
+
+    # Pre-fetch all campuses for fast name resolution
+    campuses_res = await db.execute(select(Campuses))
+    campuses_map = {c.campus_id: c.name for c in campuses_res.scalars().all()}
+    campuses_code_map = {c.code: c.name for c in campuses_res.scalars().all()}
+
+    user_profiles = []
+    for u in users:
+        c_name = campuses_map.get(u.campus_id) or campuses_code_map.get(u.campus_code) or "Université d'Abomey-Calavi"
+        user_profiles.append(
+            UserProfileSchema(
+                user_id=u.user_id,
+                matricule_uac=u.matricule_uac,
+                phone_number=u.phone_number,
+                first_name=u.first_name,
+                last_name=u.last_name,
+                role=u.role,
+                kyc_status=u.kyc_status,
+                campus_id=u.campus_id,
+                campus_code=u.campus_code or "UAC",
+                campus_name=c_name,
+                last_kyc_verification_date=u.last_kyc_verification_date,
+                next_kyc_due_date=u.next_kyc_due_date,
+                is_active=u.is_active,
+                created_at=u.created_at
+            )
+        )
+    return user_profiles
+
+
+@router.put("/users/{user_id}/campus", response_model=UserProfileSchema)
+async def assign_user_campus(
+    user_id: uuid.UUID,
+    payload: AdminAssignCampusSchema,
+    current_admin: Users = Depends(require_roles([UserRoleEnum.SUPERADMIN])),
+    db: AsyncSession = Depends(get_async_db)
+):
+    """
+    SuperAdmin: Attribuer ou modifier le campus universitaire assigné à un Directeur de Campus / Administrateur / Agent.
+    """
+    user_to_update = await db.get(Users, user_id)
+    if not user_to_update:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Utilisateur introuvable.")
+
+    campus_code = (payload.campus_code or "UAC").strip().upper()
+    campus_query = await db.execute(
+        select(Campuses).where(or_(Campuses.code == campus_code, Campuses.campus_id == payload.campus_id))
+    )
+    campus_obj = campus_query.scalars().first()
+    if not campus_obj:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Campus '{campus_code}' introuvable.")
+
+    user_to_update.campus_id = campus_obj.campus_id
+    user_to_update.campus_code = campus_obj.code
+    await db.commit()
+    await db.refresh(user_to_update)
+
+    return UserProfileSchema(
+        user_id=user_to_update.user_id,
+        matricule_uac=user_to_update.matricule_uac,
+        phone_number=user_to_update.phone_number,
+        first_name=user_to_update.first_name,
+        last_name=user_to_update.last_name,
+        role=user_to_update.role,
+        kyc_status=user_to_update.kyc_status,
+        campus_id=user_to_update.campus_id,
+        campus_code=user_to_update.campus_code,
+        campus_name=campus_obj.name,
+        last_kyc_verification_date=user_to_update.last_kyc_verification_date,
+        next_kyc_due_date=user_to_update.next_kyc_due_date,
+        is_active=user_to_update.is_active,
+        created_at=user_to_update.created_at
+    )
 
 
 @router.get("/routes", response_model=List[RouteOutSchema])

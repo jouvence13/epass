@@ -14,6 +14,9 @@ export interface User {
   role: UserRole;
   matricule_uac?: string | null;
   kyc_status?: KycStatus;
+  campus_id?: string | null;
+  campus_code?: string | null;
+  campus_name?: string | null;
 }
 
 export interface StudentTicket {
@@ -92,6 +95,8 @@ export interface AuthContextType {
       last_name: string;
       matricule_uac?: string;
       role?: UserRole;
+      campus_code?: string;
+      campus_id?: string;
     }
   ) => Promise<{ success: boolean; error?: string; user?: any }>;
   logout: () => void;
@@ -605,6 +610,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           role: p.role,
           matricule_uac: p.matricule_uac,
           kyc_status: p.kyc_status,
+          campus_id: p.campus_id,
+          campus_code: p.campus_code || 'UAC',
+          campus_name: p.campus_name || "Université d'Abomey-Calavi",
         };
       } else {
         userData = {
@@ -615,6 +623,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           role: data.role,
           matricule_uac: data.matricule_uac,
           kyc_status: data.kyc_status,
+          campus_id: data.campus_id,
+          campus_code: data.campus_code || 'UAC',
+          campus_name: data.campus_name || "Université d'Abomey-Calavi",
         };
       }
 

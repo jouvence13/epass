@@ -16,6 +16,8 @@ class UserRegistrationSchema(BaseModel):
     last_name: str = Field(..., example="MENSAH")
     password: str = Field(..., min_length=6, example="SecretPassword123")
     role: Optional[UserRoleEnum] = UserRoleEnum.STUDENT
+    campus_code: Optional[str] = Field("UAC", example="UAC")
+    campus_id: Optional[uuid.UUID] = None
 
 
 class UserLoginSchema(BaseModel):
@@ -30,6 +32,8 @@ class TokenResponseSchema(BaseModel):
     user_id: uuid.UUID
     role: UserRoleEnum
     kyc_status: KycStatusEnum
+    campus_code: Optional[str] = "UAC"
+    campus_name: Optional[str] = None
 
 
 class RefreshTokenRequestSchema(BaseModel):
@@ -68,6 +72,9 @@ class UserProfileSchema(BaseModel):
     last_name: str
     role: UserRoleEnum
     kyc_status: KycStatusEnum
+    campus_id: Optional[uuid.UUID] = None
+    campus_code: Optional[str] = "UAC"
+    campus_name: Optional[str] = "Université d'Abomey-Calavi"
     last_kyc_verification_date: Optional[datetime] = None
     next_kyc_due_date: Optional[datetime] = None
     is_active: bool
@@ -95,4 +102,9 @@ class AdminCreateUserSchema(BaseModel):
     role: UserRoleEnum = Field(..., example="DRIVER", description="Rôle utilisateur (STUDENT, DRIVER, CONTROLLER, ADMIN, SUPERADMIN)")
     kyc_status: Optional[KycStatusEnum] = KycStatusEnum.APPROVED
     campus_code: Optional[str] = Field("UAC", example="UAC")
+    campus_id: Optional[uuid.UUID] = None
 
+
+class AdminAssignCampusSchema(BaseModel):
+    campus_code: Optional[str] = Field(None, example="UP")
+    campus_id: Optional[uuid.UUID] = None

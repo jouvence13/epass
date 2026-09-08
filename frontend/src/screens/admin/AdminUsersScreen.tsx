@@ -14,11 +14,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import Card from '../../components/Card';
 import Badge from '../../components/Badge';
+import PrimaryButton from '../../components/PrimaryButton';
 import { colors, radius, spacing, typography } from '../../theme/theme';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
 import { ENDPOINTS } from '../../config/api';
 import { normalizeBeninPhone } from '../../utils/phoneUtils';
+import { BENIN_CAMPUSES } from '../../data/campuses';
 
 interface UserItem {
   user_id: string;
@@ -28,6 +30,9 @@ interface UserItem {
   last_name: string;
   role: string;
   kyc_status: string;
+  campus_id?: string;
+  campus_code?: string;
+  campus_name?: string;
   is_active: boolean;
 }
 
@@ -49,7 +54,14 @@ export default function AdminUsersScreen() {
   const [phone, setPhone] = useState('');
   const [matricule, setMatricule] = useState('');
   const [password, setPassword] = useState('');
+  const [enrollCampus, setEnrollCampus] = useState('UAC');
   const [enrolling, setEnrolling] = useState(false);
+
+  // Modal Attribution / Modification Campus (SuperAdmin)
+  const [reassignModalVisible, setReassignModalVisible] = useState(false);
+  const [userToReassign, setUserToReassign] = useState<UserItem | null>(null);
+  const [targetCampusCode, setTargetCampusCode] = useState('UAC');
+  const [isReassigning, setIsReassigning] = useState(false);
 
   const fetchUsers = useCallback(async () => {
     try {
@@ -124,6 +136,7 @@ export default function AdminUsersScreen() {
           matricule_uac: matricule.trim() || undefined,
           password: password,
           role: newRole,
+          campus_code: enrollCampus,
           kyc_status: 'APPROVED',
         }),
       });
@@ -131,7 +144,7 @@ export default function AdminUsersScreen() {
       if (res.ok) {
         showToast({
           title: 'Agent Enrôlé avec Succès',
-          message: `Le compte ${newRole} de ${firstName} ${lastName} a été créé avec le matricule ${matricule || 'N/A'}.`,
+          message: `Le compte ${newRole} de ${firstName} ${lastName} a été affecté au campus ${enrollCampus}.`,
           type: 'success',
           category: 'GENERAL',
         });
@@ -163,43 +176,104 @@ export default function AdminUsersScreen() {
     }
   };
 
+  const openReassignCampusModal = (targetUser: UserItem) => {
+    setUserToReassign(targetUser);
+    setTargetCampusCode(targetUser.campus_code || 'UAC');
+    setReassignModalVisible(true);
+  };
+
+  const handleConfirmReassignCampus = async () => {
+    if (!userToReassign) return;
+    setIsReassigning(true);
+    try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch(ENDPOINTS.ADMIN_ASSIGN_CAMPUS(userToReassign.user_id), {
+        method: 'PUT',
+        credentials: 'include',
+        headers,
+        body: JSON.stringify({
+          campus_code: targetCampusCode,
+        }),
+      });
+
+      if (res.ok) {
+        showToast({
+          title: 'Campus Attribué avec Succès !',
+          message: `Le compte de ${userToReassign.first_name} ${userToReassign.last_name} a été affecté au campus ${targetCampusCode}.`,
+          type: 'success',
+          category: 'GENERAL',
+        });
+        setReassignModalVisible(false);
+        await fetchUsers();
+      } else {
+        const err = await res.json().catch(() => null);
+        showToast({
+          title: 'Erreur',
+          message: err?.detail || 'Impossible d’attribuer ce campus.',
+          type: 'error',
+          category: 'GENERAL',
+        });
+      }
+    } catch (e) {
+      showToast({
+        title: 'Erreur Réseau',
+        message: 'Impossible de joindre le serveur.',
+        type: 'error',
+        category: 'GENERAL',
+      });
+    } finally {
+      setIsReassigning(false);
+    }
+  };
+
   const getRoleBadge = (role: string) => {
     switch (role) {
-      case 'SUPERADMIN':
-        return { label: 'SUPERADMIN', color: '#b91c1c' };
-      case 'ADMIN_CROUS':
-        return { label: 'ADMIN CAMPUS', color: colors.primary };
       case 'DRIVER':
-        return { label: 'CHAUFFEUR', color: '#0284c7' };
+        return { label: 'Chauffeur', color: '#b45309' };
       case 'CONTROLLER':
-        return { label: 'CONTRÔLEUR', color: '#7c3aed' };
+        return { label: 'Contrôleur', color: '#b91c1c' };
+      case 'ADMIN':
+      case 'ADMIN_CAMPUS':
+      case 'ADMIN_CROUS':
+        return { label: 'Directeur Campus', color: '#008751' };
+      case 'SUPERADMIN':
+        return { label: 'Super Admin National', color: '#047857' };
+      case 'STUDENT':
       default:
-        return { label: 'ÉTUDIANT', color: colors.secondary };
+        return { label: 'Étudiant', color: '#0284c7' };
     }
   };
 
   return (
-    <SafeAreaView style={styles.safe} edges={['bottom']}>
-      {/* Top Header */}
+    <SafeAreaView style={styles.safe}>
+      {/* Header */}
       <View style={styles.header}>
-        <View style={styles.headerTop}>
+        <View style={styles.headerRow}>
           <View>
-            <Text style={styles.eyebrow}>GESTION DES ACCÈS & PERSONNEL</Text>
-            <Text style={styles.title}>Personnel & Utilisateurs</Text>
+            <Text style={styles.title}>Comptes & Utilisateurs</Text>
+            <Text style={styles.sub}>
+              {isSuperAdmin
+                ? 'Supervision Nationale : Attribution de campus & gestion des directeurs'
+                : 'Gestion locale des chauffeurs, contrôleurs et usagers'}
+            </Text>
           </View>
-          <Pressable style={styles.enrollBtn} onPress={() => setShowEnrollModal(true)}>
+          <Pressable style={styles.addBtn} onPress={() => setShowEnrollModal(true)}>
             <MaterialIcons name="person-add" size={18} color="#ffffff" />
-            <Text style={styles.enrollBtnText}>Enrôler Agent</Text>
+            <Text style={styles.addBtnText}>Enrôler un Agent</Text>
           </Pressable>
         </View>
 
-        {/* Role Filters */}
-        <View style={styles.filtersRow}>
+        {/* Filter chips */}
+        <View style={styles.filterRow}>
           {[
-            { key: 'ALL', label: `Tous (${users.length})` },
+            { key: 'ALL', label: 'Tous' },
             { key: 'DRIVER', label: 'Chauffeurs' },
             { key: 'CONTROLLER', label: 'Contrôleurs' },
-            { key: 'ADMIN_CROUS', label: 'Admins' },
+            { key: 'ADMIN_CROUS', label: 'Directeurs' },
             { key: 'STUDENT', label: 'Étudiants' },
           ].map((f) => (
             <Pressable
@@ -237,7 +311,9 @@ export default function AdminUsersScreen() {
                           ? 'airline-seat-recline-normal'
                           : item.role === 'CONTROLLER'
                           ? 'security'
-                          : item.role === 'ADMIN_CROUS'
+                          : item.role === 'SUPERADMIN'
+                          ? 'shield'
+                          : item.role === 'ADMIN_CROUS' || item.role === 'ADMIN'
                           ? 'admin-panel-settings'
                           : 'school'
                       }
@@ -251,7 +327,16 @@ export default function AdminUsersScreen() {
                     {item.matricule_uac && (
                       <Text style={styles.userMatricule}>Matricule : {item.matricule_uac}</Text>
                     )}
+                    
+                    {/* Badge Campus Attribué */}
+                    <View style={styles.campusCardTag}>
+                      <MaterialIcons name="account-balance" size={12} color={colors.primary} />
+                      <Text style={styles.campusCardTagText}>
+                        Campus : {item.campus_name || item.campus_code || 'UAC Abomey-Calavi'}
+                      </Text>
+                    </View>
                   </View>
+
                   <View style={styles.badgeColumn}>
                     <View style={[styles.rolePill, { backgroundColor: roleInfo.color }]}>
                       <Text style={styles.rolePillText}>{roleInfo.label}</Text>
@@ -260,6 +345,17 @@ export default function AdminUsersScreen() {
                       label={item.kyc_status === 'APPROVED' ? 'Vérifié' : 'En attente'}
                       variant={item.kyc_status === 'APPROVED' ? 'success' : 'warning'}
                     />
+
+                    {/* Bouton d'attribution de campus réservé au SuperAdmin */}
+                    {isSuperAdmin && item.role !== 'SUPERADMIN' && (
+                      <Pressable
+                        style={styles.reassignCampusBtn}
+                        onPress={() => openReassignCampusModal(item)}
+                      >
+                        <MaterialIcons name="edit-location-alt" size={14} color={colors.primary} />
+                        <Text style={styles.reassignCampusBtnText}>Campus</Text>
+                      </Pressable>
+                    )}
                   </View>
                 </View>
               </Card>
@@ -269,7 +365,7 @@ export default function AdminUsersScreen() {
       )}
 
       {/* Modal Enroll Staff */}
-      <Modal visible={showEnrollModal} transparent animationType="fade">
+      <Modal visible={showEnrollModal} transparent animationType="fade" onRequestClose={() => setShowEnrollModal(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <View style={styles.modalHeader}>
@@ -283,7 +379,7 @@ export default function AdminUsersScreen() {
               {[
                 { key: 'DRIVER', label: 'Chauffeur' },
                 { key: 'CONTROLLER', label: 'Contrôleur' },
-                ...(isSuperAdmin ? [{ key: 'ADMIN_CROUS', label: 'Admin Campus' }] : []),
+                ...(isSuperAdmin ? [{ key: 'ADMIN_CROUS', label: 'Directeur Campus' }] : []),
               ].map((r) => (
                 <Pressable
                   key={r.key}
@@ -292,6 +388,22 @@ export default function AdminUsersScreen() {
                 >
                   <Text style={[styles.roleSelectText, newRole === r.key && styles.roleSelectTextActive]}>
                     {r.label}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+
+            {/* Campus d'Affectation */}
+            <Text style={styles.inputLabel}>Campus Universitaire d'Affectation *</Text>
+            <View style={styles.campusSelectorRow}>
+              {BENIN_CAMPUSES.map((c) => (
+                <Pressable
+                  key={c.code}
+                  style={[styles.campusSelectChip, enrollCampus === c.code && styles.campusSelectChipActive]}
+                  onPress={() => setEnrollCampus(c.code)}
+                >
+                  <Text style={[styles.campusSelectChipText, enrollCampus === c.code && styles.campusSelectChipTextActive]}>
+                    {c.code}
                   </Text>
                 </Pressable>
               ))}
@@ -336,7 +448,7 @@ export default function AdminUsersScreen() {
                 ? 'Matricule Chauffeur * (ex: DRV-2024-001)'
                 : newRole === 'CONTROLLER'
                 ? 'Matricule Contrôleur * (ex: CTR-2024-001)'
-                : 'Matricule Administration (Optionnel)'}
+                : 'Matricule Directeur de Campus * (ex: DIR-2024-001)'}
             </Text>
             <TextInput
               value={matricule}
@@ -363,9 +475,65 @@ export default function AdminUsersScreen() {
               </Pressable>
               <Pressable style={styles.modalConfirmBtn} onPress={handleEnrollStaff} disabled={enrolling}>
                 {enrolling ? (
-                  <ActivityIndicator color="#ffffff" size="small" />
+                  <ActivityIndicator size="small" color="#ffffff" />
                 ) : (
-                  <Text style={styles.modalConfirmText}>Créer le Compte</Text>
+                  <Text style={styles.modalConfirmText}>Enrôler l'Agent</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal Attribution de Campus (SuperAdmin) */}
+      <Modal visible={reassignModalVisible} transparent animationType="fade" onRequestClose={() => setReassignModalVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <MaterialIcons name="edit-location-alt" size={24} color={colors.primary} />
+              <Text style={styles.modalTitle}>Attribuer un Campus Universitaire</Text>
+            </View>
+
+            <Text style={styles.reassignIntroText}>
+              Modifier l'affectation territoriale de{' '}
+              <Text style={{ fontWeight: '700', color: colors.primary }}>
+                {userToReassign?.first_name} {userToReassign?.last_name}
+              </Text>{' '}
+              ({getRoleBadge(userToReassign?.role || '').label}) :
+            </Text>
+
+            <View style={{ gap: spacing.sm, marginVertical: spacing.md }}>
+              {BENIN_CAMPUSES.map((c) => {
+                const isSelected = targetCampusCode === c.code;
+                return (
+                  <Pressable
+                    key={c.code}
+                    style={[styles.campusReassignCard, isSelected && styles.campusReassignCardActive]}
+                    onPress={() => setTargetCampusCode(c.code)}
+                  >
+                    <View style={[styles.optionRadio, isSelected && styles.optionRadioActive]}>
+                      {isSelected && <View style={styles.optionRadioInner} />}
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.campusReassignTitle, isSelected && { color: colors.primary, fontWeight: '700' }]}>
+                        {c.code} - {c.name}
+                      </Text>
+                      <Text style={styles.campusReassignSub}>📍 {c.city}</Text>
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <View style={styles.modalActions}>
+              <Pressable style={styles.modalCancelBtn} onPress={() => setReassignModalVisible(false)} disabled={isReassigning}>
+                <Text style={styles.modalCancelText}>Annuler</Text>
+              </Pressable>
+              <Pressable style={styles.modalConfirmBtn} onPress={handleConfirmReassignCampus} disabled={isReassigning}>
+                {isReassigning ? (
+                  <ActivityIndicator size="small" color="#ffffff" />
+                ) : (
+                  <Text style={styles.modalConfirmText}>Confirmer l'Affectation</Text>
                 )}
               </Pressable>
             </View>
@@ -378,24 +546,24 @@ export default function AdminUsersScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
-  header: { padding: spacing.containerMargin, gap: spacing.xs },
-  headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  eyebrow: { ...typography.labelCaps, color: colors.onSurfaceVariant, fontSize: 10 },
-  title: { ...typography.headlineMd, color: colors.primary },
-  enrollBtn: {
+  header: { padding: spacing.containerMargin, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.surfaceVariant },
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  title: { ...typography.headlineLg, fontSize: 22, color: colors.primary },
+  sub: { ...typography.bodySm, color: colors.onSurfaceVariant, marginTop: 2 },
+  addBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
     backgroundColor: colors.primary,
-    paddingHorizontal: spacing.sm,
+    paddingHorizontal: spacing.md,
     paddingVertical: 8,
-    borderRadius: radius.md,
+    borderRadius: radius.full,
   },
-  enrollBtnText: { ...typography.labelCaps, color: '#ffffff', fontSize: 11, fontWeight: '700' },
-  filtersRow: { flexDirection: 'row', gap: spacing.xs, marginTop: spacing.xs, flexWrap: 'wrap' },
+  addBtnText: { ...typography.labelCaps, color: '#ffffff', fontWeight: '700' },
+  filterRow: { flexDirection: 'row', gap: spacing.xs, marginTop: spacing.md, flexWrap: 'wrap' },
   filterChip: {
     paddingHorizontal: spacing.sm,
-    paddingVertical: 6,
+    paddingVertical: 5,
     borderRadius: radius.full,
     borderWidth: 1,
     borderColor: colors.outlineVariant,
@@ -417,6 +585,20 @@ const styles = StyleSheet.create({
   userName: { ...typography.headlineSm, fontSize: 15, color: colors.onSurface },
   userPhone: { ...typography.bodySm, color: colors.onSurfaceVariant, fontSize: 12, marginTop: 1 },
   userMatricule: { ...typography.labelCaps, color: colors.outline, fontSize: 10, marginTop: 2 },
+  campusCardTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#ecfdf5',
+    borderWidth: 1,
+    borderColor: '#a7f3d0',
+    borderRadius: radius.sm,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    alignSelf: 'flex-start',
+    marginTop: 4,
+  },
+  campusCardTagText: { ...typography.bodySm, fontSize: 11, color: '#065f46', fontWeight: '600' },
   badgeColumn: { alignItems: 'flex-end', gap: 4 },
   rolePill: {
     paddingHorizontal: spacing.xs,
@@ -424,8 +606,21 @@ const styles = StyleSheet.create({
     borderRadius: radius.full,
   },
   rolePillText: { ...typography.labelCaps, color: '#ffffff', fontSize: 9, fontWeight: '700' },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center' },
-  modalCard: { width: '85%', backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.lg, gap: spacing.xs },
+  reassignCampusBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: colors.surfaceContainerHighest,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: radius.sm,
+    marginTop: 4,
+  },
+  reassignCampusBtnText: { ...typography.labelCaps, fontSize: 9, color: colors.primary, fontWeight: '700' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center', padding: spacing.md },
+  modalCard: { width: '100%', maxWidth: 480, backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.lg, gap: spacing.xs },
   modalHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginBottom: spacing.xs },
   modalTitle: { ...typography.headlineSm, fontSize: 16, color: colors.onSurface },
   inputLabel: { ...typography.labelCaps, color: colors.onSurfaceVariant, fontSize: 11, marginTop: 4 },
@@ -442,6 +637,20 @@ const styles = StyleSheet.create({
   roleSelectChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   roleSelectText: { ...typography.labelCaps, fontSize: 10, color: colors.onSurfaceVariant },
   roleSelectTextActive: { color: '#ffffff', fontWeight: '700' },
+  campusSelectorRow: { flexDirection: 'row', gap: spacing.xs, marginVertical: 4 },
+  campusSelectChip: {
+    flex: 1,
+    paddingVertical: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.outlineVariant,
+    borderRadius: radius.sm,
+    backgroundColor: colors.surfaceContainerLow,
+  },
+  campusSelectChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  campusSelectChipText: { ...typography.labelCaps, fontSize: 10, color: colors.onSurfaceVariant, fontWeight: '600' },
+  campusSelectChipTextActive: { color: '#ffffff', fontWeight: '700' },
   modalInput: {
     borderWidth: 1,
     borderColor: colors.outlineVariant,
@@ -483,4 +692,34 @@ const styles = StyleSheet.create({
   modalCancelText: { ...typography.labelCaps, color: colors.onSurface, fontSize: 11 },
   modalConfirmBtn: { flex: 1.5, height: 42, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary, borderRadius: radius.md },
   modalConfirmText: { ...typography.labelCaps, color: '#ffffff', fontSize: 11, fontWeight: '700' },
+
+  reassignIntroText: { ...typography.bodySm, color: colors.onSurfaceVariant, marginBottom: spacing.xs },
+  campusReassignCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surfaceContainerLow,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.surfaceVariant,
+    padding: spacing.sm,
+    gap: spacing.sm,
+  },
+  campusReassignCardActive: {
+    backgroundColor: colors.surfaceContainerLowest,
+    borderColor: colors.primary,
+    borderWidth: 2,
+  },
+  optionRadio: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 2,
+    borderColor: colors.outline,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  optionRadioActive: { borderColor: colors.primary },
+  optionRadioInner: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.primary },
+  campusReassignTitle: { ...typography.bodyMd, fontWeight: '600', color: colors.onSurface },
+  campusReassignSub: { ...typography.bodySm, fontSize: 11, color: colors.onSurfaceVariant },
 });

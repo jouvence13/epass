@@ -14,6 +14,7 @@ from app.core.security import (
     decode_token,
 )
 from app.models.user_model import Users, UserRoleEnum, KycStatusEnum
+from app.models.campus_model import Campuses
 from app.schemas.user_schema import (
     UserRegistrationSchema,
     UserLoginSchema,
@@ -125,7 +126,15 @@ async def register_user(
             detail="Le numéro de matricule UAC est obligatoire pour l'inscription d'un étudiant."
         )
 
-    user_role = UserRoleEnum.STUDENT
+    # Résolution du campus d'attache
+    campus_code = (payload.campus_code or "UAC").strip().upper()
+    campus_query = await db.execute(
+        select(Campuses).where(or_(Campuses.code == campus_code, Campuses.campus_id == payload.campus_id))
+    )
+    campus_obj = campus_query.scalars().first()
+    resolved_campus_id = campus_obj.campus_id if campus_obj else None
+    resolved_campus_code = campus_obj.code if campus_obj else campus_code
+    campus_display_name = campus_obj.name if campus_obj else "Université d'Abomey-Calavi"
 
     new_user = Users(
         matricule_uac=payload.matricule_uac.strip(),
@@ -133,8 +142,10 @@ async def register_user(
         first_name=payload.first_name.strip(),
         last_name=payload.last_name.strip(),
         password_hash=hash_password(payload.password),
-        role=user_role,
+        role=UserRoleEnum.STUDENT,
         kyc_status=KycStatusEnum.NOT_SUBMITTED,
+        campus_id=resolved_campus_id,
+        campus_code=resolved_campus_code,
         is_active=True
     )
     db.add(new_user)
@@ -147,7 +158,7 @@ async def register_user(
         db=db,
         user_id=new_user.user_id,
         title="Compte Étudiant Créé",
-        message=f"Bienvenue {new_user.first_name} ! Veuillez soumettre vos pièces justificatives (Carte UAC & CIP) dans l'onglet KYC pour activer vos tarifs subventionnés.",
+        message=f"Bienvenue {new_user.first_name} ({campus_display_name}) ! Veuillez soumettre vos pièces justificatives dans l'onglet KYC pour activer vos tarifs subventionnés.",
         category="KYC",
         tone="info",
         channel="PUSH",
@@ -160,11 +171,13 @@ async def register_user(
     _set_auth_cookies(response, access_token, refresh_token)
 
     return {
-        "message": "Inscription réussie avec succès. Téléversez vos justificatifs académiques pour valider votre compte.",
+        "message": f"Inscription réussie avec succès sur le campus {campus_display_name}. Téléversez vos justificatifs académiques pour valider votre compte.",
         "user_id": new_user.user_id,
         "access_token": access_token,
         "role": new_user.role,
-        "kyc_status": new_user.kyc_status
+        "kyc_status": new_user.kyc_status,
+        "campus_code": new_user.campus_code,
+        "campus_name": campus_display_name,
     }
 
 
@@ -293,7 +306,34 @@ async def refresh_access_token(
 
 @router.get("/me", response_model=UserProfileSchema)
 async def get_my_profile(
-    current_user: Users = Depends(get_current_authenticated_user)
+    current_user: Users = Depends(get_current_authenticated_user),
+    db: AsyncSession = Depends(get_async_db)
 ):
     """Retrieve logged in user profile & KYC information."""
-    return current_user
+    campus_name = "Université d'Abomey-Calavi"
+    if current_user.campus_id:
+        c = await db.get(Campuses, current_user.campus_id)
+        if c:
+            campus_name = c.name
+    elif current_user.campus_code:
+        c_query = await db.execute(select(Campuses).where(Campuses.code == current_user.campus_code))
+        c = c_query.scalars().first()
+        if c:
+            campus_name = c.name
+
+    return UserProfileSchema(
+        user_id=current_user.user_id,
+        matricule_uac=current_user.matricule_uac,
+        phone_number=current_user.phone_number,
+        first_name=current_user.first_name,
+        last_name=current_user.last_name,
+        role=current_user.role,
+        kyc_status=current_user.kyc_status,
+        campus_id=current_user.campus_id,
+        campus_code=current_user.campus_code or "UAC",
+        campus_name=campus_name,
+        last_kyc_verification_date=current_user.last_kyc_verification_date,
+        next_kyc_due_date=current_user.next_kyc_due_date,
+        is_active=current_user.is_active,
+        created_at=current_user.created_at
+    )

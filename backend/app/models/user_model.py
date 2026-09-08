@@ -92,8 +92,21 @@ class Users(Base, TimestampMixin):
         index=True
     )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    campus_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("campuses.campus_id", ondelete="SET NULL"),
+        nullable=True,
+        index=True
+    )
+    campus_code: Mapped[Optional[str]] = mapped_column(
+        String(50),
+        nullable=True,
+        index=True,
+        default="UAC"
+    )
 
     # Relationships
+    campus: Mapped[Optional["Campuses"]] = relationship("Campuses", foreign_keys=[campus_id])
     kyc_documents: Mapped[List["KycDocuments"]] = relationship(
         "KycDocuments",
         back_populates="user",

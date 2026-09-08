@@ -6,6 +6,7 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -14,6 +15,7 @@ import PrimaryButton from '../../components/PrimaryButton';
 import { colors, radius, spacing, typography } from '../../theme/theme';
 import { useAuth } from '../../context/AuthContext';
 import { normalizeBeninPhone } from '../../utils/phoneUtils';
+import { BENIN_CAMPUSES, CampusData } from '../../data/campuses';
 
 export default function RegisterScreen({ navigation }: any) {
   const { register, isLoading } = useAuth();
@@ -22,6 +24,8 @@ export default function RegisterScreen({ navigation }: any) {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [matricule, setMatricule] = useState('');
   const [password, setPassword] = useState('');
+  const [selectedCampus, setSelectedCampus] = useState<CampusData>(BENIN_CAMPUSES[0]);
+  const [showCampusPicker, setShowCampusPicker] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const handleRegister = async () => {
@@ -32,7 +36,7 @@ export default function RegisterScreen({ navigation }: any) {
     }
 
     if (!matricule.trim()) {
-      setErrorMessage('Le numéro de matricule UAC est obligatoire pour l\'inscription d\'un étudiant (ex: UAC-2024-8492).');
+      setErrorMessage(`Le numéro de matricule étudiant (${selectedCampus.code}) est obligatoire pour l'inscription.`);
       return;
     }
 
@@ -45,6 +49,7 @@ export default function RegisterScreen({ navigation }: any) {
       matricule_uac: matricule.trim(),
       password: password,
       role: 'STUDENT',
+      campus_code: selectedCampus.code,
     });
 
     if (!res.success) {
@@ -79,15 +84,37 @@ export default function RegisterScreen({ navigation }: any) {
         <View style={styles.infoBox}>
           <MaterialIcons name="info" size={20} color={colors.primary} />
           <Text style={styles.infoText}>
-            L'auto-inscription est réservée aux étudiants des universités et centres universitaires du Bénin.
-            Les comptes conducteurs et contrôleurs sont créés par la direction de campus.
+            L'auto-inscription est réservée aux étudiants des universités publiques du Bénin.
+            Choisissez votre campus de rattachement pour accéder aux lignes de bus et navettes correspondantes.
           </Text>
         </View>
 
         {/* Formulaire d'Inscription */}
         <Card style={styles.formCard}>
+          {/* Sélection Déroulante du Campus Universitaire */}
+          <View style={styles.labelRow}>
+            <Text style={styles.label}>Campus Universitaire de rattachement *</Text>
+            <Text style={styles.subLabel}>Université d'études</Text>
+          </View>
+          <Pressable
+            style={styles.campusSelectBox}
+            onPress={() => setShowCampusPicker(true)}
+          >
+            <View style={styles.campusSelectIconBox}>
+              <MaterialIcons name="account-balance" size={22} color={colors.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={styles.campusCodeBadge}>{selectedCampus.code}</Text>
+                <Text style={styles.campusNameText} numberOfLines={1}>{selectedCampus.name}</Text>
+              </View>
+              <Text style={styles.campusCityText}>📍 Ville : {selectedCampus.city}</Text>
+            </View>
+            <MaterialIcons name="arrow-drop-down" size={28} color={colors.primary} />
+          </Pressable>
+
           {/* Prénom & Nom */}
-          <View style={styles.row}>
+          <View style={[styles.row, { marginTop: spacing.md }]}>
             <View style={{ flex: 1 }}>
               <Text style={styles.label}>Prénom *</Text>
               <TextInput
@@ -132,13 +159,15 @@ export default function RegisterScreen({ navigation }: any) {
             />
           </View>
 
-          {/* Matricule UAC (Obligatoire) */}
-          <Text style={[styles.label, { marginTop: spacing.md }]}>Matricule Étudiant UAC *</Text>
+          {/* Matricule Étudiant (Obligatoire) */}
+          <Text style={[styles.label, { marginTop: spacing.md }]}>
+            Matricule Étudiant ({selectedCampus.code}) *
+          </Text>
           <View style={styles.inputWrap}>
             <MaterialIcons name="badge" size={20} color={colors.primary} style={styles.inputIcon} />
             <TextInput
               style={styles.inputField}
-              placeholder="ex: UAC-2024-8492"
+              placeholder={`ex: ${selectedCampus.code}-2024-8492`}
               placeholderTextColor={colors.outline}
               value={matricule}
               onChangeText={setMatricule}
@@ -162,7 +191,7 @@ export default function RegisterScreen({ navigation }: any) {
 
           {/* Bouton de Soumission */}
           <PrimaryButton
-            label={isLoading ? 'Inscription en cours...' : "Créer mon compte Étudiant"}
+            label={isLoading ? 'Inscription en cours...' : `Créer mon compte (${selectedCampus.code})`}
             icon="school"
             onPress={handleRegister}
             disabled={isLoading}
@@ -178,6 +207,65 @@ export default function RegisterScreen({ navigation }: any) {
           </View>
         </Card>
       </ScrollView>
+
+      {/* Modal Déroulant de Sélection du Campus */}
+      <Modal
+        visible={showCampusPicker}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowCampusPicker(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
+                <MaterialIcons name="account-balance" size={24} color={colors.primary} />
+                <Text style={styles.modalTitle}>Sélectionnez votre Campus</Text>
+              </View>
+              <Pressable onPress={() => setShowCampusPicker(false)} style={{ padding: 4 }}>
+                <MaterialIcons name="close" size={24} color={colors.onSurface} />
+              </Pressable>
+            </View>
+
+            <Text style={styles.modalSubtitle}>
+              Universités Nationales & Centres Universitaires du Bénin :
+            </Text>
+
+            <ScrollView style={{ maxHeight: 380 }} contentContainerStyle={{ gap: spacing.sm, paddingVertical: spacing.xs }}>
+              {BENIN_CAMPUSES.map((c) => {
+                const isSelected = selectedCampus.code === c.code;
+                return (
+                  <Pressable
+                    key={c.code}
+                    style={[styles.campusOptionCard, isSelected && styles.campusOptionCardActive]}
+                    onPress={() => {
+                      setSelectedCampus(c);
+                      setShowCampusPicker(false);
+                    }}
+                  >
+                    <View style={[styles.optionRadio, isSelected && styles.optionRadioActive]}>
+                      {isSelected && <View style={styles.optionRadioInner} />}
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <View style={[styles.campusCodeTag, isSelected && { backgroundColor: colors.primary }]}>
+                          <Text style={[styles.campusCodeTagText, isSelected && { color: '#ffffff' }]}>
+                            {c.code}
+                          </Text>
+                        </View>
+                        <Text style={[styles.optionTitle, isSelected && { color: colors.primary, fontWeight: '700' }]}>
+                          {c.name}
+                        </Text>
+                      </View>
+                      <Text style={styles.optionSub}>📍 {c.city} • {c.description}</Text>
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -231,6 +319,35 @@ const styles = StyleSheet.create({
   },
   label: { ...typography.labelCaps, color: colors.onSurfaceVariant, marginBottom: spacing.xs },
   subLabel: { ...typography.bodySm, fontSize: 11, color: colors.primary, fontWeight: '600' },
+  campusSelectBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceContainerLowest,
+    padding: spacing.sm,
+    gap: spacing.sm,
+  },
+  campusSelectIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.surfaceContainer,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  campusCodeBadge: {
+    backgroundColor: colors.primary,
+    color: '#ffffff',
+    fontWeight: '700',
+    fontSize: 10,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: radius.sm,
+  },
+  campusNameText: { ...typography.bodyMd, fontWeight: '700', color: colors.onSurface, flex: 1 },
+  campusCityText: { ...typography.bodySm, fontSize: 12, color: colors.onSurfaceVariant, marginTop: 2 },
   phoneInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -284,4 +401,65 @@ const styles = StyleSheet.create({
   footerLink: { flexDirection: 'row', justifyContent: 'center', marginTop: spacing.lg },
   footerText: { ...typography.bodyMd, color: colors.onSurfaceVariant },
   linkText: { ...typography.bodyMd, color: colors.primary, fontWeight: '700' },
+
+  // Modal Picker styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.lg,
+  },
+  modalContent: {
+    width: '100%',
+    maxWidth: 520,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.surfaceVariant,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.xs,
+  },
+  modalTitle: { ...typography.headlineSm, fontSize: 18, color: colors.primary },
+  modalSubtitle: { ...typography.bodySm, color: colors.onSurfaceVariant, marginBottom: spacing.md },
+  campusOptionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surfaceContainerLow,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.surfaceVariant,
+    padding: spacing.md,
+    gap: spacing.md,
+  },
+  campusOptionCardActive: {
+    backgroundColor: colors.surfaceContainerLowest,
+    borderColor: colors.primary,
+    borderWidth: 2,
+  },
+  optionRadio: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: colors.outline,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  optionRadioActive: { borderColor: colors.primary },
+  optionRadioInner: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.primary },
+  campusCodeTag: {
+    backgroundColor: colors.surfaceContainer,
+    borderRadius: radius.sm,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  campusCodeTagText: { ...typography.labelCaps, fontSize: 10, color: colors.onSurface, fontWeight: '700' },
+  optionTitle: { ...typography.bodyMd, fontWeight: '600', color: colors.onSurface, flex: 1 },
+  optionSub: { ...typography.bodySm, fontSize: 12, color: colors.onSurfaceVariant, marginTop: 3 },
 });
