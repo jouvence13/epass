@@ -5,13 +5,11 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
-  ActivityIndicator,
   RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import Card from '../../components/Card';
-import Badge from '../../components/Badge';
 import { colors, radius, spacing, typography } from '../../theme/theme';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
@@ -46,34 +44,41 @@ export default function NotificationsScreen({ navigation }: any) {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />
         }
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <Pressable style={styles.backBtn} onPress={() => navigation.goBack()}>
-            <MaterialIcons name="arrow-back" size={24} color={colors.onSurface} />
-          </Pressable>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.title}>Notifications</Text>
-            <Text style={styles.subtitle}>
-              {unreadCount > 0
-                ? `${unreadCount} nouvelle(s) alerte(s) non lue(s)`
-                : 'Toutes les notifications sont lues'}
-            </Text>
+        {/* Header avec Bannière Nationale */}
+        <View style={styles.headerContainer}>
+          <View style={styles.beninBanner}>
+            <View style={[styles.flagBar, { backgroundColor: colors.beninGreen }]} />
+            <View style={[styles.flagBar, { backgroundColor: colors.beninYellow }]} />
+            <View style={[styles.flagBar, { backgroundColor: colors.beninRed }]} />
           </View>
-          {unreadCount > 0 && (
-            <Pressable style={styles.markReadBtn} onPress={markAllAsRead}>
-              <MaterialIcons name="done-all" size={18} color={colors.primary} />
-              <Text style={styles.markReadText}>Tout lire</Text>
+          <View style={styles.header}>
+            <Pressable style={styles.backBtn} onPress={() => navigation.goBack()}>
+              <MaterialIcons name="arrow-back" size={24} color={colors.onSurface} />
             </Pressable>
-          )}
+            <View style={{ flex: 1 }}>
+              <Text style={styles.title}>Centre de Notifications</Text>
+              <Text style={styles.subtitle}>
+                {unreadCount > 0
+                  ? `${unreadCount} nouvelle(s) alerte(s) non lue(s)`
+                  : 'Toutes les notifications sont à jour'}
+              </Text>
+            </View>
+            {unreadCount > 0 && (
+              <Pressable style={styles.markReadBtn} onPress={markAllAsRead}>
+                <MaterialIcons name="done-all" size={18} color={colors.primary} />
+                <Text style={styles.markReadText}>Tout lire</Text>
+              </Pressable>
+            )}
+          </View>
         </View>
 
         {/* Onglets Filtres */}
         <View style={styles.filterRow}>
           {[
-            { key: 'ALL', label: 'Toutes' },
+            { key: 'ALL', label: `Toutes (${notifications.length})` },
             { key: 'TRAFFIC', label: 'Trafic Bus' },
-            { key: 'KYC', label: 'KYC' },
-            { key: 'PAYMENT', label: 'Achats' },
+            { key: 'KYC', label: 'Conformité KYC' },
+            { key: 'PAYMENT', label: 'Paiements MoMo' },
           ].map((tab) => {
             const isActive = filter === tab.key;
             return (
@@ -97,7 +102,7 @@ export default function NotificationsScreen({ navigation }: any) {
               <MaterialIcons name="notifications-none" size={48} color={colors.outline} />
               <Text style={styles.emptyTitle}>Aucune notification</Text>
               <Text style={styles.emptySub}>
-                Vous n'avez pas de notification dans cette catégorie pour le moment.
+                Vous n'avez aucune alerte dans cette catégorie pour le moment.
               </Text>
             </Card>
           ) : (
@@ -116,10 +121,10 @@ export default function NotificationsScreen({ navigation }: any) {
                       item.type === 'success'
                         ? { backgroundColor: colors.primaryFixed }
                         : item.type === 'warning'
-                        ? { backgroundColor: '#fef3c7' }
-                        : item.type === 'info'
-                        ? { backgroundColor: '#e0f2fe' }
-                        : { backgroundColor: colors.surfaceContainer },
+                        ? { backgroundColor: colors.secondaryContainer }
+                        : item.type === 'error'
+                        ? { backgroundColor: colors.errorContainer }
+                        : { backgroundColor: colors.primaryFixed },
                     ]}
                   >
                     <MaterialIcons
@@ -129,10 +134,10 @@ export default function NotificationsScreen({ navigation }: any) {
                         item.type === 'success'
                           ? colors.primary
                           : item.type === 'warning'
-                          ? '#d97706'
-                          : item.type === 'info'
-                          ? '#0284c7'
-                          : colors.onSurfaceVariant
+                          ? '#854d0e'
+                          : item.type === 'error'
+                          ? colors.error
+                          : colors.primary
                       }
                     />
                   </View>
@@ -159,7 +164,20 @@ export default function NotificationsScreen({ navigation }: any) {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
-  scroll: { padding: spacing.containerMargin, paddingBottom: spacing.xl, gap: spacing.lg },
+  scroll: { padding: spacing.containerMargin, paddingBottom: spacing.xl, gap: spacing.md },
+  headerContainer: { gap: 4 },
+  beninBanner: {
+    flexDirection: 'row',
+    height: 4,
+    borderRadius: 2,
+    overflow: 'hidden',
+    marginBottom: 4,
+    width: 60,
+  },
+  flagBar: {
+    flex: 1,
+    height: '100%',
+  },
   header: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   backBtn: {
     width: 40,
@@ -169,22 +187,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  title: { ...typography.headlineMd, color: colors.primary },
+  title: { ...typography.headlineSm, color: colors.primary, fontWeight: '800' },
   subtitle: { ...typography.bodySm, color: colors.onSurfaceVariant },
   markReadBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     paddingVertical: 6,
-    paddingHorizontal: spacing.sm,
+    paddingHorizontal: spacing.sm + 2,
     borderRadius: radius.md,
     backgroundColor: colors.primaryFixed,
   },
   markReadText: { ...typography.bodySm, color: colors.primary, fontWeight: '700' },
-  filterRow: { flexDirection: 'row', gap: spacing.sm },
+  filterRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
   filterChip: {
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
     borderRadius: radius.full,
     borderWidth: 1,
     borderColor: colors.outlineVariant,
@@ -194,15 +212,19 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
     backgroundColor: colors.primary,
   },
-  filterChipText: { ...typography.bodySm, color: colors.onSurfaceVariant, fontWeight: '600' },
+  filterChipText: { ...typography.bodySm, color: colors.onSurfaceVariant, fontWeight: '600', fontSize: 12 },
   filterChipTextActive: { color: colors.onPrimary, fontWeight: '700' },
   notifCard: {
     borderWidth: 1,
-    borderColor: colors.surfaceVariant,
+    borderColor: colors.outlineVariant,
     padding: spacing.md,
+    borderRadius: radius.lg,
+    backgroundColor: colors.surface,
   },
   notifCardUnread: {
     borderColor: colors.primary,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.primary,
     backgroundColor: colors.surfaceContainerLowest,
   },
   notifRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },
@@ -213,12 +235,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  notifHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  notifTitle: { ...typography.headlineSm, fontSize: 15, color: colors.onSurface },
-  notifTitleBold: { color: colors.primary, fontWeight: '700' },
-  unreadDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.primary },
-  notifMessage: { ...typography.bodyMd, color: colors.onSurfaceVariant, marginTop: 2, lineHeight: 20 },
-  notifTime: { ...typography.bodySm, fontSize: 12, color: colors.outline, marginTop: spacing.xs },
+  notifHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 6 },
+  notifTitle: { ...typography.headlineSm, fontSize: 14, color: colors.onSurface, flex: 1 },
+  notifTitleBold: { color: colors.onSurface, fontWeight: '800' },
+  unreadDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.beninRed },
+  notifMessage: { ...typography.bodyMd, color: colors.onSurfaceVariant, marginTop: 2, lineHeight: 18, fontSize: 13 },
+  notifTime: { ...typography.bodySm, fontSize: 11, color: colors.outline, marginTop: spacing.xs, fontWeight: '500' },
   emptyCard: { alignItems: 'center', justifyContent: 'center', paddingVertical: spacing.xl, gap: spacing.xs },
   emptyTitle: { ...typography.headlineSm, color: colors.onSurface },
   emptySub: { ...typography.bodySm, color: colors.onSurfaceVariant, textAlign: 'center' },

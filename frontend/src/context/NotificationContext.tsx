@@ -220,7 +220,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     >
       {children}
 
-      {/* BANNIÈRE TOAST GLOBALE FLOTTANTE (Visible sur tout l'écran) */}
+      {/* BANNIÈRE TOAST GLOBALE FLOTTANTE (Aux couleurs officielles de la République du Bénin) */}
       {activeToast && (
         <Animated.View
           style={[
@@ -230,12 +230,20 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
               opacity,
               backgroundColor:
                 activeToast.type === 'success'
-                  ? '#064e3b'
+                  ? colors.primaryContainer // Vert Forêt #004D2E
                   : activeToast.type === 'warning'
                   ? '#78350f'
                   : activeToast.type === 'error'
                   ? '#7f1d1d'
-                  : '#0f172a',
+                  : colors.primaryContainer,
+              borderColor:
+                activeToast.type === 'success'
+                  ? colors.beninYellow // Jaune Or #FCD116
+                  : activeToast.type === 'warning'
+                  ? colors.beninYellow
+                  : activeToast.type === 'error'
+                  ? colors.beninRed
+                  : colors.beninYellow,
             },
           ]}
         >
@@ -246,16 +254,20 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
                 {
                   backgroundColor:
                     activeToast.type === 'success'
-                      ? '#059669'
+                      ? colors.primary // Vert Officiel #008751
                       : activeToast.type === 'warning'
-                      ? '#d97706'
+                      ? colors.beninYellow
                       : activeToast.type === 'error'
-                      ? '#dc2626'
+                      ? colors.beninRed
                       : colors.primary,
                 },
               ]}
             >
-              <MaterialIcons name={activeToast.icon} size={22} color="#ffffff" />
+              <MaterialIcons
+                name={activeToast.icon}
+                size={22}
+                color={activeToast.type === 'warning' ? '#2b2100' : '#ffffff'}
+              />
             </View>
 
             <View style={{ flex: 1 }}>
@@ -269,6 +281,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
           </View>
         </Animated.View>
       )}
+
     </NotificationContext.Provider>
   );
 }

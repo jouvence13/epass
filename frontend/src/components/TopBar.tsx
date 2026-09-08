@@ -152,7 +152,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -2,
     right: -2,
-    backgroundColor: '#ef4444',
+    backgroundColor: colors.beninRed,
     borderRadius: 9,
     minWidth: 18,
     height: 18,
@@ -161,6 +161,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 3,
     borderWidth: 1.5,
     borderColor: '#ffffff',
+
   },
   badgeCountText: {
     color: '#ffffff',
