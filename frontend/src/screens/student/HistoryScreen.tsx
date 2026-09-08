@@ -85,7 +85,7 @@ export default function HistoryScreen({ navigation }: any) {
     } else if (kycStatus === 'PENDING') {
       showToast({
         title: 'Dossier KYC en cours d’examen',
-        message: 'Votre dossier académique est en cours de validation par le CROUS. Vous recevrez une alerte dès approbation.',
+        message: 'Votre dossier académique est en cours de validation par l’administration. Vous recevrez une alerte dès approbation.',
         type: 'warning',
         category: 'KYC',
       });
@@ -93,7 +93,7 @@ export default function HistoryScreen({ navigation }: any) {
     } else {
       showToast({
         title: 'Vérification KYC requise',
-        message: 'Pour débloquer les billets à 100 FCFA, vous devez fournir : 1. Carte Étudiant UAC, 2. Pièce d’identité (CIP / CNI).',
+        message: 'Pour débloquer les billets à 100 FCFA, vous devez fournir : 1. Carte d’Étudiant valide, 2. Pièce d’identité (CIP / CNI).',
         type: 'warning',
         category: 'KYC',
       });
@@ -108,8 +108,8 @@ export default function HistoryScreen({ navigation }: any) {
         ticket_id: t.id,
         trip_id: `trip-${t.id}`,
         route_name: t.route,
-        student_name: user ? `${user.first_name} ${user.last_name}` : 'Étudiant UAC',
-        student_id: `Matricule: ${user?.matricule_uac || 'UAC-2024-XXXX'}`,
+        student_name: user ? `${user.first_name} ${user.last_name}` : 'Étudiant Campus',
+        student_id: `Matricule: ${user?.matricule_uac || 'ETU-2024-XXXX'}`,
         code: t.code,
         status: t.status === 'ACTIVE' ? 'Valid Ticket' : t.status === 'USED' ? 'Validated' : 'Expired',
         raw_status: t.status === 'ACTIVE' ? 'ISSUED' : t.status === 'USED' ? 'VALIDATED' : 'EXPIRED',
@@ -186,8 +186,8 @@ export default function HistoryScreen({ navigation }: any) {
                   </View>
                   <Text style={styles.kycNoticeText}>
                     {isKycPending
-                      ? 'Votre dossier académique a été soumis. La commission CROUS examine vos pièces sous 24h ouvrées. Vous recevrez une notification dès validation pour réserver à 100 FCFA.'
-                      : 'Pour accéder aux tarifs subventionnés (100 FCFA) et réserver des places, vous devez fournir : 1. Votre Carte d’Étudiant UAC (Année en cours), 2. Votre Certificat CIP ou CNI.'}
+                      ? 'Votre dossier académique a été soumis. L’administration examine vos pièces sous 24h ouvrées. Vous recevrez une notification dès validation pour réserver à 100 FCFA.'
+                      : 'Pour accéder aux tarifs subventionnés (100 FCFA) et réserver des places, vous devez fournir : 1. Votre Carte d’Étudiant valide (Année en cours), 2. Votre Certificat CIP ou CNI.'}
                   </Text>
                 </View>
               )}
@@ -223,7 +223,7 @@ export default function HistoryScreen({ navigation }: any) {
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.routeName}>{item.route_name}</Text>
-                      <Text style={styles.busInfo}>{item.bus_code || 'Bus CROUS'}</Text>
+                      <Text style={styles.busInfo}>{item.bus_code || 'Bus Campus'}</Text>
                     </View>
                     {getStatusBadge(item)}
                   </View>

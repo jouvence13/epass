@@ -192,8 +192,8 @@ export default function KycOnboardingScreen({ navigation }: any) {
       updateUserKycStatus('PENDING');
 
       showToast({
-        title: 'Dossier KYC Soumis avec Succès !',
-        message: 'Vos pièces ont été transmises à l’administration CROUS pour validation sous 24h.',
+        title: 'Documents Soumis avec Succès',
+        message: "Vos pièces ont été transmises à l’administration académique pour validation sous 24h.",
         type: 'success',
         category: 'KYC',
       });
@@ -235,7 +235,7 @@ export default function KycOnboardingScreen({ navigation }: any) {
   };
 
   // =========================================================================
-  // RENDU 1 : STATUT KYC DÉJÀ VALIDÉ & APPROUVÉ PAR LE CROUS (PROFIL CERTIFIÉ)
+  // RENDU 1 : STATUT KYC DÉJÀ VALIDÉ & APPROUVÉ PAR LE CAMPUS BÉNIN (PROFIL CERTIFIÉ)
   // =========================================================================
   if (isApproved && !isReuploading) {
     return (
@@ -257,7 +257,7 @@ export default function KycOnboardingScreen({ navigation }: any) {
               <MaterialIcons name="verified" size={22} color={colors.secondary} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.brand}>CROUS-UAC</Text>
+              <Text style={styles.brand}>ePass Campus Bénin</Text>
               <Text style={styles.headerSubtitle}>Service de Transport Universitaire</Text>
             </View>
             <View style={styles.approvedPill}>
@@ -271,16 +271,16 @@ export default function KycOnboardingScreen({ navigation }: any) {
             <View style={styles.approvedHeroIcon}>
               <MaterialIcons name="verified-user" size={48} color={colors.secondary} />
             </View>
-            <Text style={styles.approvedTitle}>Statut Étudiant Vérifié & Validé</Text>
+            <Text style={styles.approvedTitle}>Dossier Académique Certifié</Text>
             <Text style={styles.approvedSub}>
-              Votre compte académique est officiellement certifié par la commission CROUS-UAC. Vous bénéficiez du tarif subventionné étudiant à 100 FCFA sur toutes les lignes.
+              Votre compte académique est certifié pour les campus universitaires du Bénin. Vous bénéficiez du tarif subventionné étudiant à 100 FCFA sur toutes les lignes.
             </Text>
 
             {/* Fiche d'Identité Académique */}
             <View style={styles.studentIdCard}>
               <View style={styles.studentIdCardHeader}>
                 <MaterialIcons name="school" size={20} color={colors.primary} />
-                <Text style={styles.studentIdCardTitle}>Fiche d'Identité CROUS-UAC</Text>
+                <Text style={styles.studentIdCardTitle}>Fiche d'Identité Académique</Text>
               </View>
 
               <View style={styles.idInfoRow}>
@@ -404,7 +404,7 @@ export default function KycOnboardingScreen({ navigation }: any) {
           <Text style={styles.successSub}>
             Vos justificatifs académiques ont été téléversés sur le serveur. Votre dossier est actuellement{' '}
             <Text style={{ fontWeight: '700', color: colors.tertiary }}>EN COURS DE VALIDATION</Text> par
-            l'administration CROUS.
+            l'administration académique.
           </Text>
 
           <Card style={styles.summaryCard}>
@@ -452,7 +452,7 @@ export default function KycOnboardingScreen({ navigation }: any) {
           <View style={styles.avatar}>
             <MaterialIcons name="school" size={22} color={colors.primary} />
           </View>
-          <Text style={styles.brand}>CROUS-UAC</Text>
+          <Text style={styles.brand}>ePass Campus Bénin</Text>
         </View>
 
         <Text style={styles.h1}>Vérification Académique (KYC)</Text>

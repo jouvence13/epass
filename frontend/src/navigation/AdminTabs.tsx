@@ -29,14 +29,14 @@ export default function AdminTabs() {
   const handleLogout = () => {
     showToast({
       title: 'Déconnexion Réussie',
-      message: 'Votre session Administration CROUS a été fermée.',
+      message: 'Votre session Administration Campus a été fermée.',
       type: 'info',
       category: 'GENERAL',
     });
     logout();
   };
 
-  const title = user?.role === 'SUPERADMIN' ? 'Direction SuperAdmin' : 'Direction CROUS-UAC';
+  const title = user?.role === 'SUPERADMIN' ? 'Direction SuperAdmin' : 'Administration Universitaire';
   const bottomPadding = insets.bottom > 0 ? insets.bottom : 8;
   const tabHeight = 56 + bottomPadding;
 

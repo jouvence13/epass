@@ -142,7 +142,7 @@ export default function AdminFleetScreen() {
         <View style={styles.headerTop}>
           <View>
             <Text style={styles.eyebrow}>INFRASTRUCTURE & OPÉRATIONS</Text>
-            <Text style={styles.title}>Flotte & Lignes CROUS</Text>
+            <Text style={styles.title}>Flotte & Lignes Campus</Text>
           </View>
           {activeTab === 'BUSES' && (
             <Pressable style={styles.addBtn} onPress={() => setShowAddBusModal(true)}>

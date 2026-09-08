@@ -63,7 +63,7 @@ async def upload_academic_documents(
         await db.refresh(current_user)
 
     return KycSubmissionResponseSchema(
-        message="Documents soumis avec succès. Validation sous 24h par l'administration CROUS.",
+        message="Documents soumis avec succès. Validation sous 24h par l'administration universitaire.",
         kyc_status=current_user.kyc_status.value,
         submitted_at=datetime.now(timezone.utc)
     )
@@ -96,13 +96,13 @@ async def upload_driver_documents(
 
 @router.post("/controller/upload", response_model=KycSubmissionResponseSchema)
 async def upload_controller_documents(
-    controller_badge_file: UploadFile = File(..., description="Badge / Accréditation d'Agent CROUS"),
+    controller_badge_file: UploadFile = File(..., description="Badge / Accréditation d'Agent"),
     identity_file: UploadFile = File(..., description="Certificat d'Identification Personnelle (CIP) ou CNI"),
     current_controller: Users = Depends(require_roles([UserRoleEnum.CONTROLLER, UserRoleEnum.SUPERADMIN])),
     db: AsyncSession = Depends(get_async_db)
 ):
     """
-    Controller: Submit staff accreditation (Badge CROUS, CIP) for administrative validation.
+    Controller: Submit staff accreditation (Badge, CIP) for administrative validation.
     """
     await submit_controller_kyc(
         user=current_controller,

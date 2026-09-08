@@ -15,14 +15,17 @@ const toneStyles: Record<Tone, { bg: string; fg: string }> = {
 
 export default function Badge({
   label,
-  tone = 'neutral',
+  tone,
+  variant,
   icon,
 }: {
   label: string;
   tone?: Tone;
+  variant?: Tone | string;
   icon?: keyof typeof MaterialIcons.glyphMap;
 }) {
-  const t = toneStyles[tone];
+  const resolvedTone = (tone || variant || 'neutral') as Tone;
+  const t = toneStyles[resolvedTone] || toneStyles.neutral;
   return (
     <View style={[styles.badge, { backgroundColor: t.bg }]}>
       {icon ? <MaterialIcons name={icon} size={14} color={t.fg} style={{ marginRight: 4 }} /> : null}

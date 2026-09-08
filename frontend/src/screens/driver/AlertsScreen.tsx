@@ -62,7 +62,7 @@ export default function AlertsScreen() {
       <View style={styles.header}>
         <Text style={styles.eyebrow}>CENTRE DE NOTIFICATIONS</Text>
         <Text style={styles.title}>
-          {isController ? 'Alertes Contrôleur CROUS' : 'Alertes Chauffeur CROUS'}
+          {isController ? 'Alertes Contrôleur Campus' : 'Alertes Chauffeur Campus'}
         </Text>
       </View>
       {loading ? (

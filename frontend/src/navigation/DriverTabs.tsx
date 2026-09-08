@@ -38,7 +38,7 @@ export default function DriverTabs() {
     logout();
   };
 
-  const topBarTitle = isController ? 'CROUS-UAC Contrôle' : 'CROUS-UAC Chauffeur';
+  const topBarTitle = isController ? 'Contrôle Campus Bénin' : 'Chauffeur Campus Bénin';
   const bottomPadding = insets.bottom > 0 ? insets.bottom : 8;
   const tabHeight = 56 + bottomPadding;
 

@@ -174,7 +174,7 @@ export default function ActiveTicketScreen({ navigation }: any) {
     if (isRecycled) {
       Alert.alert(
         'Recyclage Non Autorisé',
-        'Ce ticket a déjà fait l\'objet d\'un report. Selon la réglementation CROUS, un seul recyclage est autorisé par titre (limite J+7).'
+        "Ce ticket a déjà fait l'objet d'un report. Selon la réglementation universitaire, un seul recyclage est autorisé par titre (limite J+7)."
       );
       return;
     }
@@ -230,8 +230,8 @@ export default function ActiveTicketScreen({ navigation }: any) {
 
             <Text style={styles.kycLockDesc}>
               {isPending
-                ? 'Votre dossier académique est en cours de vérification par les agents du CROUS-UAC. Dès approbation, vos billets actifs, QR code de validation et outils de suivi GPS s’afficheront ici.'
-                : 'Conformément aux règles du CROUS-Bénin, l’émission des titres de transport universitaires, le QR code de contrôle et le suivi GPS des bus en temps réel nécessitent un profil étudiant certifié.'}
+                ? "Votre dossier académique est en cours de vérification par les agents d'administration. Dès approbation, vos billets actifs, QR code de validation et outils de suivi GPS s’afficheront ici."
+                : 'Conformément aux règles du transport universitaire au Bénin, l’émission des titres de transport, le QR code de contrôle et le suivi GPS des navettes en temps réel nécessitent un profil étudiant certifié.'}
             </Text>
 
             {!isPending && (
@@ -330,8 +330,8 @@ export default function ActiveTicketScreen({ navigation }: any) {
         <View style={styles.alertBanner}>
           <MaterialIcons name="info-outline" size={22} color={colors.onErrorContainer} style={{ marginTop: 2 }} />
           <View style={{ flex: 1 }}>
-            <Text style={styles.alertTitle}>Information Trafic : Réseau CROUS</Text>
-            <Text style={styles.alertBody}>Circulation fluide sur la RNIE 2 entre le Campus d'Abomey-Calavi et Cotonou.</Text>
+            <Text style={styles.alertTitle}>Information Trafic : Réseau Campus</Text>
+            <Text style={styles.alertBody}>Circulation fluide sur les axes inter-campus universitaires du Bénin.</Text>
           </View>
         </View>
 
@@ -355,7 +355,7 @@ export default function ActiveTicketScreen({ navigation }: any) {
           <View style={styles.qrWrap}>
             <View style={styles.qrBox}>
               <QRCode
-                value={`CROUS-UAC-TICKET-${user?.matricule_uac || 'ETUDIANT'}-${activeTicket?.code || 'A7B9-X2M4'}`}
+                value={`EPASS-BENIN-TICKET-${user?.matricule_uac || 'ETUDIANT'}-${activeTicket?.code || 'A7B9-X2M4'}`}
                 size={160}
                 color={colors.onBackground}
                 backgroundColor={colors.white}
@@ -381,7 +381,7 @@ export default function ActiveTicketScreen({ navigation }: any) {
             style={{ width: '100%' }}
           />
           <Text style={styles.availFor}>
-            Valable pour la journée en cours • Payé via {activeTicket?.paymentMethod || 'Portefeuille CROUS'} (100 FCFA)
+            Valable pour la journée en cours • Payé via {activeTicket?.paymentMethod || 'Portefeuille Campus'} (100 FCFA)
           </Text>
         </Card>
 
@@ -634,14 +634,14 @@ export default function ActiveTicketScreen({ navigation }: any) {
               </Pressable>
             </View>
 
-            {/* Règle CROUS J+7 Notice */}
+            {/* Règle Universitaire J+7 Notice */}
             <View style={styles.recycleNoticeCard}>
               <MaterialIcons name="verified-user" size={18} color="#16a34a" />
               <View style={{ flex: 1 }}>
-                <Text style={styles.recycleNoticeTitle}>Règlement de report CROUS (J+7) :</Text>
+                <Text style={styles.recycleNoticeTitle}>Règlement de report (J+7) :</Text>
                 <Text style={styles.recycleNoticeBody}>
                   • Un (1) seul recyclage autorisé par titre.{'\n'}
-                  • Votre place sur le bus initial sera libérée.{'\n'}
+                  • Votre place sur la navette initiale sera libérée.{'\n'}
                   • Nouveau QR Code et code SMS émis instantanément.
                 </Text>
               </View>

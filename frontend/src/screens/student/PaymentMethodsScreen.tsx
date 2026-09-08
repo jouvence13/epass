@@ -237,7 +237,7 @@ export default function PaymentMethodsScreen({ navigation }: any) {
 
       Alert.alert(
         'Recharge Validée !',
-        `Votre Portefeuille Universitaire CROUS a été crédité de ${amount.toLocaleString(
+        `Votre Portefeuille Universitaire a été crédité de ${amount.toLocaleString(
           'fr-FR'
         )} FCFA. Nouveau solde : ${newBal.toLocaleString('fr-FR')} FCFA.`
       );
@@ -254,7 +254,7 @@ export default function PaymentMethodsScreen({ navigation }: any) {
           </Pressable>
           <View style={{ flex: 1 }}>
             <Text style={styles.title}>Moyens de Paiement</Text>
-            <Text style={styles.subtitle}>Gérez vos numéros MTN, Moov, Celtiis et Portefeuille CROUS</Text>
+            <Text style={styles.subtitle}>Gérez vos numéros MTN, Moov, Celtiis et Portefeuille Universitaire</Text>
           </View>
         </View>
 
@@ -262,7 +262,7 @@ export default function PaymentMethodsScreen({ navigation }: any) {
         <Card floating style={styles.balanceCard}>
           <View style={styles.balanceRow}>
             <View>
-              <Text style={styles.balanceLabel}>Portefeuille Universitaire CROUS</Text>
+              <Text style={styles.balanceLabel}>Portefeuille Universitaire</Text>
               <Text style={styles.balanceValue}>{walletBalance.toLocaleString('fr-FR')} FCFA</Text>
               <Text style={styles.balanceHint}>Paiement instantané en 1 clic à 100 F par trajet</Text>
             </View>
@@ -478,7 +478,7 @@ export default function PaymentMethodsScreen({ navigation }: any) {
             <View style={styles.modalHeader}>
               <View>
                 <Text style={styles.modalTitle}>Recharger mon Portefeuille</Text>
-                <Text style={styles.modalSub}>Créditez votre solde CROUS pour payer vos trajets en 1 tap</Text>
+                <Text style={styles.modalSub}>Créditez votre solde pour payer vos trajets en 1 tap</Text>
               </View>
               <Pressable onPress={() => setRechargeModalVisible(false)}>
                 <MaterialIcons name="close" size={24} color={colors.onSurface} />
@@ -598,7 +598,7 @@ export default function PaymentMethodsScreen({ navigation }: any) {
             </View>
 
             <Text style={styles.ussdPromptText}>
-              CROUS-UAC Transit sollicite le débit de{' '}
+              ePass Campus Bénin sollicite le débit de{' '}
               <Text style={{ fontWeight: '700', color: colors.primary }}>
                 {parseInt(rechargeAmount, 10).toLocaleString('fr-FR')} FCFA
               </Text>{' '}

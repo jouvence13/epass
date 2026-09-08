@@ -81,7 +81,7 @@ async def initiate_ticket_booking(
 
 class InstantPurchaseRequestSchema(BaseModel):
     trip_id: Optional[uuid.UUID] = None
-    payment_method: str = "Portefeuille CROUS"
+    payment_method: str = "Portefeuille Universitaire"
     phone_number: Optional[str] = None
     amount: float = 100.00
 
@@ -95,7 +95,7 @@ async def instant_ticket_purchase(
     db: AsyncSession = Depends(get_async_db)
 ):
     """
-    Achat immédiat et émission dynamique d'un billet numérique (Portefeuille CROUS ou Mobile Money).
+    Achat immédiat et émission dynamique d'un billet numérique (Portefeuille Universitaire ou Mobile Money).
     Enregistre la transaction et le ticket directement dans PostgreSQL.
     """
     from datetime import datetime, timedelta, timezone

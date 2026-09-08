@@ -51,7 +51,7 @@ export default function HomeScreen({ navigation }: any) {
       showToast({
         title: isPending ? 'Dossier KYC en cours' : 'Certification Requise',
         message: isPending
-          ? 'Votre dossier est en cours de validation par le CROUS.'
+          ? "Votre dossier est en cours de validation par l'administration académique."
           : 'Certifiez votre statut étudiant pour débloquer les départs subventionnés.',
         type: 'warning',
         category: 'KYC',
@@ -85,7 +85,7 @@ export default function HomeScreen({ navigation }: any) {
     if (paymentOp === 'WALLET') {
       if (walletBalance < price) {
         Alert.alert(
-          'Solde CROUS Insuffisant',
+          'Solde Portefeuille Insuffisant',
           `Votre solde actuel (${walletBalance.toLocaleString(
             'fr-FR'
           )} FCFA) est insuffisant. Veuillez recharger votre portefeuille.`,
@@ -102,7 +102,7 @@ export default function HomeScreen({ navigation }: any) {
         );
         showToast({
           title: 'Solde Insuffisant',
-          message: 'Veuillez recharger votre portefeuille CROUS.',
+          message: 'Veuillez recharger votre portefeuille étudiant.',
           type: 'error',
           category: 'WALLET',
         });
@@ -117,9 +117,9 @@ export default function HomeScreen({ navigation }: any) {
           const newTicket = purchaseTicket({
             line: `Ligne ${selectedDeparture.route}`,
             route: selectedDeparture.route,
-            busId: 'Bus CROUS #402',
+            busId: 'Navette Campus #402',
             price: 100,
-            paymentMethod: 'Portefeuille CROUS',
+            paymentMethod: 'Portefeuille Campus',
             slotId: selectedDeparture.id,
           });
 
@@ -127,7 +127,7 @@ export default function HomeScreen({ navigation }: any) {
 
           showToast({
             title: 'Titre Validé en Temps Réel !',
-            message: `100 FCFA débités du Portefeuille CROUS. Ticket : ${newTicket.code}`,
+            message: `100 FCFA débités du Portefeuille Campus. Ticket : ${newTicket.code}`,
             type: 'success',
             category: 'WALLET',
           });
@@ -230,7 +230,7 @@ export default function HomeScreen({ navigation }: any) {
         <View style={styles.greetingHeader}>
           <View style={styles.greetingWrap}>
             <Text style={styles.greeting}>Bonjour, {user?.first_name || 'Étudiant'}</Text>
-            <Text style={styles.p}>Espace transit universitaire CROUS-UAC</Text>
+            <Text style={styles.p}>Espace transit universitaire Campus Bénin</Text>
           </View>
           <Pressable
             style={styles.walletMiniBadge}
@@ -528,7 +528,7 @@ export default function HomeScreen({ navigation }: any) {
                       icon={selectedDeparture.full ? 'person-off' : 'check-circle'}
                     />
                     <Text style={styles.sheetTitle}>{selectedDeparture.time}</Text>
-                    <Text style={styles.sheetSub}>{selectedDeparture.route} • Bus CROUS #402</Text>
+                    <Text style={styles.sheetSub}>{selectedDeparture.route} • Navette Campus #402</Text>
                   </View>
                   <Pressable onPress={() => setDepartureModalVisible(false)} style={styles.closeSheetBtn}>
                     <MaterialIcons name="close" size={24} color={colors.onSurface} />
@@ -540,7 +540,7 @@ export default function HomeScreen({ navigation }: any) {
                   <View style={styles.sheetDetailRow}>
                     <MaterialIcons name="trip-origin" size={18} color={colors.primary} />
                     <Text style={styles.sheetDetailLabel}>Départ :</Text>
-                    <Text style={styles.sheetDetailVal}>Campus UAC Calavi</Text>
+                    <Text style={styles.sheetDetailVal}>Campus Universitaire</Text>
                   </View>
                   <View style={styles.sheetDetailRow}>
                     <MaterialIcons name="location-on" size={18} color={colors.secondary} />
@@ -563,7 +563,7 @@ export default function HomeScreen({ navigation }: any) {
                   </View>
                   <View style={styles.sheetDetailRow}>
                     <MaterialIcons name="payments" size={18} color={colors.primary} />
-                    <Text style={styles.sheetDetailLabel}>Tarif Subventionné CROUS :</Text>
+                    <Text style={styles.sheetDetailLabel}>Tarif Subventionné :</Text>
                     <Text style={[styles.sheetDetailVal, { color: colors.primary, fontWeight: '700', fontSize: 16 }]}>
                       100 FCFA
                     </Text>
@@ -573,7 +573,7 @@ export default function HomeScreen({ navigation }: any) {
                 {/* Choix du moyen de paiement */}
                 <Text style={styles.modalSectionTitle}>CHOISIR LE MOYEN DE PAIEMENT</Text>
                 <View style={styles.modalOperatorGrid}>
-                  {/* PORTEFEUILLE CROUS */}
+                  {/* PORTEFEUILLE CAMPUS */}
                   <Pressable
                     style={[styles.modalOpTile, paymentOp === 'WALLET' && styles.modalOpTileActive]}
                     onPress={() => handleSelectOp('WALLET')}

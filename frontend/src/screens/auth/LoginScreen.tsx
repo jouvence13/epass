@@ -63,13 +63,13 @@ export default function LoginScreen({ navigation }: any) {
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-        {/* En-tête avec Logo CROUS-UAC */}
+        {/* En-tête avec Logo ePass Campus Bénin */}
         <View style={styles.header}>
           <View style={styles.logoBadge}>
             <MaterialIcons name="directions-bus" size={36} color={colors.onPrimary} />
           </View>
-          <Text style={styles.brand}>CROUS-UAC</Text>
-          <Text style={styles.tagline}>Plateforme de transit universitaire</Text>
+          <Text style={styles.brand}>ePass Campus Bénin</Text>
+          <Text style={styles.tagline}>Plateforme de transit universitaire inter-campus</Text>
         </View>
 
         {/* Bannière de confirmation de Déconnexion */}

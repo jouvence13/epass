@@ -27,7 +27,7 @@ const LABELS: Record<string, string> = {
 };
 
 const TITLES: Record<string, string> = {
-  Home: 'CROUS-UAC',
+  Home: 'ePass Campus Bénin',
   Tickets: 'Mes Tickets Actifs',
   Booking: 'Payer & Réserver (Scan QR)',
   Profile: 'Mon Profil Étudiant',

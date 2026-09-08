@@ -15,8 +15,8 @@ export default function DriverHubScreen({ navigation }: any) {
   const driverName = user
     ? `${user.first_name} ${user.last_name}`
     : isController
-    ? 'Contrôleur CROUS'
-    : 'Chauffeur CROUS';
+    ? 'Contrôleur Campus'
+    : 'Chauffeur Campus';
 
   const [activeTrip, setActiveTrip] = useState<{
     route_title: string;
@@ -59,7 +59,7 @@ export default function DriverHubScreen({ navigation }: any) {
             capacity_num: data.capacity_num ?? 32,
             capacity_total: data.capacity_total ?? 50,
             capacity_percentage: data.capacity_percentage ?? 64,
-            bus_code: data.bus_code || 'Bus CROUS',
+            bus_code: data.bus_code || 'Bus Campus',
             delay_minutes: data.delay_minutes ?? 0,
           });
         }
@@ -87,7 +87,7 @@ export default function DriverHubScreen({ navigation }: any) {
     if (!isKycApproved) {
       showToast({
         title: 'Habilitation Requise',
-        message: 'Votre dossier doit être validé par le CROUS pour utiliser le scanner.',
+        message: 'Votre dossier doit être validé par l’administration pour utiliser le scanner.',
         type: 'warning',
         category: 'KYC',
       });
@@ -101,7 +101,7 @@ export default function DriverHubScreen({ navigation }: any) {
     if (!isKycApproved) {
       showToast({
         title: 'Habilitation Requise',
-        message: 'Votre dossier doit être validé par le CROUS pour diffuser des alertes.',
+        message: 'Votre dossier doit être validé par l’administration pour diffuser des alertes.',
         type: 'warning',
         category: 'KYC',
       });
@@ -162,11 +162,11 @@ export default function DriverHubScreen({ navigation }: any) {
               <Text style={styles.kycWarningTitle}>
                 {driverKyc === 'PENDING'
                   ? isController ? 'Dossier Contrôleur en examen' : 'Dossier Chauffeur en cours d’examen'
-                  : 'Habilitation CROUS Requise'}
+                  : 'Habilitation Requise'}
               </Text>
               <Text style={styles.kycWarningText}>
                 {driverKyc === 'PENDING'
-                  ? 'Vos justificatifs sont en cours d’examen par le service des transports CROUS. Le scan sera débloqué dès approbation.'
+                  ? 'Vos justificatifs sont en cours d’examen par le service des transports universitaires. Le scan sera débloqué dès approbation.'
                   : 'Veuillez téléverser vos pièces justificatives pour débloquer les outils de contrôle et de conduite.'}
               </Text>
             </View>

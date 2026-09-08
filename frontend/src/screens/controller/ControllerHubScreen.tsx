@@ -11,7 +11,7 @@ import { ENDPOINTS } from '../../config/api';
 export default function ControllerHubScreen({ navigation }: any) {
   const { user, token, logout } = useAuth();
   const { showToast } = useNotifications();
-  const controllerName = user ? `${user.first_name} ${user.last_name}` : 'Contrôleur CROUS';
+  const controllerName = user ? `${user.first_name} ${user.last_name}` : 'Contrôleur Campus';
 
   const [activeTrip, setActiveTrip] = useState<{
     route_title: string;
@@ -55,7 +55,7 @@ export default function ControllerHubScreen({ navigation }: any) {
             capacity_num: data.capacity_num ?? 32,
             capacity_total: data.capacity_total ?? 50,
             capacity_percentage: data.capacity_percentage ?? 64,
-            bus_code: data.bus_code || 'Bus CROUS',
+            bus_code: data.bus_code || 'Bus Campus',
             delay_minutes: data.delay_minutes ?? 0,
           });
         }
@@ -83,7 +83,7 @@ export default function ControllerHubScreen({ navigation }: any) {
     if (!isKycApproved) {
       showToast({
         title: 'Habilitation Requise',
-        message: 'Votre badge doit être validé par le CROUS pour effectuer des contrôles.',
+        message: 'Votre badge doit être validé par l’administration pour effectuer des contrôles.',
         type: 'warning',
         category: 'KYC',
       });
@@ -97,7 +97,7 @@ export default function ControllerHubScreen({ navigation }: any) {
     if (!isKycApproved) {
       showToast({
         title: 'Habilitation Requise',
-        message: 'Votre badge doit être validé par le CROUS pour déclarer des fraudes.',
+        message: 'Votre badge doit être validé par l’administration pour déclarer des fraudes.',
         type: 'warning',
         category: 'KYC',
       });
@@ -152,12 +152,12 @@ export default function ControllerHubScreen({ navigation }: any) {
             <MaterialIcons name="warning" size={24} color="#b45309" />
             <View style={{ flex: 1 }}>
               <Text style={styles.kycWarningTitle}>
-                {controllerKyc === 'PENDING' ? 'Badge d’Agent en cours d’examen' : 'Habilitation CROUS Requise'}
+                {controllerKyc === 'PENDING' ? 'Badge d’Agent en cours d’examen' : 'Habilitation Requise'}
               </Text>
               <Text style={styles.kycWarningText}>
                 {controllerKyc === 'PENDING'
-                  ? 'Vos pièces sont en cours de vérification par l’administration CROUS. Le scanner sera débloqué dès approbation.'
-                  : 'Veuillez téléverser votre Badge CROUS et CIP pour débloquer les outils d’inspection.'}
+                  ? 'Vos pièces sont en cours de vérification par l’administration. Le scanner sera débloqué dès approbation.'
+                  : 'Veuillez téléverser votre Badge et CIP pour débloquer les outils d’inspection.'}
               </Text>
             </View>
             <MaterialIcons name="chevron-right" size={24} color="#b45309" />
@@ -232,7 +232,7 @@ export default function ControllerHubScreen({ navigation }: any) {
         <Card style={styles.guideCard}>
           <View style={styles.guideHeader}>
             <MaterialIcons name="verified-user" size={20} color={colors.primary} />
-            <Text style={styles.guideTitle}>Règles de Contrôle CROUS</Text>
+            <Text style={styles.guideTitle}>Règles de Contrôle</Text>
           </View>
           <View style={styles.guideStep}>
             <Text style={styles.guideStepNum}>1</Text>

@@ -178,13 +178,13 @@ export default function AdminKycModerationScreen() {
   const getDocTypeInfo = (type: string) => {
     switch (type) {
       case 'STUDENT_CARD':
-        return { label: 'Carte Étudiant UAC', icon: 'school', color: colors.primary };
+        return { label: 'Carte Étudiant', icon: 'school', color: colors.primary };
       case 'DRIVER_LICENSE':
         return { label: 'Permis D (Chauffeur)', icon: 'directions-bus', color: '#0284c7' };
       case 'MEDICAL_CERTIFICATE':
         return { label: 'Certificat Médical', icon: 'health-and-safety', color: '#059669' };
       case 'CONTROLLER_BADGE':
-        return { label: 'Badge Contrôleur CROUS', icon: 'security', color: '#7c3aed' };
+        return { label: 'Badge Contrôleur Campus', icon: 'security', color: '#7c3aed' };
       case 'CIP_IDENTITY':
         return { label: 'Certificat CIP / CNI', icon: 'badge', color: '#d97706' };
       default:

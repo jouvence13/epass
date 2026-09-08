@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { ENDPOINTS } from '../config/api';
+import { StorageService } from '../utils/storage';
 
 export type UserRole = 'STUDENT' | 'DRIVER' | 'CONTROLLER' | 'ADMIN_CROUS' | 'SUPERADMIN';
 export type KycStatus = 'NOT_SUBMITTED' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'EXPIRED';
@@ -41,6 +42,7 @@ interface AuthContextType {
   user: User | null;
   token: string | null;
   isAuthenticated: boolean;
+  isOffline: boolean;
   isLoading: boolean;
   isInitialLoading: boolean;
   justRegistered: boolean;
@@ -109,6 +111,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
+  const [isOffline, setIsOffline] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [justRegistered, setJustRegistered] = useState(false);
@@ -117,7 +120,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const clearJustRegistered = () => setJustRegistered(false);
   const clearJustLoggedOut = () => setJustLoggedOut(false);
 
-  // Solde dynamique du Portefeuille Universitaire CROUS
+  // Solde dynamique du Portefeuille Universitaire
   const [walletBalance, setWalletBalance] = useState<number>(2300);
 
   // Numéros Mobile Money enregistrés (initialisés dynamiquement avec le numéro du compte)
@@ -190,11 +193,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               : tk.route_name?.includes('Express') || tk.route_name?.includes('Ligne A')
               ? 'Calavi Campus → Cotonou Étoile Rouge'
               : tk.route_name || 'Calavi Campus → Cotonou Étoile Rouge',
-            busId: tk.bus_code || 'Bus CROUS #402',
-            price: 100,
-            date: "Aujourd'hui, 07:30",
-            status: tk.raw_status === 'VALIDATED' ? 'USED' : 'ACTIVE',
-            paymentMethod: 'Portefeuille CROUS',
+            busId: tk.bus_code || 'Bus Campus #402',
+            price: Number(tk.amount_paid) || 100,
+            date: tk.created_at ? new Date(tk.created_at).toLocaleDateString('fr-FR') : 'Aujourd\'hui',
+            status: tk.status as any,
+            paymentMethod: 'Portefeuille Universitaire',
             timeSlot: 'Rotation Garantie',
             recycleCount: typeof tk.recycle_count === 'number' ? tk.recycle_count : 0,
           }));
@@ -431,39 +434,73 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return { success: true, ticket: updatedTicket };
   };
 
-  // Initialisation de la session : 100% basée sur le cookie de session HttpOnly envoyé automatiquement par le navigateur
+  // Initialisation avec persistance locale (Accès Hors-ligne garanti)
   useEffect(() => {
     const initAuth = async () => {
       try {
+        // 1. Chargement instantané depuis le stockage local (Mode Hors-ligne)
+        const cachedUser = await StorageService.getUser();
+        const cachedToken = await StorageService.getToken();
+        const cachedTicketsData = await StorageService.getTickets();
+        const cachedWalletData = await StorageService.getWallet();
+
+        if (cachedUser) {
+          setUser(cachedUser);
+          setToken(cachedToken || 'cached_session');
+          if (cachedTicketsData.tickets && cachedTicketsData.tickets.length > 0) {
+            setTickets(cachedTicketsData.tickets);
+            setActiveTicket(cachedTicketsData.activeTicket);
+          }
+          if (cachedWalletData.phones) {
+            setOperatorPhoneNumbers(cachedWalletData.phones);
+            setWalletBalance(cachedWalletData.balance);
+          }
+        }
+
+        // 2. Synchronisation en arrière-plan avec le backend si le réseau est disponible
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 3000);
+        const timeoutId = setTimeout(() => controller.abort(), 3500);
 
-        const profileRes = await fetch(ENDPOINTS.MY_PROFILE, {
-          credentials: 'include',
-          signal: controller.signal,
-        });
-        clearTimeout(timeoutId);
+        try {
+          const profileRes = await fetch(ENDPOINTS.MY_PROFILE, {
+            credentials: 'include',
+            headers: DEFAULT_HEADERS,
+            signal: controller.signal,
+          });
+          clearTimeout(timeoutId);
 
-        if (profileRes.ok) {
-          const p = await profileRes.json();
-          const userData: User = {
-            user_id: p.user_id,
-            phone_number: p.phone_number,
-            first_name: p.first_name,
-            last_name: p.last_name,
-            role: p.role,
-            matricule_uac: p.matricule_uac,
-            kyc_status: p.kyc_status,
-          };
-          setUser(userData);
-          setToken('cookie_session');
-        } else {
-          setUser(null);
-          setToken(null);
+          if (profileRes.ok) {
+            const p = await profileRes.json();
+            const userData: User = {
+              user_id: p.user_id,
+              phone_number: p.phone_number,
+              first_name: p.first_name,
+              last_name: p.last_name,
+              role: p.role,
+              matricule_uac: p.matricule_uac,
+              kyc_status: p.kyc_status,
+            };
+            setUser(userData);
+            setToken('cookie_session');
+            setIsOffline(false);
+            await StorageService.saveUser(userData);
+            await StorageService.saveToken('cookie_session');
+          } else if (!cachedUser) {
+            setUser(null);
+            setToken(null);
+            await StorageService.clearAll();
+          }
+        } catch (netErr) {
+          // Mode Hors-ligne : Si on a un utilisateur en cache, on conserve sa session active !
+          if (cachedUser) {
+            setIsOffline(true);
+          } else {
+            setUser(null);
+            setToken(null);
+          }
         }
       } catch (e) {
-        setUser(null);
-        setToken(null);
+        console.warn('initAuth storage error:', e);
       } finally {
         setIsInitialLoading(false);
       }
@@ -570,7 +607,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       setToken('cookie_session');
       setUser(userData);
+      setIsOffline(false);
       setIsLoading(false);
+
+      // Sauvegarder la session dans le stockage persistant
+      await StorageService.saveUser(userData);
+      await StorageService.saveToken('cookie_session');
 
       // Recharger départs et billets en direct depuis le backend
       refreshTrips();
@@ -641,10 +683,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await fetch(ENDPOINTS.LOGOUT, {
         method: 'POST',
         credentials: 'include',
+        headers: DEFAULT_HEADERS,
       });
     } catch (e) {
       console.warn('Logout API error:', e);
     }
+    await StorageService.clearAll();
     setUser(null);
     setToken(null);
     setTickets([]);
@@ -667,7 +711,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const updateUserKycStatus = (status: KycStatus) => {
     if (user) {
-      setUser({ ...user, kyc_status: status });
+      const updated = { ...user, kyc_status: status };
+      setUser(updated);
+      StorageService.saveUser(updated);
     }
   };
 
@@ -677,6 +723,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         user,
         token,
         isAuthenticated: !!user,
+        isOffline,
         isLoading,
         isInitialLoading,
         justRegistered,

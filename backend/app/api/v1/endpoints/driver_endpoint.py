@@ -226,7 +226,7 @@ async def validate_student_ticket(
     if current_driver.kyc_status != KycStatusEnum.APPROVED:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Opération bloquée : Votre dossier professionnel doit être validé par l'administration CROUS pour scanner et valider les titres."
+            detail="Opération bloquée : Votre dossier professionnel doit être validé par l'administration pour scanner et valider les titres."
         )
 
     target_trip_id = payload.trip_id
@@ -260,7 +260,7 @@ async def validate_student_ticket(
     return TicketValidationResponseSchema(
         validation_status="ACCESS_GRANTED",
         message="Ticket validé avec succès. Accès autorisé à bord.",
-        student_name=f"{student.first_name} {student.last_name}" if student else "Étudiant UAC",
+        student_name=f"{student.first_name} {student.last_name}" if student else "Étudiant Campus",
         matricule_uac=student.matricule_uac if student else None,
         ticket_id=ticket.ticket_id,
         line_name=line_str,
@@ -282,7 +282,7 @@ async def manual_validate_passenger_ticket(
     if current_driver.kyc_status != KycStatusEnum.APPROVED:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Opération bloquée : Votre dossier professionnel doit être validé par l'administration CROUS."
+            detail="Opération bloquée : Votre dossier professionnel doit être validé par l'administration."
         )
 
     ticket = await db.get(Tickets, ticket_id)
@@ -302,10 +302,10 @@ async def manual_validate_passenger_ticket(
     return TicketValidationResponseSchema(
         validation_status="ACCESS_GRANTED",
         message="Passager validé manuellement avec succès.",
-        student_name=f"{student.first_name} {student.last_name}" if student else "Étudiant UAC",
+        student_name=f"{student.first_name} {student.last_name}" if student else "Étudiant Campus",
         matricule_uac=student.matricule_uac if student else None,
         ticket_id=ticket.ticket_id,
-        line_name="Ligne Campus UAC",
+        line_name="Ligne Campus",
         validated_time="Just now",
         timestamp=ticket.validated_at
     )
@@ -329,7 +329,7 @@ async def report_trip_delay(
     if current_driver.kyc_status != KycStatusEnum.APPROVED:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Opération bloquée : Votre dossier Chauffeur doit être validé par l'administration CROUS pour diffuser des alertes."
+            detail="Opération bloquée : Votre dossier Chauffeur doit être validé par l'administration pour diffuser des alertes."
         )
     target_trip_id = payload.trip_id
     if not target_trip_id:

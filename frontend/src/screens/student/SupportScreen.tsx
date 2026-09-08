@@ -26,12 +26,12 @@ const FAQS: FaqItem[] = [
   {
     id: '1',
     q: 'Comment valider mon dossier KYC étudiant ?',
-    a: 'Rendez-vous sur "Mon profil KYC", téléversez une photo nette de votre carte d\'étudiant UAC valide et votre certificat CIP. La modération par le CROUS est effective en moins de 24h.',
+    a: 'Rendez-vous sur "Mon profil KYC", téléversez une photo nette de votre carte d\'étudiant valide (UAC, UP, UNA, UNSTIM...) et votre certificat CIP. La modération par l\'administration est effective en moins de 24h.',
   },
   {
     id: '2',
     q: 'Quels sont les tarifs subventionnés par trajet ?',
-    a: 'Grâce à la subvention étatique CROUS-UAC, le ticket étudiant est à seulement 100 FCFA par trajet au lieu du tarif plein grand public.',
+    a: 'Grâce à la subvention du transport universitaire béninois, le ticket étudiant est à seulement 100 FCFA par trajet au lieu du tarif plein grand public.',
   },
   {
     id: '3',
@@ -41,7 +41,7 @@ const FAQS: FaqItem[] = [
   {
     id: '4',
     q: 'Comment recharger mon solde via MTN ou Moov ?',
-    a: 'Dans "Moyens de paiement", cliquez sur "Recharger". Saisissez le montant et validez sur votre téléphone via le prompt sécurisé MTN Mobile Money (*880#) ou Moov Money (*855#).',
+    a: 'Dans "Moyens de paiement", cliquez sur "Recharger". Saisissez le montant et validez sur votre téléphone via le prompt sécurisé MTN (*880#), Moov (*855#) ou Celtiis (*888#).',
   },
 ];
 
@@ -59,13 +59,13 @@ export default function SupportScreen({ navigation }: any) {
 
   const handleCallSupport = () => {
     Linking.openURL('tel:+22921360100').catch(() => {
-      Alert.alert('Numéro CROUS', 'Téléphone : +22921360100');
+      Alert.alert('Numéro Assistance', 'Téléphone : +22921360100');
     });
   };
 
   const handleWhatsapp = () => {
-    Linking.openURL('https://wa.me/22997000000?text=Bonjour%20CROUS%20UAC%20BusPass').catch(() => {
-      Alert.alert('WhatsApp CROUS', 'Numéro WhatsApp : +22997000000');
+    Linking.openURL('https://wa.me/22997000000?text=Bonjour%20ePass%20Campus%20Benin').catch(() => {
+      Alert.alert('WhatsApp Support', 'Numéro WhatsApp : +22997000000');
     });
   };
 
@@ -82,7 +82,7 @@ export default function SupportScreen({ navigation }: any) {
       setMessage('');
       Alert.alert(
         'Message transmis',
-        'Votre demande a été transmise aux services CROUS-UAC. Vous recevrez une réponse dans l\'onglet Notifications.'
+        'Votre demande a été transmise aux services d\'assistance inter-campus. Vous recevrez une réponse dans l\'onglet Notifications.'
       );
     }, 800);
   };
@@ -96,7 +96,7 @@ export default function SupportScreen({ navigation }: any) {
             <MaterialIcons name="arrow-back" size={24} color={colors.onSurface} />
           </Pressable>
           <View style={{ flex: 1 }}>
-            <Text style={styles.title}>Aide & Support CROUS</Text>
+            <Text style={styles.title}>Aide & Support Campus</Text>
             <Text style={styles.subtitle}>Assistance aux étudiants et transport universitaire</Text>
           </View>
         </View>
@@ -107,7 +107,7 @@ export default function SupportScreen({ navigation }: any) {
             <View style={[styles.contactIconCircle, { backgroundColor: colors.primaryFixed }]}>
               <MaterialIcons name="phone" size={24} color={colors.primary} />
             </View>
-            <Text style={styles.contactTitle}>Appel CROUS</Text>
+            <Text style={styles.contactTitle}>Appel Assistance</Text>
             <Text style={styles.contactSub}>+22921360100</Text>
           </Pressable>
 
@@ -125,9 +125,9 @@ export default function SupportScreen({ navigation }: any) {
           <View style={styles.locationRow}>
             <MaterialIcons name="location-on" size={24} color={colors.primary} />
             <View style={{ flex: 1 }}>
-              <Text style={styles.locationTitle}>Guichet Physique CROUS-UAC</Text>
+              <Text style={styles.locationTitle}>Guichet Universitaire</Text>
               <Text style={styles.locationText}>
-                Campus Principal d'Abomey-Calavi • Bâtiment Administratif CROUS (RDC)
+                Campus Universitaires du Bénin • Bâtiment Administratif et d'Accueil
               </Text>
               <Text style={styles.locationHours}>Du Lundi au Vendredi : 08h00 - 17h30</Text>
             </View>
@@ -166,7 +166,7 @@ export default function SupportScreen({ navigation }: any) {
         <Card style={styles.formCard}>
           <Text style={styles.formTitle}>Envoyer un message à l'administration</Text>
           <Text style={styles.formSub}>
-            Une équipe du CROUS prendra en charge votre dossier sous 24h ouvrées.
+            Une équipe dédiée prendra en charge votre dossier sous 24h ouvrées.
           </Text>
 
           <Text style={styles.inputLabel}>Objet de votre demande :</Text>
@@ -209,7 +209,7 @@ export default function SupportScreen({ navigation }: any) {
           />
 
           <PrimaryButton
-            label={isSending ? 'Envoi en cours...' : 'Transmettre au CROUS'}
+            label={isSending ? 'Envoi en cours...' : 'Transmettre au support'}
             icon="send"
             onPress={handleSendMessage}
             disabled={isSending}

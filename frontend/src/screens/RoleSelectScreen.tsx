@@ -11,8 +11,8 @@ export default function RoleSelectScreen({ navigation }: any) {
         <View style={styles.logoBadge}>
           <MaterialIcons name="directions-bus" size={40} color={colors.onPrimary} />
         </View>
-        <Text style={styles.brand}>CROUS-UAC</Text>
-        <Text style={styles.tagline}>Billetterie de transit universitaire</Text>
+        <Text style={styles.brand}>ePass Campus Bénin</Text>
+        <Text style={styles.tagline}>Transit universitaire & inter-campus</Text>
 
         <View style={styles.cards}>
           <Pressable style={styles.card} onPress={() => navigation.navigate('KycOnboarding')}>

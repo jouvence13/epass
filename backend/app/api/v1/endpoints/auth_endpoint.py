@@ -206,7 +206,7 @@ async def login_user(
     if not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Votre compte est désactivé. Veuillez contacter le support CROUS."
+            detail="Votre compte est désactivé. Veuillez contacter le support ePass Campus Bénin."
         )
 
     access_token = create_access_token(subject=str(user.user_id), role=user.role.value)

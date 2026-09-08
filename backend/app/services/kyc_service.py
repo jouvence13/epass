@@ -69,7 +69,7 @@ async def submit_driver_kyc(
         db=db,
         user_id=user.user_id,
         title="Dossier Chauffeur Soumis",
-        message="Vos pièces (Permis D, Certificat Médical, CIP) ont été transmises. Examen en cours par l'administration CROUS.",
+        message="Vos pièces (Permis D, Certificat Médical, CIP) ont été transmises. Examen en cours par l'administration universitaire.",
         category="KYC",
         tone="info",
         channel="PUSH",
@@ -85,7 +85,7 @@ async def submit_controller_kyc(
     identity_file: UploadFile,
     db: AsyncSession
 ) -> List[KycDocuments]:
-    """Store submitted Controller KYC documents (Badge CROUS, CIP) and update status to PENDING."""
+    """Store submitted Controller KYC documents (Badge, CIP) and update status to PENDING."""
     badge_url = await save_kyc_file_to_storage(controller_badge_file)
     identity_url = await save_kyc_file_to_storage(identity_file)
 
@@ -114,7 +114,7 @@ async def submit_controller_kyc(
         db=db,
         user_id=user.user_id,
         title="Dossier Contrôleur Soumis",
-        message="Votre accréditation d'agent et votre CIP ont été transmis. Examen en cours par l'administration CROUS.",
+        message="Votre accréditation d'agent et votre CIP ont été transmis. Examen en cours par l'administration universitaire.",
         category="KYC",
         tone="info",
         channel="PUSH",
@@ -170,7 +170,7 @@ async def moderate_kyc(
             db=db,
             user_id=user.user_id,
             title="Dossier KYC Validé",
-            message="Félicitations ! Vos pièces justificatives ont été vérifiées par le CROUS. Vous bénéficiez du tarif subventionné à 100 FCFA.",
+            message="Félicitations ! Vos pièces justificatives ont été vérifiées avec succès. Vous bénéficiez du tarif subventionné à 100 FCFA.",
             category="KYC",
             tone="success",
             channel="PUSH",

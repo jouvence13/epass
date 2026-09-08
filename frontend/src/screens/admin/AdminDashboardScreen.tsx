@@ -108,7 +108,7 @@ export default function AdminDashboardScreen({ navigation }: any) {
             <View>
               <Text style={styles.adminName}>{user?.first_name} {user?.last_name}</Text>
               <Text style={styles.adminRole}>
-                {isSuperAdmin ? 'Super Administrateur CROUS' : 'Direction des Transports CROUS'}
+                {isSuperAdmin ? 'Super Administrateur Campus Bénin' : 'Direction des Transports Universitaires'}
               </Text>
             </View>
           </View>

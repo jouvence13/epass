@@ -89,7 +89,7 @@ export default function BookTicketScreen({ navigation }: any) {
     setIsScanning(false);
     const activeSlot = busSlots[selectedSlot] || busSlots[0];
     setScannedBusData({
-      busId: 'Bus CROUS #402',
+      busId: 'Bus Campus #402',
       line: activeSlot ? `Ligne Express (${activeSlot.route})` : 'Ligne Campus Express',
       route: activeSlot ? activeSlot.route : 'Calavi Campus → Cotonou Centre',
       price: 100, // Tarif subventionné
@@ -107,13 +107,13 @@ export default function BookTicketScreen({ navigation }: any) {
     const currentSlot = busSlots[selectedSlot] || busSlots[0];
     const targetLine = isQR ? scannedBusData?.line || 'Ligne Campus Express' : (currentSlot?.route || 'Campus Express');
     const targetRoute = isQR ? scannedBusData?.route || 'Calavi Campus → Cotonou Centre' : `${departure} → ${destination}`;
-    const targetBus = isQR ? scannedBusData?.busId || 'Bus CROUS #402' : 'Bus CROUS #402';
+    const targetBus = isQR ? scannedBusData?.busId || 'Bus Campus #402' : 'Bus Campus #402';
     const slotId = isQR ? (currentSlot?.id || 'slot-1') : (currentSlot?.id || 'slot-1');
 
     if (paymentOperator === 'WALLET') {
       if (walletBalance < price) {
         Alert.alert(
-          'Solde CROUS Insuffisant',
+          'Solde Portefeuille Insuffisant',
           `Votre solde actuel (${walletBalance.toLocaleString(
             'fr-FR'
           )} FCFA) est insuffisant pour régler ce titre de ${price} FCFA. Veuillez recharger votre portefeuille.`,
@@ -127,7 +127,7 @@ export default function BookTicketScreen({ navigation }: any) {
         );
         showToast({
           title: 'Solde Insuffisant',
-          message: `Solde CROUS: ${walletBalance} F. Recharge requise.`,
+          message: `Solde Portefeuille: ${walletBalance} F. Recharge requise.`,
           type: 'error',
           category: 'WALLET',
         });
@@ -145,13 +145,13 @@ export default function BookTicketScreen({ navigation }: any) {
             route: targetRoute,
             busId: targetBus,
             price,
-            paymentMethod: 'Portefeuille CROUS',
+            paymentMethod: 'Portefeuille Universitaire',
             slotId,
           });
 
           showToast({
             title: 'Titre Validé en Temps Réel !',
-            message: `${price} FCFA débités du Portefeuille CROUS. Ticket code: ${createdTicket.code}`,
+            message: `${price} FCFA débités du Portefeuille Universitaire. Ticket code: ${createdTicket.code}`,
             type: 'success',
             category: 'WALLET',
           });
@@ -241,8 +241,8 @@ export default function BookTicketScreen({ navigation }: any) {
 
             <Text style={styles.kycLockDesc}>
               {isKycPending
-                ? 'Vos documents (Carte d’Étudiant UAC & Pièce d’identité CIP/CNI) ont bien été transmis au CROUS. Dès approbation par nos services, vous pourrez commander vos tickets à tarif subventionné (100 FCFA) et scanner les QR codes à bord.'
-                : 'Conformément aux directives du CROUS-Bénin, l’achat de titres de transport subventionnés à 100 FCFA et le scan de bornes sont exclusivement réservés aux étudiants dont le profil académique a été certifié.'}
+                ? 'Vos documents (Carte d’Étudiant & Pièce d’identité CIP/CNI) ont bien été transmis. Dès approbation par les services universitaires, vous pourrez commander vos tickets à tarif subventionné (100 FCFA) et scanner les QR codes à bord.'
+                : 'Conformément aux directives de l’administration universitaire béninoise, l’achat de titres de transport subventionnés à 100 FCFA et le scan de bornes sont exclusivement réservés aux étudiants dont le profil académique a été certifié.'}
             </Text>
 
             {!isKycPending && (
@@ -250,7 +250,7 @@ export default function BookTicketScreen({ navigation }: any) {
                 <Text style={styles.kycRequirementsTitle}>Pièces à fournir :</Text>
                 <View style={styles.kycReqItem}>
                   <MaterialIcons name="check-circle" size={16} color={colors.primary} />
-                  <Text style={styles.kycReqText}>Carte d’Étudiant UAC (année en cours)</Text>
+                  <Text style={styles.kycReqText}>Carte d’Étudiant valide (année en cours)</Text>
                 </View>
                 <View style={styles.kycReqItem}>
                   <MaterialIcons name="check-circle" size={16} color={colors.primary} />
@@ -354,7 +354,7 @@ export default function BookTicketScreen({ navigation }: any) {
                 />
 
                 <Text style={styles.scannerHint}>
-                  Fonctionne instantanément avec les bornes intelligentes du réseau CROUS-UAC.
+                  Fonctionne instantanément avec les bornes intelligentes du réseau inter-campus.
                 </Text>
               </Card>
             ) : (
@@ -381,7 +381,7 @@ export default function BookTicketScreen({ navigation }: any) {
                     <Text style={styles.tripSummaryVal}>{scannedBusData.route}</Text>
                   </View>
                   <View style={styles.tripSummaryRow}>
-                    <Text style={styles.tripSummaryLabel}>Tarif étudiant CROUS :</Text>
+                    <Text style={styles.tripSummaryLabel}>Tarif étudiant subventionné :</Text>
                     <Text style={[styles.tripSummaryVal, { color: colors.primary, fontSize: 18 }]}>
                       {scannedBusData.price} FCFA
                     </Text>

@@ -63,7 +63,7 @@ export default function RegisterScreen({ navigation }: any) {
             <MaterialIcons name="school" size={32} color={colors.onPrimary} />
           </View>
           <Text style={styles.brand}>Inscription Étudiant</Text>
-          <Text style={styles.tagline}>Création de votre compte de transport UAC-BusPass</Text>
+          <Text style={styles.tagline}>Création de votre compte de transport ePass Campus Bénin</Text>
         </View>
 
         {/* Message d'erreur */}
@@ -78,8 +78,8 @@ export default function RegisterScreen({ navigation }: any) {
         <View style={styles.infoBox}>
           <MaterialIcons name="info" size={20} color={colors.primary} />
           <Text style={styles.infoText}>
-            L'auto-inscription est exclusivement réservée aux étudiants de l'Université d'Abomey-Calavi.
-            Les comptes chauffeurs et agents sont créés par l'administration.
+            L'auto-inscription est réservée aux étudiants des campus universitaires du Bénin.
+            Les comptes chauffeurs et agents sont configurés par l'administration.
           </Text>
         </View>
 

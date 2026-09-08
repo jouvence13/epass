@@ -155,7 +155,7 @@ export default function AdminUsersScreen() {
       case 'SUPERADMIN':
         return { label: 'SUPERADMIN', color: '#b91c1c' };
       case 'ADMIN_CROUS':
-        return { label: 'ADMIN CROUS', color: colors.primary };
+        return { label: 'ADMIN CAMPUS', color: colors.primary };
       case 'DRIVER':
         return { label: 'CHAUFFEUR', color: '#0284c7' };
       case 'CONTROLLER':
@@ -171,7 +171,7 @@ export default function AdminUsersScreen() {
       <View style={styles.header}>
         <View style={styles.headerTop}>
           <View>
-            <Text style={styles.eyebrow}>GESTION DES ACCÈS CROUS</Text>
+            <Text style={styles.eyebrow}>GESTION DES ACCÈS & PERSONNEL</Text>
             <Text style={styles.title}>Personnel & Utilisateurs</Text>
           </View>
           <Pressable style={styles.enrollBtn} onPress={() => setShowEnrollModal(true)}>
@@ -261,7 +261,7 @@ export default function AdminUsersScreen() {
           <View style={styles.modalCard}>
             <View style={styles.modalHeader}>
               <MaterialIcons name="person-add" size={24} color={colors.primary} />
-              <Text style={styles.modalTitle}>Enrôler un Nouvel Agent CROUS</Text>
+              <Text style={styles.modalTitle}>Enrôler un Nouvel Agent</Text>
             </View>
 
             {/* Role Select */}
@@ -270,7 +270,7 @@ export default function AdminUsersScreen() {
               {[
                 { key: 'DRIVER', label: 'Chauffeur' },
                 { key: 'CONTROLLER', label: 'Contrôleur' },
-                { key: 'ADMIN_CROUS', label: 'Admin CROUS' },
+                { key: 'ADMIN_CROUS', label: 'Admin Campus' },
               ].map((r) => (
                 <Pressable
                   key={r.key}
@@ -312,7 +312,7 @@ export default function AdminUsersScreen() {
               style={styles.modalInput}
             />
 
-            <Text style={styles.inputLabel}>Matricule CROUS (Optionnel)</Text>
+            <Text style={styles.inputLabel}>Matricule Professionnel (Optionnel)</Text>
             <TextInput
               value={matricule}
               onChangeText={setMatricule}

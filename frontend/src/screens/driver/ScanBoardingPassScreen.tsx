@@ -46,15 +46,15 @@ export default function ScanBoardingPassScreen({ navigation }: any) {
         credentials: 'include',
         headers,
         body: JSON.stringify({
-          qr_code_token: codeOrQr.startsWith('CROUS-') ? codeOrQr : undefined,
-          sms_backup_code: !codeOrQr.startsWith('CROUS-') ? codeOrQr.replace('-', '') : undefined,
+          qr_code_token: (codeOrQr.startsWith('EPASS-') || codeOrQr.startsWith('CROUS-')) ? codeOrQr : undefined,
+          sms_backup_code: !(codeOrQr.startsWith('EPASS-') || codeOrQr.startsWith('CROUS-')) ? codeOrQr.replace('-', '') : undefined,
         }),
       });
 
       if (res.ok) {
         const valData = await res.json();
         setResult({
-          id: `${valData.student_name || 'Étudiant UAC'} (${valData.matricule_uac || 'Validé'})`,
+          id: `${valData.student_name || 'Étudiant Campus'} (${valData.matricule_uac || 'Validé'})`,
           line: valData.line_name || 'Campus Express',
           time: valData.validated_time || 'À l\'instant',
           status: 'Accès Autorisé',
@@ -67,7 +67,7 @@ export default function ScanBoardingPassScreen({ navigation }: any) {
         });
       } else {
         setResult({
-          id: 'Koffi Alain (UAC-2022-8492)',
+          id: 'Koffi Alain (Campus-2024-8492)',
           line: 'Campus Express Ligne 4',
           time: 'Validé à l\'instant',
           status: 'Accès Autorisé',

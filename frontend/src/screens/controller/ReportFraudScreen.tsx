@@ -39,7 +39,7 @@ export default function ReportFraudScreen({ navigation }: any) {
       setSending(false);
       showToast({
         title: 'Procès-Verbal Enregistré',
-        message: 'Le signalement d’infraction a été transmis à la direction CROUS.',
+        message: 'Le signalement d’infraction a été transmis à la direction des transports.',
         type: 'success',
         category: 'TRIP',
       });
@@ -57,7 +57,7 @@ export default function ReportFraudScreen({ navigation }: any) {
         <Text style={styles.topBarTitle}>Signaler une Fraude</Text>
         <View style={styles.badgePv}>
           <MaterialIcons name="security" size={14} color="#ffffff" />
-          <Text style={styles.badgePvText}>PV CROUS</Text>
+          <Text style={styles.badgePvText}>PV Contrôle</Text>
         </View>
       </View>
 
@@ -68,7 +68,7 @@ export default function ReportFraudScreen({ navigation }: any) {
           <View style={{ flex: 1 }}>
             <Text style={styles.bannerTitle}>Procès-Verbal de Contrôle</Text>
             <Text style={styles.bannerBody}>
-              Ce signalement est transmis directement à la commission de discipline et au service des transports CROUS.
+              Ce signalement est transmis directement à la commission de discipline et à la direction des transports universitaires.
             </Text>
           </View>
         </View>

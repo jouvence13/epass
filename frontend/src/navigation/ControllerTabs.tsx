@@ -29,7 +29,7 @@ export default function ControllerTabs() {
   const handleLogout = () => {
     showToast({
       title: 'Déconnexion Réussie',
-      message: 'Votre session Contrôleur CROUS a été fermée.',
+      message: 'Votre session Contrôleur Campus a été fermée.',
       type: 'info',
       category: 'GENERAL',
     });
@@ -47,7 +47,7 @@ export default function ControllerTabs() {
             ? undefined
             : () => (
                 <TopBar
-                  title="CROUS-UAC Contrôle"
+                  title="Contrôle Campus Bénin"
                   dark
                   rightIcon="logout"
                   onRightPress={handleLogout}

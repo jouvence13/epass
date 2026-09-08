@@ -252,7 +252,7 @@ async def get_student_ticket_history(
         total_seats = trip.total_seats if (trip and trip.total_seats > 0) else 50
         avail_seats = trip.available_seats if trip else 50
         cap_pct = int(((total_seats - max(0, avail_seats)) / total_seats) * 100) if total_seats > 0 else 0
-        bus_code_val = trip.bus.bus_code if (trip and trip.bus) else "Bus CROUS"
+        bus_code_val = trip.bus.bus_code if (trip and trip.bus) else "Bus Campus"
 
         history_list.append(
             ActiveTicketScreenOutSchema(
@@ -328,7 +328,7 @@ async def get_live_lines(
         occupied = total_seats - max(0, avail_seats)
         pct = int((occupied / total_seats) * 100) if total_seats > 0 else 0
 
-        bus_label = f"Bus CROUS #{bus.bus_code.split('-')[-1]}" if (bus and bus.bus_code) else "Bus CROUS"
+        bus_label = f"Bus Campus #{bus.bus_code.split('-')[-1]}" if (bus and bus.bus_code) else "Bus Campus"
         origin_n = r.origin_stop.stop_name if r.origin_stop else "Campus UAC Calavi"
         dest_n = r.destination_stop.stop_name if r.destination_stop else "Cotonou Centre"
 

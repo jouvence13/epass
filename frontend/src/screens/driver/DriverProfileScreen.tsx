@@ -166,7 +166,7 @@ export default function DriverProfileScreen({ navigation }: any) {
         const badgeObj = selectedFiles['CONTROLLER_BADGE']?.file;
         const cipObj = selectedFiles['CIP_IDENTITY']?.file;
 
-        if (badgeObj) formData.append('controller_badge_file', badgeObj, selectedFiles['CONTROLLER_BADGE']?.name || 'badge_crous.jpg');
+        if (badgeObj) formData.append('controller_badge_file', badgeObj, selectedFiles['CONTROLLER_BADGE']?.name || 'badge_controller.jpg');
         if (cipObj) formData.append('identity_file', cipObj, selectedFiles['CIP_IDENTITY']?.name || 'cip_controller.jpg');
       } else {
         const licenseObj = selectedFiles['DRIVER_LICENSE']?.file;
@@ -193,7 +193,7 @@ export default function DriverProfileScreen({ navigation }: any) {
       if (res.ok) {
         showToast({
           title: isController ? 'Dossier Contrôleur Transmis' : 'Dossier Chauffeur Transmis',
-          message: 'Vos justificatifs ont été envoyés avec succès au CROUS pour examen sous 24h.',
+          message: 'Vos justificatifs ont été envoyés avec succès à l’administration pour examen sous 24h.',
           type: 'success',
           category: 'KYC',
         });
@@ -234,7 +234,7 @@ export default function DriverProfileScreen({ navigation }: any) {
 
   const kycLabel =
     kycStatus === 'APPROVED'
-      ? isController ? 'CONTRÔLEUR CROUS VALIDÉ' : 'CHAUFFEUR CROUS VALIDÉ'
+      ? isController ? 'CONTRÔLEUR HABILITÉ' : 'CHAUFFEUR HABILITÉ'
       : kycStatus === 'PENDING'
       ? 'EXAMEN EN COURS'
       : kycStatus === 'REJECTED'
@@ -244,7 +244,7 @@ export default function DriverProfileScreen({ navigation }: any) {
   const complianceDocs = isController
     ? [
         {
-          title: "Badge / Accréditation d'Agent CROUS",
+          title: "Badge / Accréditation d'Agent",
           subtitle: 'Carte professionnelle ou badge de service valide',
           type: 'CONTROLLER_BADGE',
           icon: 'badge',
@@ -256,8 +256,8 @@ export default function DriverProfileScreen({ navigation }: any) {
           icon: 'credit-card',
         },
         {
-          title: "Attestation de Service CROUS",
-          subtitle: "Certificat d'affectation aux lignes universitaires",
+          title: "Attestation d'Affectation Universitaire",
+          subtitle: "Certificat d'affectation aux lignes de transport universitaire",
           type: 'ATTESTATION_CROUS',
           icon: 'verified-user',
         },
@@ -271,7 +271,7 @@ export default function DriverProfileScreen({ navigation }: any) {
         },
         {
           title: "Certificat d'Aptitude Médicale",
-          subtitle: 'Délivré par le service de santé UAC / CROUS',
+          subtitle: 'Délivré par un médecin agréé ou centre de santé universitaire',
           type: 'MEDICAL_CERTIFICATE',
           icon: 'health-and-safety',
         },
@@ -297,7 +297,7 @@ export default function DriverProfileScreen({ navigation }: any) {
             <MaterialIcons name="arrow-back" size={24} color={colors.onSurface} />
           </Pressable>
           <Text style={styles.headerTitle}>
-            {isController ? 'Profil Contrôleur CROUS' : 'Profil Chauffeur CROUS'}
+            {isController ? 'Profil Contrôleur Campus' : 'Profil Chauffeur Campus'}
           </Text>
           <Pressable style={styles.logoutBtn} onPress={logout}>
             <MaterialIcons name="logout" size={20} color={colors.error} />
@@ -317,7 +317,7 @@ export default function DriverProfileScreen({ navigation }: any) {
             <View style={{ flex: 1 }}>
               <Text style={styles.driverName}>{profile?.full_name || `${user?.first_name} ${user?.last_name}`}</Text>
               <Text style={styles.driverMatricule}>
-                Matricule CROUS :{' '}
+                Matricule Professionnel :{' '}
                 <Text style={{ fontWeight: '700' }}>
                   {profile?.matricule_uac || user?.matricule_uac || (isController ? 'CTR-2024-001' : 'DRV-2024-001')}
                 </Text>
@@ -330,7 +330,7 @@ export default function DriverProfileScreen({ navigation }: any) {
 
           {/* Compliance Status */}
           <View style={styles.statusRow}>
-            <Text style={styles.statusLabel}>Statut Habilitation CROUS :</Text>
+            <Text style={styles.statusLabel}>Statut Habilitation :</Text>
             <Badge label={kycLabel} variant={kycBadgeVariant} />
           </View>
 
@@ -349,7 +349,7 @@ export default function DriverProfileScreen({ navigation }: any) {
             <View style={styles.pendingBanner}>
               <MaterialIcons name="hourglass-empty" size={20} color="#d97706" />
               <Text style={styles.pendingText}>
-                Vos pièces professionnelles sont en cours d'examen par la direction des transports CROUS.
+                Vos pièces professionnelles sont en cours d'examen par la direction des transports universitaires.
               </Text>
             </View>
           )}
@@ -359,7 +359,7 @@ export default function DriverProfileScreen({ navigation }: any) {
               <MaterialIcons name="error-outline" size={20} color={colors.error} />
               <Text style={styles.warningText}>
                 {isController
-                  ? 'Vous devez soumettre votre Badge CROUS et CIP pour débloquer le contrôle des passagers.'
+                  ? 'Vous devez soumettre votre Badge et CIP pour débloquer le contrôle des passagers.'
                   : 'Vous devez soumettre votre Permis D et Certificat Médical pour débloquer les trajets et le scanner.'}
               </Text>
             </View>
@@ -376,8 +376,8 @@ export default function DriverProfileScreen({ navigation }: any) {
           </View>
           <View style={styles.busInfoRow}>
             <View style={styles.busMetric}>
-              <Text style={styles.busMetricLabel}>Bus CROUS</Text>
-              <Text style={styles.busMetricVal}>{profile?.assigned_bus?.bus_code || 'BUS-UAC-01'}</Text>
+              <Text style={styles.busMetricLabel}>Bus Campus</Text>
+              <Text style={styles.busMetricVal}>{profile?.assigned_bus?.bus_code || 'BUS-01'}</Text>
             </View>
             <View style={styles.busMetric}>
               <Text style={styles.busMetricLabel}>Immatriculation</Text>

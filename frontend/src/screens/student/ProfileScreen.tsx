@@ -13,7 +13,7 @@ const ROWS: { icon: keyof typeof MaterialIcons.glyphMap; label: string; action: 
   { icon: 'verified-user', label: 'Vérification KYC (Documents)', action: 'KycOnboarding' },
   { icon: 'payments', label: 'Moyens de paiement (MTN / Moov / Celtiis)', action: 'PaymentMethods' },
   { icon: 'notifications', label: 'Notifications', action: 'Notifications' },
-  { icon: 'help-outline', label: 'Aide & support CROUS', action: 'Support' },
+  { icon: 'help-outline', label: 'Aide & support Campus', action: 'Support' },
 ];
 
 export default function ProfileScreen({ navigation }: any) {

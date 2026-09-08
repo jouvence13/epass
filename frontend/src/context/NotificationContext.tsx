@@ -10,9 +10,11 @@ import {
 import { MaterialIcons } from '@expo/vector-icons';
 import { colors, radius, spacing, typography } from '../theme/theme';
 
+export type NotificationCategory = 'TRAFFIC' | 'KYC' | 'PAYMENT' | 'WALLET' | 'GENERAL' | 'TRIP';
+
 export interface GlobalNotification {
   id: string;
-  category: 'TRAFFIC' | 'KYC' | 'PAYMENT' | 'WALLET' | 'GENERAL';
+  category: NotificationCategory;
   title: string;
   message: string;
   time: string;
@@ -27,7 +29,7 @@ interface NotificationContextType {
   showToast: (params: {
     title: string;
     message: string;
-    category?: 'TRAFFIC' | 'KYC' | 'PAYMENT' | 'WALLET' | 'GENERAL';
+    category?: NotificationCategory;
     type?: 'success' | 'warning' | 'info' | 'error';
   }) => void;
   markAllAsRead: () => void;
@@ -74,9 +76,9 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   };
 
   useEffect(() => {
-    if (isAuthenticated && !isInitialLoading) {
+    if (isAuthenticated) {
       fetchNotifications();
-    } else if (!isAuthenticated && !isInitialLoading) {
+    } else if (!isInitialLoading) {
       setNotifications([]);
     }
   }, [isAuthenticated, isInitialLoading, user?.user_id]);
@@ -102,7 +104,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   }: {
     title: string;
     message: string;
-    category?: 'TRAFFIC' | 'KYC' | 'PAYMENT' | 'WALLET' | 'GENERAL';
+    category?: NotificationCategory;
     type?: 'success' | 'warning' | 'info' | 'error';
   }) => {
     const icon: keyof typeof MaterialIcons.glyphMap =

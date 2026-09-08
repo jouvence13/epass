@@ -1,17 +1,20 @@
 {
   "expo": {
-    "name": "CROUS ePass UAC",
-    "slug": "epass-uac",
+    "name": "ePass Campus Bénin",
+    "slug": "epass-campus-benin",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.crous.epass"
+      "bundleIdentifier": "com.campusbenin.epass",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
-      "package": "com.crous.epass",
+      "package": "com.campusbenin.epass",
       "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
@@ -32,6 +35,11 @@
     },
     "plugins": [
       "expo-font"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "04e3436b-d973-42fd-b5ac-14dda86b7219"
+      }
+    }
   }
 }
