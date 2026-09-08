@@ -1,4 +1,3 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
 const STORAGE_KEYS = {
@@ -11,13 +10,59 @@ const STORAGE_KEYS = {
   OFFLINE_CACHE_TIME: '@epass_offline_cache_time',
 };
 
+// Universal Storage Adapter: supporte React Native Web (localStorage) & Mobile Native (AsyncStorage)
+const getNativeStorage = () => {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const mod = require('@react-native-async-storage/async-storage');
+    return mod.default || mod;
+  } catch (e) {
+    return null;
+  }
+};
+
+const UniversalStorage = {
+  async getItem(key: string): Promise<string | null> {
+    if (Platform.OS === 'web' && typeof window !== 'undefined' && window.localStorage) {
+      return window.localStorage.getItem(key);
+    }
+    const native = getNativeStorage();
+    if (native) {
+      return await native.getItem(key);
+    }
+    return null;
+  },
+
+  async setItem(key: string, value: string): Promise<void> {
+    if (Platform.OS === 'web' && typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.setItem(key, value);
+      return;
+    }
+    const native = getNativeStorage();
+    if (native) {
+      await native.setItem(key, value);
+    }
+  },
+
+  async removeItem(key: string): Promise<void> {
+    if (Platform.OS === 'web' && typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.removeItem(key);
+      return;
+    }
+    const native = getNativeStorage();
+    if (native) {
+      await native.removeItem(key);
+    }
+  },
+};
+
 export const StorageService = {
   async saveUser(user: any): Promise<void> {
     try {
       if (!user) {
-        await AsyncStorage.removeItem(STORAGE_KEYS.USER);
+        await UniversalStorage.removeItem(STORAGE_KEYS.USER);
       } else {
-        await AsyncStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
+        await UniversalStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
       }
     } catch (e) {
       console.warn('StorageService.saveUser error:', e);
@@ -26,7 +71,7 @@ export const StorageService = {
 
   async getUser(): Promise<any | null> {
     try {
-      const data = await AsyncStorage.getItem(STORAGE_KEYS.USER);
+      const data = await UniversalStorage.getItem(STORAGE_KEYS.USER);
       return data ? JSON.parse(data) : null;
     } catch (e) {
       console.warn('StorageService.getUser error:', e);
@@ -37,9 +82,9 @@ export const StorageService = {
   async saveToken(token: string | null): Promise<void> {
     try {
       if (!token) {
-        await AsyncStorage.removeItem(STORAGE_KEYS.TOKEN);
+        await UniversalStorage.removeItem(STORAGE_KEYS.TOKEN);
       } else {
-        await AsyncStorage.setItem(STORAGE_KEYS.TOKEN, token);
+        await UniversalStorage.setItem(STORAGE_KEYS.TOKEN, token);
       }
     } catch (e) {
       console.warn('StorageService.saveToken error:', e);
@@ -48,7 +93,7 @@ export const StorageService = {
 
   async getToken(): Promise<string | null> {
     try {
-      return await AsyncStorage.getItem(STORAGE_KEYS.TOKEN);
+      return await UniversalStorage.getItem(STORAGE_KEYS.TOKEN);
     } catch (e) {
       console.warn('StorageService.getToken error:', e);
       return null;
@@ -57,11 +102,11 @@ export const StorageService = {
 
   async saveTickets(tickets: any[], activeTicket: any | null): Promise<void> {
     try {
-      await AsyncStorage.setItem(STORAGE_KEYS.TICKETS, JSON.stringify(tickets || []));
+      await UniversalStorage.setItem(STORAGE_KEYS.TICKETS, JSON.stringify(tickets || []));
       if (activeTicket) {
-        await AsyncStorage.setItem(STORAGE_KEYS.ACTIVE_TICKET, JSON.stringify(activeTicket));
+        await UniversalStorage.setItem(STORAGE_KEYS.ACTIVE_TICKET, JSON.stringify(activeTicket));
       }
-      await AsyncStorage.setItem(STORAGE_KEYS.OFFLINE_CACHE_TIME, Date.now().toString());
+      await UniversalStorage.setItem(STORAGE_KEYS.OFFLINE_CACHE_TIME, Date.now().toString());
     } catch (e) {
       console.warn('StorageService.saveTickets error:', e);
     }
@@ -69,9 +114,9 @@ export const StorageService = {
 
   async getTickets(): Promise<{ tickets: any[]; activeTicket: any | null; cachedAt: number | null }> {
     try {
-      const ticketsRaw = await AsyncStorage.getItem(STORAGE_KEYS.TICKETS);
-      const activeRaw = await AsyncStorage.getItem(STORAGE_KEYS.ACTIVE_TICKET);
-      const cachedAtRaw = await AsyncStorage.getItem(STORAGE_KEYS.OFFLINE_CACHE_TIME);
+      const ticketsRaw = await UniversalStorage.getItem(STORAGE_KEYS.TICKETS);
+      const activeRaw = await UniversalStorage.getItem(STORAGE_KEYS.ACTIVE_TICKET);
+      const cachedAtRaw = await UniversalStorage.getItem(STORAGE_KEYS.OFFLINE_CACHE_TIME);
 
       const tickets = ticketsRaw ? JSON.parse(ticketsRaw) : [];
       const activeTicket = activeRaw ? JSON.parse(activeRaw) : (tickets.find((t: any) => t.status === 'ACTIVE') || null);
@@ -86,8 +131,8 @@ export const StorageService = {
 
   async saveWallet(balance: number, phones: { MTN: string; MOOV: string; CELTIIS: string }): Promise<void> {
     try {
-      await AsyncStorage.setItem(STORAGE_KEYS.WALLET, balance.toString());
-      await AsyncStorage.setItem(STORAGE_KEYS.PHONE_NUMBERS, JSON.stringify(phones));
+      await UniversalStorage.setItem(STORAGE_KEYS.WALLET, balance.toString());
+      await UniversalStorage.setItem(STORAGE_KEYS.PHONE_NUMBERS, JSON.stringify(phones));
     } catch (e) {
       console.warn('StorageService.saveWallet error:', e);
     }
@@ -95,8 +140,8 @@ export const StorageService = {
 
   async getWallet(): Promise<{ balance: number; phones: { MTN: string; MOOV: string; CELTIIS: string } | null }> {
     try {
-      const bal = await AsyncStorage.getItem(STORAGE_KEYS.WALLET);
-      const phonesRaw = await AsyncStorage.getItem(STORAGE_KEYS.PHONE_NUMBERS);
+      const bal = await UniversalStorage.getItem(STORAGE_KEYS.WALLET);
+      const phonesRaw = await UniversalStorage.getItem(STORAGE_KEYS.PHONE_NUMBERS);
       return {
         balance: bal ? parseFloat(bal) : 2300,
         phones: phonesRaw ? JSON.parse(phonesRaw) : null,
@@ -110,13 +155,13 @@ export const StorageService = {
   async clearAll(): Promise<void> {
     try {
       await Promise.all([
-        AsyncStorage.removeItem(STORAGE_KEYS.USER),
-        AsyncStorage.removeItem(STORAGE_KEYS.TOKEN),
-        AsyncStorage.removeItem(STORAGE_KEYS.TICKETS),
-        AsyncStorage.removeItem(STORAGE_KEYS.ACTIVE_TICKET),
-        AsyncStorage.removeItem(STORAGE_KEYS.WALLET),
-        AsyncStorage.removeItem(STORAGE_KEYS.PHONE_NUMBERS),
-        AsyncStorage.removeItem(STORAGE_KEYS.OFFLINE_CACHE_TIME),
+        UniversalStorage.removeItem(STORAGE_KEYS.USER),
+        UniversalStorage.removeItem(STORAGE_KEYS.TOKEN),
+        UniversalStorage.removeItem(STORAGE_KEYS.TICKETS),
+        UniversalStorage.removeItem(STORAGE_KEYS.ACTIVE_TICKET),
+        UniversalStorage.removeItem(STORAGE_KEYS.WALLET),
+        UniversalStorage.removeItem(STORAGE_KEYS.PHONE_NUMBERS),
+        UniversalStorage.removeItem(STORAGE_KEYS.OFFLINE_CACHE_TIME),
       ]);
     } catch (e) {
       console.warn('StorageService.clearAll error:', e);

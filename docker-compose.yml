@@ -149,6 +149,8 @@ services:
       - /app/node_modules
     environment:
       - CI=false
+      - EXPO_OFFLINE=1
+      - EXPO_NO_TELEMETRY=1
     depends_on:
       api:
         condition: service_started
