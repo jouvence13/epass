@@ -18,6 +18,7 @@ import { colors, radius, spacing, typography } from '../../theme/theme';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
 import { ENDPOINTS } from '../../config/api';
+import { normalizeBeninPhone } from '../../utils/phoneUtils';
 
 interface UserItem {
   user_id: string;
@@ -82,10 +83,20 @@ export default function AdminUsersScreen() {
   };
 
   const handleEnrollStaff = async () => {
-    if (!firstName.trim() || !lastName.trim() || !phone.trim() || !password.trim()) {
+    if (!firstName || !lastName || !phone || !password) {
       showToast({
-        title: 'Champs requis',
-        message: 'Nom, prénom, téléphone et mot de passe sont obligatoires.',
+        title: 'Formulaire incomplet',
+        message: 'Veuillez remplir tous les champs obligatoires.',
+        type: 'warning',
+        category: 'GENERAL',
+      });
+      return;
+    }
+
+    if ((newRole === 'DRIVER' || newRole === 'CONTROLLER') && !matricule.trim()) {
+      showToast({
+        title: 'Matricule Obligatoire',
+        message: `Le matricule professionnel est obligatoire pour un ${newRole === 'DRIVER' ? 'Chauffeur (ex: DRV-2024-001)' : 'Contrôleur (ex: CTR-2024-001)'}.`,
         type: 'warning',
         category: 'GENERAL',
       });
@@ -93,6 +104,7 @@ export default function AdminUsersScreen() {
     }
 
     setEnrolling(true);
+    const fullPhone = normalizeBeninPhone(phone.trim());
     try {
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
@@ -106,10 +118,10 @@ export default function AdminUsersScreen() {
         credentials: 'include',
         headers,
         body: JSON.stringify({
-          first_name: firstName,
-          last_name: lastName,
-          phone_number: phone.startsWith('+') ? phone : `+229${phone}`,
-          matricule_uac: matricule || undefined,
+          first_name: firstName.trim(),
+          last_name: lastName.trim(),
+          phone_number: fullPhone,
+          matricule_uac: matricule.trim() || undefined,
           password: password,
           role: newRole,
           kyc_status: 'APPROVED',
@@ -119,7 +131,7 @@ export default function AdminUsersScreen() {
       if (res.ok) {
         showToast({
           title: 'Agent Enrôlé avec Succès',
-          message: `Le compte ${newRole} de ${firstName} ${lastName} a été créé.`,
+          message: `Le compte ${newRole} de ${firstName} ${lastName} a été créé avec le matricule ${matricule || 'N/A'}.`,
           type: 'success',
           category: 'GENERAL',
         });
@@ -303,22 +315,35 @@ export default function AdminUsersScreen() {
               style={styles.modalInput}
             />
 
-            <Text style={styles.inputLabel}>Téléphone *</Text>
-            <TextInput
-              value={phone}
-              onChangeText={setPhone}
-              placeholder="+229 97 00 00 10"
-              placeholderTextColor={colors.outline}
-              keyboardType="phone-pad"
-              style={styles.modalInput}
-            />
+            <Text style={styles.inputLabel}>Numéro de Téléphone Bénin *</Text>
+            <View style={styles.phoneInputRow}>
+              <View style={styles.countryBadge}>
+                <Text style={{ fontSize: 13 }}>🇧🇯</Text>
+                <Text style={styles.countryBadgeText}>+229 01</Text>
+              </View>
+              <TextInput
+                value={phone}
+                onChangeText={setPhone}
+                placeholder="97 00 00 10"
+                placeholderTextColor={colors.outline}
+                keyboardType="phone-pad"
+                style={styles.phoneInput}
+              />
+            </View>
 
-            <Text style={styles.inputLabel}>Matricule Professionnel (Optionnel)</Text>
+            <Text style={styles.inputLabel}>
+              {newRole === 'DRIVER'
+                ? 'Matricule Chauffeur * (ex: DRV-2024-001)'
+                : newRole === 'CONTROLLER'
+                ? 'Matricule Contrôleur * (ex: CTR-2024-001)'
+                : 'Matricule Administration (Optionnel)'}
+            </Text>
             <TextInput
               value={matricule}
               onChangeText={setMatricule}
-              placeholder="Ex: DRV-2026-002"
+              placeholder={newRole === 'DRIVER' ? 'ex: DRV-2024-005' : newRole === 'CONTROLLER' ? 'ex: CTR-2024-003' : 'ex: DIR-2024-001'}
               placeholderTextColor={colors.outline}
+              autoCapitalize="characters"
               style={styles.modalInput}
             />
 
@@ -425,6 +450,33 @@ const styles = StyleSheet.create({
     height: 40,
     ...typography.bodyMd,
     color: colors.onSurface,
+  },
+  phoneInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.outlineVariant,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+    height: 40,
+    overflow: 'hidden',
+  },
+  countryBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surfaceContainer,
+    paddingHorizontal: spacing.xs,
+    height: '100%',
+    borderRightWidth: 1,
+    borderRightColor: colors.outlineVariant,
+    gap: 2,
+  },
+  countryBadgeText: { ...typography.bodySm, fontWeight: '700', fontSize: 11, color: colors.onSurface },
+  phoneInput: {
+    flex: 1,
+    ...typography.bodyMd,
+    color: colors.onSurface,
+    paddingHorizontal: spacing.sm,
   },
   modalActions: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md },
   modalCancelBtn: { flex: 1, height: 42, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.outline, borderRadius: radius.md },

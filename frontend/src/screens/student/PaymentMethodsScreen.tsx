@@ -18,6 +18,7 @@ import PrimaryButton from '../../components/PrimaryButton';
 import { colors, radius, spacing, typography } from '../../theme/theme';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
+import { normalizeBeninPhone, formatBeninPhoneDisplay } from '../../utils/phoneUtils';
 
 interface PaymentMethod {
   id: string;
@@ -124,13 +125,13 @@ export default function PaymentMethodsScreen({ navigation }: any) {
   };
 
   const handleSaveMethod = async () => {
-    const compactInput = inputPhoneNumber.replace(/\s+/g, '').replace(/-/g, '').trim();
-    if (!compactInput || compactInput.length < 8) {
-      Alert.alert('Numéro incomplet', 'Veuillez saisir un numéro de téléphone valide à 10 chiffres (ex: 0197001122).');
+    const compactInput = inputPhoneNumber.trim();
+    if (!compactInput) {
+      Alert.alert('Numéro incomplet', 'Veuillez saisir votre numéro de téléphone.');
       return;
     }
 
-    const formatted = compactInput.startsWith('+229') ? compactInput : `+229${compactInput}`;
+    const formatted = normalizeBeninPhone(compactInput);
     updateOperatorPhone(selectedOperator, formatted);
 
     const providerType =
@@ -199,8 +200,8 @@ export default function PaymentMethodsScreen({ navigation }: any) {
         ? 'Moov Money Flooz'
         : 'Celtiis Cash';
 
-    const cleanRechargePhone = rechargePhone.replace(/\s+/g, '').trim();
-    const formattedPhone = cleanRechargePhone.startsWith('+229') ? cleanRechargePhone : `+229${cleanRechargePhone}`;
+    const cleanRechargePhone = rechargePhone.trim();
+    const formattedPhone = normalizeBeninPhone(cleanRechargePhone);
 
     setTimeout(async () => {
       setIsProcessingUssd(false);
@@ -443,16 +444,22 @@ export default function PaymentMethodsScreen({ navigation }: any) {
             </View>
 
             <Text style={[styles.modalLabel, { marginTop: spacing.md }]}>
-              Saisissez votre numéro de téléphone (10 chiffres) :
+              Numéro de téléphone du compte (Standard Bénin) :
             </Text>
-            <TextInput
-              value={inputPhoneNumber}
-              onChangeText={setInputPhoneNumber}
-              placeholder="ex: 0197001122"
-              placeholderTextColor={colors.outline}
-              keyboardType="phone-pad"
-              style={styles.modalInput}
-            />
+            <View style={styles.phoneInputRow}>
+              <View style={styles.countryBadge}>
+                <Text style={{ fontSize: 13 }}>🇧🇯</Text>
+                <Text style={styles.countryBadgeText}>+229 01</Text>
+              </View>
+              <TextInput
+                value={inputPhoneNumber}
+                onChangeText={setInputPhoneNumber}
+                placeholder="97 00 11 22"
+                placeholderTextColor={colors.outline}
+                keyboardType="phone-pad"
+                style={styles.phoneInput}
+              />
+            </View>
 
             <PrimaryButton
               label={editingMethodId ? 'Enregistrer la modification' : 'Ajouter ce moyen de paiement'}
@@ -526,14 +533,20 @@ export default function PaymentMethodsScreen({ navigation }: any) {
             <Text style={[styles.modalLabel, { marginTop: spacing.sm }]}>
               2. Numéro de téléphone débité :
             </Text>
-            <TextInput
-              value={rechargePhone}
-              onChangeText={setRechargePhone}
-              placeholder="ex: 0197001122"
-              placeholderTextColor={colors.outline}
-              keyboardType="phone-pad"
-              style={styles.modalInput}
-            />
+            <View style={styles.phoneInputRow}>
+              <View style={styles.countryBadge}>
+                <Text style={{ fontSize: 13 }}>🇧🇯</Text>
+                <Text style={styles.countryBadgeText}>+229 01</Text>
+              </View>
+              <TextInput
+                value={rechargePhone}
+                onChangeText={setRechargePhone}
+                placeholder="97 00 11 22"
+                placeholderTextColor={colors.outline}
+                keyboardType="phone-pad"
+                style={styles.phoneInput}
+              />
+            </View>
 
             {/* 3. Choix du montant */}
             <Text style={[styles.modalLabel, { marginTop: spacing.sm }]}>
@@ -777,6 +790,34 @@ const styles = StyleSheet.create({
     color: colors.onSurface,
     backgroundColor: colors.surface,
     marginBottom: spacing.xs,
+  },
+  phoneInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.outlineVariant,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+    height: 48,
+    overflow: 'hidden',
+    marginBottom: spacing.xs,
+  },
+  countryBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surfaceContainer,
+    paddingHorizontal: spacing.sm,
+    height: '100%',
+    borderRightWidth: 1,
+    borderRightColor: colors.outlineVariant,
+    gap: 4,
+  },
+  countryBadgeText: { ...typography.bodyMd, fontWeight: '700', color: colors.onSurface },
+  phoneInput: {
+    flex: 1,
+    ...typography.bodyLg,
+    color: colors.onSurface,
+    paddingHorizontal: spacing.md,
   },
   quickAmounts: { flexDirection: 'row', gap: spacing.sm, marginVertical: spacing.xs },
   quickAmountBtn: {

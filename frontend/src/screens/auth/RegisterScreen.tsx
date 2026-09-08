@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -6,8 +6,6 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
-  Modal,
-  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -15,6 +13,7 @@ import Card from '../../components/Card';
 import PrimaryButton from '../../components/PrimaryButton';
 import { colors, radius, spacing, typography } from '../../theme/theme';
 import { useAuth } from '../../context/AuthContext';
+import { normalizeBeninPhone } from '../../utils/phoneUtils';
 
 export default function RegisterScreen({ navigation }: any) {
   const { register, isLoading } = useAuth();
@@ -33,14 +32,16 @@ export default function RegisterScreen({ navigation }: any) {
     }
 
     if (!matricule.trim()) {
-      setErrorMessage('Le numéro de matricule UAC est obligatoire pour l\'inscription d\'un étudiant.');
+      setErrorMessage('Le numéro de matricule UAC est obligatoire pour l\'inscription d\'un étudiant (ex: UAC-2024-8492).');
       return;
     }
+
+    const fullPhone = normalizeBeninPhone(phoneNumber.trim());
 
     const res = await register({
       first_name: firstName.trim(),
       last_name: lastName.trim(),
-      phone_number: phoneNumber.trim(),
+      phone_number: fullPhone,
       matricule_uac: matricule.trim(),
       password: password,
       role: 'STUDENT',
@@ -78,8 +79,8 @@ export default function RegisterScreen({ navigation }: any) {
         <View style={styles.infoBox}>
           <MaterialIcons name="info" size={20} color={colors.primary} />
           <Text style={styles.infoText}>
-            L'auto-inscription est réservée aux étudiants des campus universitaires du Bénin.
-            Les comptes chauffeurs et agents sont configurés par l'administration.
+            L'auto-inscription est réservée aux étudiants des universités et centres universitaires du Bénin.
+            Les comptes conducteurs et contrôleurs sont créés par la direction de campus.
           </Text>
         </View>
 
@@ -110,30 +111,38 @@ export default function RegisterScreen({ navigation }: any) {
             </View>
           </View>
 
-          {/* Numéro de téléphone */}
-          <Text style={[styles.label, { marginTop: spacing.md }]}>Numéro de téléphone *</Text>
-          <View style={styles.inputWrap}>
-            <MaterialIcons name="phone" size={20} color={colors.outline} style={styles.inputIcon} />
+          {/* Numéro de téléphone standard Bénin (+229 01) */}
+          <View style={styles.labelRow}>
+            <Text style={styles.label}>Numéro de téléphone *</Text>
+            <Text style={styles.subLabel}>Standard Bénin (10 chiffres)</Text>
+          </View>
+          <View style={styles.phoneInputContainer}>
+            <View style={styles.countryPrefixBadge}>
+              <Text style={styles.countryFlag}>🇧🇯</Text>
+              <Text style={styles.countryPrefixText}>+229 01</Text>
+            </View>
             <TextInput
-              style={styles.inputField}
-              placeholder="+2290197001122"
+              style={styles.phoneInputField}
+              placeholder="97 00 11 22"
               placeholderTextColor={colors.outline}
               keyboardType="phone-pad"
               value={phoneNumber}
               onChangeText={setPhoneNumber}
+              autoCapitalize="none"
             />
           </View>
 
           {/* Matricule UAC (Obligatoire) */}
-          <Text style={[styles.label, { marginTop: spacing.md }]}>Matricule UAC *</Text>
+          <Text style={[styles.label, { marginTop: spacing.md }]}>Matricule Étudiant UAC *</Text>
           <View style={styles.inputWrap}>
-            <MaterialIcons name="badge" size={20} color={colors.outline} style={styles.inputIcon} />
+            <MaterialIcons name="badge" size={20} color={colors.primary} style={styles.inputIcon} />
             <TextInput
               style={styles.inputField}
               placeholder="ex: UAC-2024-8492"
               placeholderTextColor={colors.outline}
               value={matricule}
               onChangeText={setMatricule}
+              autoCapitalize="characters"
             />
           </View>
 
@@ -203,15 +212,53 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    backgroundColor: colors.secondaryContainer,
+    backgroundColor: '#ecfdf5',
+    borderColor: '#a7f3d0',
+    borderWidth: 1,
     borderRadius: radius.md,
     padding: spacing.md,
     marginBottom: spacing.md,
   },
-  infoText: { ...typography.bodySm, color: colors.onSecondaryContainer, flex: 1, lineHeight: 18 },
+  infoText: { ...typography.bodySm, color: '#065f46', flex: 1, lineHeight: 18 },
   formCard: { borderWidth: 1, borderColor: colors.surfaceVariant, padding: spacing.lg },
   row: { flexDirection: 'row', gap: spacing.md },
+  labelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: spacing.md,
+    marginBottom: spacing.xs,
+  },
   label: { ...typography.labelCaps, color: colors.onSurfaceVariant, marginBottom: spacing.xs },
+  subLabel: { ...typography.bodySm, fontSize: 11, color: colors.primary, fontWeight: '600' },
+  phoneInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.outlineVariant,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+    height: 48,
+    overflow: 'hidden',
+  },
+  countryPrefixBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surfaceContainer,
+    paddingHorizontal: spacing.sm,
+    height: '100%',
+    borderRightWidth: 1,
+    borderRightColor: colors.outlineVariant,
+    gap: 4,
+  },
+  countryFlag: { fontSize: 16 },
+  countryPrefixText: { ...typography.bodyMd, fontWeight: '700', color: colors.onSurface },
+  phoneInputField: {
+    flex: 1,
+    ...typography.bodyLg,
+    color: colors.onSurface,
+    paddingHorizontal: spacing.md,
+  },
   input: {
     borderWidth: 1,
     borderColor: colors.outlineVariant,

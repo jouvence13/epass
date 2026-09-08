@@ -39,7 +39,9 @@ export interface BusSlot {
   full: boolean;
 }
 
-interface AuthContextType {
+import { normalizeBeninPhone } from '../utils/phoneUtils';
+
+export interface AuthContextType {
   user: User | null;
   token: string | null;
   isAuthenticated: boolean;
@@ -77,7 +79,11 @@ interface AuthContextType {
     newSlotId: string
   ) => Promise<{ success: boolean; error?: string; ticket?: StudentTicket }>;
   setActiveTicket: (ticket: StudentTicket) => void;
-  login: (phoneNumber: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  login: (
+    phoneNumber: string,
+    password: string,
+    options?: { expectedRole?: UserRole; requiredMatricule?: string }
+  ) => Promise<{ success: boolean; error?: string; user?: User }>;
   register: (
     payload: {
       phone_number: string;
@@ -551,9 +557,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [user, refreshTickets]);
 
-  const login = async (phoneNumber: string, password: string) => {
+  const login = async (
+    phoneNumber: string,
+    password: string,
+    options?: { expectedRole?: UserRole; requiredMatricule?: string }
+  ) => {
     setIsLoading(true);
-    const cleanPhone = phoneNumber.replace(/\s+/g, '').replace(/-/g, '');
+    const cleanPhone = normalizeBeninPhone(phoneNumber);
     try {
       const response = await fetch(ENDPOINTS.LOGIN, {
         method: 'POST',
@@ -603,8 +613,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           first_name: 'Utilisateur',
           last_name: 'UAC',
           role: data.role,
+          matricule_uac: data.matricule_uac,
           kyc_status: data.kyc_status,
         };
+      }
+
+      // 1. Vérification du rôle attendu
+      if (options?.expectedRole) {
+        const isAdminRole = (r?: string) => r === 'SUPERADMIN' || r === 'ADMIN' || r === 'ADMIN_CAMPUS' || r === 'ADMIN_CROUS';
+        const expectedIsAdmin = isAdminRole(options.expectedRole);
+        const actualIsAdmin = isAdminRole(userData.role);
+
+        const matches = (expectedIsAdmin && actualIsAdmin) || userData.role === options.expectedRole;
+        if (!matches) {
+          setIsLoading(false);
+          try {
+            await fetch(ENDPOINTS.LOGOUT, { method: 'POST', credentials: 'include', headers: DEFAULT_HEADERS });
+          } catch (_) {}
+          return {
+            success: false,
+            error: `Accès refusé : Ce compte n'a pas les droits pour le profil ${options.expectedRole}.`,
+          };
+        }
+      }
+
+      // 2. Vérification stricte du matricule pour Chauffeur et Contrôleur
+      if (options?.requiredMatricule) {
+        const reqMat = options.requiredMatricule.trim().toLowerCase();
+        const userMat = (userData.matricule_uac || '').trim().toLowerCase();
+        if (!userMat || userMat !== reqMat) {
+          setIsLoading(false);
+          try {
+            await fetch(ENDPOINTS.LOGOUT, { method: 'POST', credentials: 'include', headers: DEFAULT_HEADERS });
+          } catch (_) {}
+          return {
+            success: false,
+            error: `Accès refusé : Le matricule professionnel « ${options.requiredMatricule} » ne correspond pas à ce compte.`,
+          };
+        }
       }
 
       setToken('cookie_session');
@@ -620,7 +666,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       refreshTrips();
       refreshTickets();
 
-      return { success: true };
+      return { success: true, user: userData };
     } catch (err: any) {
       console.warn('LOGIN ERROR:', err);
       setIsLoading(false);
@@ -640,7 +686,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     role?: UserRole;
   }) => {
     setIsLoading(true);
-    const cleanPhone = payload.phone_number.replace(/\s+/g, '').replace(/-/g, '');
+    const cleanPhone = normalizeBeninPhone(payload.phone_number);
     try {
       const response = await fetch(ENDPOINTS.REGISTER, {
         method: 'POST',
@@ -700,20 +746,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const quickLogin = async (roleKey: 'STUDENT' | 'DRIVER' | 'CONTROLLER' | 'ADMIN' | 'ADMIN_CAMPUS' | 'ADMIN_CROUS' | 'SUPERADMIN') => {
-    const testCredentials: Record<string, { phone: string; pass: string }> = {
-      STUDENT: { phone: '+22997001122', pass: 'Student1234' },
-      DRIVER: { phone: '+22997000001', pass: 'Driver1234' },
-      CONTROLLER: { phone: '+22997000002', pass: 'Controller1234' },
-      ADMIN: { phone: '+22997000000', pass: 'Admin1234' },
-      ADMIN_CAMPUS: { phone: '+22997000000', pass: 'Admin1234' },
-      ADMIN_CROUS: { phone: '+22997000000', pass: 'Admin1234' },
-      SUPERADMIN: { phone: '+22997000000', pass: 'Admin1234' },
+    const testCredentials: Record<string, { phone: string; pass: string; role?: UserRole; matricule?: string }> = {
+      STUDENT: { phone: '+2290197001122', pass: 'Student1234', role: 'STUDENT', matricule: 'UAC-2024-8492' },
+      DRIVER: { phone: '+2290197000001', pass: 'Driver1234', role: 'DRIVER', matricule: 'DRV-2024-001' },
+      CONTROLLER: { phone: '+2290197000002', pass: 'Controller1234', role: 'CONTROLLER', matricule: 'CTR-2024-001' },
+      ADMIN: { phone: '+2290197000000', pass: 'Admin1234', role: 'ADMIN' },
+      ADMIN_CAMPUS: { phone: '+2290197000000', pass: 'Admin1234', role: 'ADMIN_CAMPUS' },
+      ADMIN_CROUS: { phone: '+2290197000000', pass: 'Admin1234', role: 'ADMIN' },
+      SUPERADMIN: { phone: '+2290197000000', pass: 'Admin1234', role: 'SUPERADMIN' },
     };
 
     const cred = testCredentials[roleKey] || testCredentials.ADMIN;
     await login(cred.phone, cred.pass);
   };
-
 
   const updateUserKycStatus = (status: KycStatus) => {
     if (user) {
