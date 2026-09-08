@@ -146,9 +146,10 @@ async def list_pending_kyc_submissions(
     docs_out = []
     for doc, user in results:
         doc_url = doc.document_url
-        if doc_url and ("uploads/" in doc_url or "uploads\\" in doc_url):
-            filename = doc_url.replace("\\", "/").split("uploads/")[-1]
+        if doc_url:
+            filename = doc_url.replace("\\", "/").split("/")[-1]
             doc_url = f"/uploads/{filename}"
+
 
         docs_out.append(
             KycDocumentOutSchema(

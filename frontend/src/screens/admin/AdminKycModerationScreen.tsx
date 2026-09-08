@@ -11,6 +11,7 @@ import {
   TextInput,
   Image,
   ScrollView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -49,6 +50,7 @@ export default function AdminKycModerationScreen() {
   const [inspectingDoc, setInspectingDoc] = useState<PendingKycDoc | null>(null);
   const [zoomLevel, setZoomLevel] = useState<number>(1);
   const [rotation, setRotation] = useState<number>(0);
+  const [imageError, setImageError] = useState<boolean>(false);
 
   // Modal rejection state
   const [rejectingDoc, setRejectingDoc] = useState<PendingKycDoc | null>(null);
@@ -213,6 +215,7 @@ export default function AdminKycModerationScreen() {
     setInspectingDoc(doc);
     setZoomLevel(1);
     setRotation(0);
+    setImageError(false);
   };
 
   const getFullDocumentUrl = (rawUrl: string) => {
@@ -220,15 +223,25 @@ export default function AdminKycModerationScreen() {
     if (rawUrl.startsWith('http://') || rawUrl.startsWith('https://')) {
       return rawUrl;
     }
+    const filename = rawUrl.replace(/\\/g, '/').split('/').pop();
     const host = API_BASE_URL.replace('/api/v1', '');
-    const cleanPath = rawUrl.startsWith('/') ? rawUrl : `/${rawUrl}`;
-    return `${host}${cleanPath}`;
+    return `${host}/uploads/${filename}`;
+  };
+
+  const openOriginalDocument = (rawUrl: string) => {
+    const url = getFullDocumentUrl(rawUrl);
+    if (typeof window !== 'undefined' && window.open) {
+      window.open(url, '_blank');
+    }
   };
 
   const filteredDocs = documents.filter((d) => {
     if (filter === 'ALL') return true;
     return d.document_type === filter;
   });
+
+  const fullDocUrl = inspectingDoc ? getFullDocumentUrl(inspectingDoc.document_url) : '';
+  const isPdf = inspectingDoc ? inspectingDoc.document_url.toLowerCase().endsWith('.pdf') : false;
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
@@ -298,9 +311,9 @@ export default function AdminKycModerationScreen() {
                   onPress={() => openInspection(item)}
                 >
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
-                    <MaterialIcons name="image" size={18} color={colors.primary} />
+                    <MaterialIcons name={item.document_url.endsWith('.pdf') ? 'picture-as-pdf' : 'image'} size={18} color={colors.primary} />
                     <Text style={styles.fileDetailText} numberOfLines={1}>
-                      {item.document_url.split('/').pop() || 'document_justificatif.jpg'}
+                      {item.document_url.split('/').pop() || 'document_justificatif.pdf'}
                     </Text>
                   </View>
                   <View style={styles.inspectBtn}>
@@ -406,6 +419,15 @@ export default function AdminKycModerationScreen() {
                 >
                   <MaterialIcons name="refresh" size={20} color={colors.onSurface} />
                 </Pressable>
+                {inspectingDoc && (
+                  <Pressable
+                    style={styles.openExternalBtn}
+                    onPress={() => openOriginalDocument(inspectingDoc.document_url)}
+                  >
+                    <MaterialIcons name="open-in-new" size={16} color="#ffffff" />
+                    <Text style={styles.openExternalText}>Ouvrir l'original</Text>
+                  </Pressable>
+                )}
               </View>
             </View>
 
@@ -428,58 +450,79 @@ export default function AdminKycModerationScreen() {
                     },
                   ]}
                 >
-                  {/* Institutional Watermark Badge */}
+                  {/* Institutional Header Ribbon */}
                   <View style={styles.institutionBadge}>
                     <View style={styles.flagDotRow}>
                       <View style={[styles.flagDot, { backgroundColor: colors.beninGreen }]} />
                       <View style={[styles.flagDot, { backgroundColor: colors.beninYellow }]} />
                       <View style={[styles.flagDot, { backgroundColor: colors.beninRed }]} />
                     </View>
-                    <Text style={styles.institutionText}>RÉPUBLIQUE DU BÉNIN • ENSEIGNEMENT SUPÉRIEUR</Text>
+                    <Text style={styles.institutionText}>
+                      RÉPUBLIQUE DU BÉNIN • {inspectingDoc.user_matricule || 'DOCUMENT OFFICIEL'}
+                    </Text>
                   </View>
 
-                  {/* Document Graphic Card */}
-                  <View style={styles.docGraphicCard}>
-                    <View style={styles.docGraphicHeader}>
-                      <MaterialIcons name="school" size={32} color={colors.primary} />
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.docGraphicTitle}>
-                          {inspectingDoc.document_type === 'STUDENT_CARD'
-                            ? 'CARTE D’ÉTUDIANT UNIVERSITAIRE'
-                            : inspectingDoc.document_type === 'CIP_IDENTITY'
-                            ? 'CERTIFICAT D’IDENTIFICATION PERSONNELLE'
-                            : inspectingDoc.document_type === 'DRIVER_LICENSE'
-                            ? 'PERMIS DE CONDUIRE PROFESSIONNEL'
-                            : 'PIÈCE OFFICIELLE DE VALIDATION'}
-                        </Text>
-                        <Text style={styles.docGraphicSub}>Année Universitaire : {inspectingDoc.academic_year || '2025-2026'}</Text>
-                      </View>
+                  {/* Real Document Content (PDF or Image) */}
+                  {isPdf && Platform.OS === 'web' ? (
+                    <View style={{ width: '100%', height: 500, backgroundColor: '#525659' }}>
+                      {/* @ts-ignore - Web iframe rendering for PDF */}
+                      <iframe
+                        src={fullDocUrl}
+                        style={{
+                          width: '100%',
+                          height: '500px',
+                          border: 'none',
+                        }}
+                        title="Document PDF Téléversé"
+                      />
                     </View>
-
-                    <View style={styles.docGraphicBody}>
-                      <View style={styles.studentAvatarBox}>
-                        <MaterialIcons name="person" size={54} color={colors.primary} />
-                      </View>
-                      <View style={{ flex: 1, gap: 4 }}>
-                        <Text style={styles.docMetaLabel}>TITULAIRE DU COMPTE :</Text>
-                        <Text style={styles.docMetaVal}>{inspectingDoc.user_full_name || 'USAGER UAC'}</Text>
-
-                        <Text style={styles.docMetaLabel}>MATRICULE ACADÉMIQUE :</Text>
-                        <Text style={styles.docMetaVal}>{inspectingDoc.user_matricule || '12345678-UAC'}</Text>
-
-                        <Text style={styles.docMetaLabel}>TÉLÉPHONE :</Text>
-                        <Text style={styles.docMetaVal}>{inspectingDoc.user_phone || '+229 97 00 00 00'}</Text>
-                      </View>
+                  ) : !imageError ? (
+                    <View style={{ width: '100%', minHeight: 380, backgroundColor: '#f8fafc', alignItems: 'center', justifyContent: 'center' }}>
+                      <Image
+                        source={{ uri: fullDocUrl }}
+                        style={{ width: '100%', height: 420 }}
+                        resizeMode="contain"
+                        onError={() => setImageError(true)}
+                      />
                     </View>
-
-                    <View style={styles.docGraphicFooter}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                        <MaterialIcons name="verified-user" size={16} color={colors.beninGreen} />
-                        <Text style={styles.secureText}>Document Authentifié Numériquement</Text>
+                  ) : (
+                    /* Graceful High-Fidelity Fallback if file not renderable inline */
+                    <View style={styles.docGraphicCard}>
+                      <View style={styles.docGraphicHeader}>
+                        <MaterialIcons name="school" size={32} color={colors.primary} />
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.docGraphicTitle}>
+                            {getDocTypeInfo(inspectingDoc.document_type).label}
+                          </Text>
+                          <Text style={styles.docGraphicSub}>Année Universitaire : {inspectingDoc.academic_year || '2025-2026'}</Text>
+                        </View>
                       </View>
-                      <Text style={styles.secureDate}>Soumis le {new Date(inspectingDoc.created_at).toLocaleDateString('fr-FR')}</Text>
+
+                      <View style={styles.docGraphicBody}>
+                        <View style={styles.studentAvatarBox}>
+                          <MaterialIcons name="person" size={54} color={colors.primary} />
+                        </View>
+                        <View style={{ flex: 1, gap: 4 }}>
+                          <Text style={styles.docMetaLabel}>TITULAIRE :</Text>
+                          <Text style={styles.docMetaVal}>{inspectingDoc.user_full_name || 'USAGER UAC'}</Text>
+
+                          <Text style={styles.docMetaLabel}>MATRICULE :</Text>
+                          <Text style={styles.docMetaVal}>{inspectingDoc.user_matricule || 'UAC-2024-8492'}</Text>
+
+                          <Text style={styles.docMetaLabel}>TÉLÉPHONE :</Text>
+                          <Text style={styles.docMetaVal}>{inspectingDoc.user_phone || '+229 0157774305'}</Text>
+                        </View>
+                      </View>
+
+                      <Pressable
+                        style={styles.openFallbackBtn}
+                        onPress={() => openOriginalDocument(inspectingDoc.document_url)}
+                      >
+                        <MaterialIcons name="download" size={18} color="#ffffff" />
+                        <Text style={styles.openFallbackText}>Télécharger / Visualiser le fichier</Text>
+                      </Pressable>
                     </View>
-                  </View>
+                  )}
                 </View>
               )}
             </ScrollView>
@@ -762,8 +805,8 @@ const styles = StyleSheet.create({
   },
   inspectorCard: {
     width: '100%',
-    maxWidth: 720,
-    maxHeight: '92%',
+    maxWidth: 780,
+    maxHeight: '94%',
     backgroundColor: colors.surface,
     borderRadius: radius.xl,
     overflow: 'hidden',
@@ -804,6 +847,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceContainerLow,
     borderBottomWidth: 1,
     borderBottomColor: colors.outlineVariant,
+    flexWrap: 'wrap',
+    gap: 8,
   },
   toolGroup: {
     flexDirection: 'row',
@@ -816,6 +861,20 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.outlineVariant,
+  },
+  openExternalBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: radius.md,
+    backgroundColor: colors.primary,
+  },
+  openExternalText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#ffffff',
   },
   zoomText: {
     fontSize: 12,
@@ -831,11 +890,11 @@ const styles = StyleSheet.create({
   previewScrollContent: {
     alignItems: 'center',
     justifyContent: 'center',
-    padding: spacing.lg,
+    padding: spacing.md,
   },
   docFrame: {
     width: '100%',
-    maxWidth: 540,
+    maxWidth: 640,
     backgroundColor: '#ffffff',
     borderRadius: radius.lg,
     overflow: 'hidden',
@@ -867,6 +926,7 @@ const styles = StyleSheet.create({
   docGraphicCard: {
     padding: spacing.lg,
     gap: spacing.md,
+    backgroundColor: '#ffffff',
   },
   docGraphicHeader: {
     flexDirection: 'row',
@@ -892,8 +952,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   studentAvatarBox: {
-    width: 90,
-    height: 110,
+    width: 80,
+    height: 100,
     backgroundColor: colors.primaryFixed,
     borderRadius: radius.md,
     borderWidth: 2,
@@ -912,22 +972,20 @@ const styles = StyleSheet.create({
     color: colors.onSurface,
     marginBottom: 4,
   },
-  docGraphicFooter: {
-    borderTopWidth: 1,
-    borderTopColor: colors.outlineVariant,
-    paddingTop: spacing.sm,
+  openFallbackBtn: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    backgroundColor: colors.primary,
+    borderRadius: radius.md,
+    marginTop: spacing.xs,
   },
-  secureText: {
-    fontSize: 11,
+  openFallbackText: {
+    fontSize: 12,
     fontWeight: '700',
-    color: colors.beninGreen,
-  },
-  secureDate: {
-    fontSize: 10,
-    color: colors.outline,
+    color: '#ffffff',
   },
   inspectorActions: {
     flexDirection: 'row',
