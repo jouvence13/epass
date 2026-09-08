@@ -37,6 +37,12 @@ from app.schemas.payment_schema import (
     WalletOutSchema,
     WalletBalanceOutSchema,
 )
+from app.schemas.campus_schema import (
+    CampusOutSchema,
+    CampusCreateSchema,
+    CampusUpdateSchema,
+    LandmarkSchema,
+)
 from app.schemas.notification_schema import (
     NotificationOutSchema,
     CreateNotificationRequestSchema,

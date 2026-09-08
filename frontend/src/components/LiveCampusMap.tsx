@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { colors, radius, spacing, typography } from '../theme/theme';
+import { ENDPOINTS } from '../config/api';
 import Badge from './Badge';
 
 export interface BusLivePosition {
@@ -33,6 +34,17 @@ export interface BusLivePosition {
   last_ping: string;
 }
 
+export interface CampusItem {
+  id: string;
+  code: string;
+  name: string;
+  city: string;
+  icon: string;
+  latitude?: number;
+  longitude?: number;
+  landmarks?: Array<{ name: string; lat: number; lon: number; type: string }>;
+}
+
 interface LiveCampusMapProps {
   buses: BusLivePosition[];
   onSelectBus?: (bus: BusLivePosition) => void;
@@ -41,13 +53,6 @@ interface LiveCampusMapProps {
   onSelectCampus?: (campus: string) => void;
 }
 
-const CAMPUSES = [
-  { id: 'ALL', name: 'Tous les Campus', icon: 'public' },
-  { id: 'UAC', name: 'UAC Abomey-Calavi', icon: 'school' },
-  { id: 'UP', name: 'UP Parakou', icon: 'school' },
-  { id: 'UNA', name: 'UNA Porto-Novo', icon: 'school' },
-];
-
 export default function LiveCampusMap({
   buses,
   onSelectBus,
@@ -55,10 +60,48 @@ export default function LiveCampusMap({
   selectedCampus = 'ALL',
   onSelectCampus,
 }: LiveCampusMapProps) {
+  const [campuses, setCampuses] = useState<CampusItem[]>([
+    { id: 'ALL', code: 'ALL', name: 'Tous les Campus', city: 'Bénin', icon: 'public' },
+    { id: 'UAC', code: 'UAC', name: 'UAC Abomey-Calavi', city: 'Abomey-Calavi', icon: 'school' },
+    { id: 'UP', code: 'UP', name: 'UP Parakou', city: 'Parakou', icon: 'school' },
+    { id: 'UNA', code: 'UNA', name: 'UNA Porto-Novo', city: 'Porto-Novo', icon: 'school' },
+  ]);
   const [activeCampus, setActiveCampus] = useState(selectedCampus);
   const [activeBus, setActiveBus] = useState<BusLivePosition | null>(
     buses.find((b) => b.bus_id === selectedBusId) || buses[0] || null
   );
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadDynamicCampuses = async () => {
+      try {
+        const res = await fetch(ENDPOINTS.CAMPUSES);
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data) && data.length > 0 && isMounted) {
+            const formatted: CampusItem[] = [
+              { id: 'ALL', code: 'ALL', name: 'Tous les Campus', city: 'National', icon: 'public' },
+              ...data.map((c: any) => ({
+                id: c.code,
+                code: c.code,
+                name: `${c.code} ${c.city}`,
+                city: c.city,
+                icon: 'school',
+                latitude: c.latitude,
+                longitude: c.longitude,
+                landmarks: c.landmarks,
+              })),
+            ];
+            setCampuses(formatted);
+          }
+        }
+      } catch (e) {
+        console.warn('Erreur chargement dynamique campus:', e);
+      }
+    };
+    loadDynamicCampuses();
+    return () => { isMounted = false; };
+  }, []);
 
   useEffect(() => {
     if (selectedBusId) {
@@ -71,10 +114,11 @@ export default function LiveCampusMap({
 
   const filteredBuses = buses.filter((b) => {
     if (activeCampus === 'ALL') return true;
-    if (activeCampus === 'UAC') return b.campus.includes('Calavi') || b.campus.includes('UAC');
-    if (activeCampus === 'UP') return b.campus.includes('Parakou') || b.campus.includes('UP');
-    if (activeCampus === 'UNA') return b.campus.includes('UNA') || b.campus.includes('Porto-Novo');
-    return true;
+    const target = activeCampus.toUpperCase();
+    return (
+      (b.campus && b.campus.toUpperCase().includes(target)) ||
+      (b.route_name && b.route_name.toUpperCase().includes(target))
+    );
   });
 
   const handleCampusChange = (campusId: string) => {
@@ -82,10 +126,11 @@ export default function LiveCampusMap({
     onSelectCampus?.(campusId);
     const inCampus = buses.find((b) => {
       if (campusId === 'ALL') return true;
-      if (campusId === 'UAC') return b.campus.includes('Calavi') || b.campus.includes('UAC');
-      if (campusId === 'UP') return b.campus.includes('Parakou') || b.campus.includes('UP');
-      if (campusId === 'UNA') return b.campus.includes('UNA') || b.campus.includes('Porto-Novo');
-      return true;
+      const target = campusId.toUpperCase();
+      return (
+        (b.campus && b.campus.toUpperCase().includes(target)) ||
+        (b.route_name && b.route_name.toUpperCase().includes(target))
+      );
     });
     if (inCampus) setActiveBus(inCampus);
   };
@@ -94,6 +139,14 @@ export default function LiveCampusMap({
     setActiveBus(b);
     onSelectBus?.(b);
   };
+
+  const selectedCampusObj = campuses.find((c) => c.id === activeCampus);
+  const dynamicLandmarks = selectedCampusObj?.landmarks && selectedCampusObj.landmarks.length > 0
+    ? selectedCampusObj.landmarks
+    : [
+        { name: 'Hub Universitaire', lat: 6.4474, lon: 2.3557, type: 'hub' },
+        { name: 'Terminus Ville', lat: 6.4000, lon: 2.3400, type: 'stop' },
+      ];
 
   return (
     <View style={styles.container}>
@@ -113,7 +166,7 @@ export default function LiveCampusMap({
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.campusTabs}
       >
-        {CAMPUSES.map((c) => {
+        {campuses.map((c) => {
           const active = activeCampus === c.id;
           return (
             <Pressable
@@ -145,21 +198,23 @@ export default function LiveCampusMap({
           <View style={styles.campusZone}>
             <MaterialIcons name="account-balance" size={24} color="rgba(0,111,107,0.15)" />
             <Text style={styles.campusZoneText}>
-              {activeCampus === 'UP' ? 'Zone Campus UP' : activeCampus === 'UNA' ? 'Zone Campus UNA' : 'Zone Campus UAC'}
+              {selectedCampusObj ? `Zone ${selectedCampusObj.name}` : `Zone Campus ${activeCampus}`}
             </Text>
           </View>
         </View>
 
-        {/* Campus Landmark Hubs */}
-        <View style={[styles.landmarkPin, { top: '25%', left: '20%' }]}>
-          <View style={styles.landmarkDot} />
-          <Text style={styles.landmarkLabel}>Campus Principal</Text>
-        </View>
-
-        <View style={[styles.landmarkPin, { top: '70%', left: '68%' }]}>
-          <View style={[styles.landmarkDot, { backgroundColor: '#d97706' }]} />
-          <Text style={styles.landmarkLabel}>Terminus Ville</Text>
-        </View>
+        {/* Dynamic Campus Landmark Hubs */}
+        {dynamicLandmarks.map((lm, lIdx) => {
+          const lTop = lIdx === 0 ? '25%' : lIdx === 1 ? '70%' : lIdx === 2 ? '35%' : '60%';
+          const lLeft = lIdx === 0 ? '20%' : lIdx === 1 ? '68%' : lIdx === 2 ? '80%' : '15%';
+          const isStop = lm.type === 'stop';
+          return (
+            <View key={`${lm.name}-${lIdx}`} style={[styles.landmarkPin, { top: lTop as any, left: lLeft as any }]}>
+              <View style={[styles.landmarkDot, isStop && { backgroundColor: '#d97706' }]} />
+              <Text style={styles.landmarkLabel}>{lm.name}</Text>
+            </View>
+          );
+        })}
 
         {/* Bus Markers on Map */}
         {filteredBuses.map((bus, idx) => {

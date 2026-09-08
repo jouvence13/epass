@@ -197,7 +197,7 @@ async def instant_ticket_purchase(
     else:
         formatted_code = sms_otp
 
-    # 6. Enregistrement de la notification d'achat persistant dans PostgreSQL
+    # 6. Enregistrement de la notification d'achat persistant pour l'étudiant
     from app.services.notification_service import notification_service
     await notification_service.create_user_notification(
         db=db,
@@ -209,6 +209,39 @@ async def instant_ticket_purchase(
         channel="PUSH",
         is_sent=True
     )
+
+    # 6.b Notification temps réel aux Contrôleurs et au Chauffeur
+    try:
+        route_lbl = trip.route.route_name if trip.route else "Campus Express"
+        ctrl_query = await db.execute(
+            select(Users).where(Users.role == UserRoleEnum.CONTROLLER, Users.is_active == True)
+        )
+        controllers = ctrl_query.scalars().all()
+        for ctrl in controllers:
+            await notification_service.create_user_notification(
+                db=db,
+                user_id=ctrl.user_id,
+                title="🎟️ Nouveau Pass Validé en Direct",
+                message=f"{current_user.first_name} {current_user.last_name} ({current_user.matricule_uac or 'Étudiant'}) vient de valider son pass ({payload.amount:.0f} FCFA - {route_lbl}). Billet #{formatted_code}.",
+                category="TICKET_VALIDATION",
+                tone="info",
+                channel="PUSH",
+                is_sent=True
+            )
+
+        if trip.bus and trip.bus.driver_id:
+            await notification_service.create_user_notification(
+                db=db,
+                user_id=trip.bus.driver_id,
+                title="👤 Nouveau Passager à Bord",
+                message=f"{current_user.first_name} {current_user.last_name} a réservé sa place ({trip.total_seats - trip.available_seats}/{trip.total_seats} occupées). Billet #{formatted_code}.",
+                category="TRIP_UPDATE",
+                tone="info",
+                channel="PUSH",
+                is_sent=True
+            )
+    except Exception as e:
+        logger.warning(f"Erreur notification contrôleurs: {e}")
 
     # 7. Récupération de la télémétrie GPS depuis PostgreSQL
     from app.models.trip_model import GpsLogs

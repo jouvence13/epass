@@ -25,6 +25,8 @@ class PaymentStatusEnum(str, enum.Enum):
 class PaymentGatewayEnum(str, enum.Enum):
     FEDAPAY = "FEDAPAY"
     KKIAPAY = "KKIAPAY"
+    MTN_MOMO = "MTN_MOMO"
+    MOOV_MONEY = "MOOV_MONEY"
 
 
 class Payments(Base, TimestampMixin):

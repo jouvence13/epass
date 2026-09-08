@@ -39,6 +39,13 @@ export const ENDPOINTS = {
   PAYMENT_METHODS: `${API_V1_URL}/payments/methods`,
   PAYMENT_HISTORY: `${API_V1_URL}/payments/history`,
   WALLET_RECHARGE: `${API_V1_URL}/payments/wallet/recharge`,
+  PAYMENT_MOMO_INITIATE: `${API_V1_URL}/payments/momo/initiate`,
+  PAYMENT_MOMO_STATUS: (refId: string) => `${API_V1_URL}/payments/momo/status/${refId}`,
+
+  // Campus Universitaires
+  CAMPUSES: `${API_V1_URL}/campuses`,
+  ADMIN_CAMPUSES: `${API_V1_URL}/admin/campuses`,
+  ADMIN_CAMPUS_DETAIL: (campusId: string) => `${API_V1_URL}/admin/campuses/${campusId}`,
 
   // Trajets & Billetterie Étudiant
   AVAILABLE_TRIPS: `${API_V1_URL}/trips/available`,

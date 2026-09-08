@@ -26,7 +26,7 @@ export default function AdminFleetScreen() {
   const { token, user } = useAuth();
   const { showToast } = useNotifications();
 
-  const [activeTab, setActiveTab] = useState<'BUSES' | 'ROUTES' | 'TRIPS'>('BUSES');
+  const [activeTab, setActiveTab] = useState<'BUSES' | 'ROUTES' | 'TRIPS' | 'CAMPUSES'>('BUSES');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -34,6 +34,7 @@ export default function AdminFleetScreen() {
   const [routes, setRoutes] = useState<any[]>([]);
   const [trips, setTrips] = useState<any[]>([]);
   const [drivers, setDrivers] = useState<any[]>([]);
+  const [campuses, setCampuses] = useState<any[]>([]);
 
   // Modal Create Bus
   const [showAddBusModal, setShowAddBusModal] = useState(false);
@@ -49,6 +50,15 @@ export default function AdminFleetScreen() {
   const [selectedRouteId, setSelectedRouteId] = useState<string>('');
   const [assigning, setAssigning] = useState(false);
 
+  // Modal Create Campus
+  const [showAddCampusModal, setShowAddCampusModal] = useState(false);
+  const [campusCode, setCampusCode] = useState('');
+  const [campusName, setCampusName] = useState('');
+  const [campusCity, setCampusCity] = useState('');
+  const [campusLat, setCampusLat] = useState('6.4474');
+  const [campusLon, setCampusLon] = useState('2.3557');
+  const [creatingCampus, setCreatingCampus] = useState(false);
+
   const fetchFleetData = useCallback(async () => {
     try {
       const headers: Record<string, string> = {};
@@ -56,11 +66,12 @@ export default function AdminFleetScreen() {
         headers['Authorization'] = `Bearer ${token}`;
       }
 
-      const [busesRes, routesRes, tripsRes, driversRes] = await Promise.all([
+      const [busesRes, routesRes, tripsRes, driversRes, campusesRes] = await Promise.all([
         fetch(ENDPOINTS.ADMIN_FLEET, { credentials: 'include', headers }),
         fetch(ENDPOINTS.ADMIN_ROUTES, { credentials: 'include', headers }),
         fetch(ENDPOINTS.ADMIN_TRIPS, { credentials: 'include', headers }),
         fetch(`${ENDPOINTS.ADMIN_USERS}?role=DRIVER`, { credentials: 'include', headers }),
+        fetch(ENDPOINTS.CAMPUSES, { credentials: 'include', headers }),
       ]);
 
       if (busesRes.ok) setBuses(await busesRes.json());
@@ -75,6 +86,7 @@ export default function AdminFleetScreen() {
         setDrivers(dData);
         if (dData.length > 0 && !selectedDriverId) setSelectedDriverId(dData[0].user_id);
       }
+      if (campusesRes.ok) setCampuses(await campusesRes.json());
     } catch (e) {
       console.warn('Error fetching fleet data:', e);
     } finally {
@@ -204,6 +216,61 @@ export default function AdminFleetScreen() {
     }
   };
 
+  const handleCreateCampus = async () => {
+    if (!campusCode.trim() || !campusName.trim() || !campusCity.trim()) {
+      showToast({
+        title: 'Champs requis',
+        message: 'Code, nom du campus et ville sont obligatoires.',
+        type: 'warning',
+        category: 'GENERAL',
+      });
+      return;
+    }
+
+    setCreatingCampus(true);
+    try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch(ENDPOINTS.ADMIN_CAMPUSES, {
+        method: 'POST',
+        credentials: 'include',
+        headers,
+        body: JSON.stringify({
+          code: campusCode.toUpperCase(),
+          name: campusName,
+          city: campusCity,
+          latitude: parseFloat(campusLat) || 6.4474,
+          longitude: parseFloat(campusLon) || 2.3557,
+          zoom_level: 15.0,
+          is_active: true,
+          landmarks: [],
+        }),
+      });
+
+      if (res.ok) {
+        showToast({
+          title: 'Campus Ajouté !',
+          message: `Le campus ${campusCode} - ${campusName} est maintenant actif.`,
+          type: 'success',
+          category: 'GENERAL',
+        });
+        setShowAddCampusModal(false);
+        setCampusCode('');
+        setCampusName('');
+        setCampusCity('');
+        await fetchFleetData();
+      } else {
+        const err = await res.json().catch(() => null);
+        Alert.alert('Erreur', err?.detail || 'Impossible d’ajouter le campus.');
+      }
+    } catch (e) {
+      Alert.alert('Erreur Réseau', 'Impossible de joindre le serveur.');
+    } finally {
+      setCreatingCampus(false);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
       {/* Header */}
@@ -219,10 +286,16 @@ export default function AdminFleetScreen() {
               <Text style={styles.addBtnText}>Nouveau Bus</Text>
             </Pressable>
           )}
+          {activeTab === 'CAMPUSES' && (
+            <Pressable style={styles.addBtn} onPress={() => setShowAddCampusModal(true)}>
+              <MaterialIcons name="add" size={20} color="#ffffff" />
+              <Text style={styles.addBtnText}>Nouveau Campus</Text>
+            </Pressable>
+          )}
         </View>
 
         {/* Tab Buttons */}
-        <View style={styles.tabRow}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabRow}>
           <Pressable
             style={[styles.tabBtn, activeTab === 'BUSES' && styles.tabBtnActive]}
             onPress={() => setActiveTab('BUSES')}
@@ -264,7 +337,21 @@ export default function AdminFleetScreen() {
               Rotations ({trips.length})
             </Text>
           </Pressable>
-        </View>
+
+          <Pressable
+            style={[styles.tabBtn, activeTab === 'CAMPUSES' && styles.tabBtnActive]}
+            onPress={() => setActiveTab('CAMPUSES')}
+          >
+            <MaterialIcons
+              name="school"
+              size={18}
+              color={activeTab === 'CAMPUSES' ? colors.primary : colors.onSurfaceVariant}
+            />
+            <Text style={[styles.tabBtnText, activeTab === 'CAMPUSES' && styles.tabBtnTextActive]}>
+              Campus ({campuses.length})
+            </Text>
+          </Pressable>
+        </ScrollView>
       </View>
 
       {/* Content */}
@@ -330,7 +417,7 @@ export default function AdminFleetScreen() {
             </Card>
           )}
         />
-      ) : (
+      ) : activeTab === 'TRIPS' ? (
         <FlatList
           data={trips}
           keyExtractor={(item) => item.trip_id}
@@ -357,7 +444,108 @@ export default function AdminFleetScreen() {
             </Card>
           )}
         />
+      ) : (
+        <FlatList
+          data={campuses}
+          keyExtractor={(item) => item.campus_id || item.code}
+          contentContainerStyle={styles.list}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />}
+          renderItem={({ item }) => (
+            <Card style={styles.card}>
+              <View style={styles.rowBetween}>
+                <View style={[styles.busCodeCircle, { backgroundColor: '#ecfdf5' }]}>
+                  <MaterialIcons name="school" size={24} color="#059669" />
+                </View>
+                <View style={{ flex: 1, marginLeft: spacing.sm }}>
+                  <Text style={styles.itemTitle}>{item.code} • {item.name}</Text>
+                  <Text style={styles.itemSub}>Ville : {item.city} • Coordonnées : {item.latitude?.toFixed(4)}, {item.longitude?.toFixed(4)}</Text>
+                </View>
+                <Badge label={item.is_active ? 'ACTIF' : 'INACTIF'} variant={item.is_active ? 'success' : 'neutral'} />
+              </View>
+              <View style={styles.cardDivider} />
+              <Text style={styles.metricText}>
+                Pôles & Arrêts enregistrés : <Text style={{ fontWeight: '700' }}>{item.landmarks?.length || 0} points d'intérêt</Text>
+              </Text>
+            </Card>
+          )}
+        />
       )}
+
+      {/* Modal Add Campus */}
+      <Modal visible={showAddCampusModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <MaterialIcons name="school" size={24} color={colors.primary} />
+              <Text style={styles.modalTitle}>Nouveau Campus Universitaire</Text>
+            </View>
+
+            <Text style={styles.inputLabel}>Code Campus (ex: UNSTIM, UP) *</Text>
+            <TextInput
+              value={campusCode}
+              onChangeText={setCampusCode}
+              placeholder="Ex: UNSTIM"
+              placeholderTextColor={colors.outline}
+              style={styles.modalInput}
+            />
+
+            <Text style={styles.inputLabel}>Nom Complet du Campus *</Text>
+            <TextInput
+              value={campusName}
+              onChangeText={setCampusName}
+              placeholder="Ex: Université Nationale des Sciences..."
+              placeholderTextColor={colors.outline}
+              style={styles.modalInput}
+            />
+
+            <Text style={styles.inputLabel}>Ville Universitaire *</Text>
+            <TextInput
+              value={campusCity}
+              onChangeText={setCampusCity}
+              placeholder="Ex: Abomey"
+              placeholderTextColor={colors.outline}
+              style={styles.modalInput}
+            />
+
+            <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.inputLabel}>Latitude GPS</Text>
+                <TextInput
+                  value={campusLat}
+                  onChangeText={setCampusLat}
+                  placeholder="6.4474"
+                  placeholderTextColor={colors.outline}
+                  keyboardType="numeric"
+                  style={styles.modalInput}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.inputLabel}>Longitude GPS</Text>
+                <TextInput
+                  value={campusLon}
+                  onChangeText={setCampusLon}
+                  placeholder="2.3557"
+                  placeholderTextColor={colors.outline}
+                  keyboardType="numeric"
+                  style={styles.modalInput}
+                />
+              </View>
+            </View>
+
+            <View style={styles.modalActions}>
+              <Pressable style={styles.cancelBtn} onPress={() => setShowAddCampusModal(false)}>
+                <Text style={styles.cancelBtnText}>Annuler</Text>
+              </Pressable>
+              <PrimaryButton
+                label={creatingCampus ? 'Enregistrement...' : 'Ajouter Campus'}
+                onPress={handleCreateCampus}
+                disabled={creatingCampus}
+                style={{ flex: 1.5 }}
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Modal Add Bus */}
       <Modal visible={showAddBusModal} transparent animationType="fade">

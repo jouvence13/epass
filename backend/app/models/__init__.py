@@ -31,6 +31,9 @@ from app.models.ticket_model import (
 from app.models.notification_model import (
     Notifications,
 )
+from app.models.campus_model import (
+    Campuses,
+)
 
 __all__ = [
     "Base",
@@ -55,4 +58,5 @@ __all__ = [
     "Tickets",
     "TicketStatusEnum",
     "Notifications",
+    "Campuses",
 ]

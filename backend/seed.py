@@ -39,6 +39,7 @@ from app.models.payment_model import (
 )
 from app.models.ticket_model import Tickets, TicketStatusEnum
 from app.models.notification_model import Notifications
+from app.models.campus_model import Campuses
 
 
 async def run_seed():
@@ -170,6 +171,89 @@ async def run_seed():
                 existing.kyc_status = u_data["kyc_status"]
                 users_map[u_data["phone_number"]] = existing
                 print(f"   ℹ️ Mis à jour : {existing.role.value.ljust(12)} | {existing.phone_number} | {existing.first_name} {existing.last_name}")
+
+        # ----------------------------------------------------------------------
+        # CAMPUS UNIVERSITAIRES DU BÉNIN (CAMPUSES)
+        # ----------------------------------------------------------------------
+        print("\n🏛️ 3.b Création des Campus Universitaires Nationaux...")
+        campuses_data = [
+            {
+                "code": "UAC",
+                "name": "Université d'Abomey-Calavi",
+                "city": "Abomey-Calavi",
+                "latitude": 6.4474,
+                "longitude": 2.3557,
+                "zoom_level": 15.0,
+                "landmarks": [
+                    {"name": "Terminus Principal Bus", "lat": 6.4470, "lon": 2.3550, "type": "stop"},
+                    {"name": "Bibliothèque Universitaire", "lat": 6.4485, "lon": 2.3562, "type": "library"},
+                    {"name": "Amphis FASHS & FASEG", "lat": 6.4450, "lon": 2.3540, "type": "hub"},
+                    {"name": "Cités Universitaires", "lat": 6.4502, "lon": 2.3580, "type": "hub"},
+                ]
+            },
+            {
+                "code": "UP",
+                "name": "Université de Parakou",
+                "city": "Parakou",
+                "latitude": 9.3500,
+                "longitude": 2.6100,
+                "zoom_level": 14.5,
+                "landmarks": [
+                    {"name": "Rectorat & Hub Central UP", "lat": 9.3510, "lon": 2.6110, "type": "hub"},
+                    {"name": "Campus Albarika", "lat": 9.3480, "lon": 2.6080, "type": "library"},
+                    {"name": "Gare Navette Campus Nord", "lat": 9.3520, "lon": 2.6130, "type": "stop"},
+                ]
+            },
+            {
+                "code": "UNA",
+                "name": "Université Nationale d'Agriculture",
+                "city": "Porto-Novo",
+                "latitude": 6.5050,
+                "longitude": 2.6050,
+                "zoom_level": 14.5,
+                "landmarks": [
+                    {"name": "Site Central UNA", "lat": 6.5060, "lon": 2.6040, "type": "hub"},
+                    {"name": "Centre d'Expérimentation", "lat": 6.5030, "lon": 2.6070, "type": "library"},
+                    {"name": "Station Navette UNA", "lat": 6.5055, "lon": 2.6052, "type": "stop"},
+                ]
+            },
+            {
+                "code": "UNSTIM",
+                "name": "Université Nationale des Sciences (UNSTIM)",
+                "city": "Abomey",
+                "latitude": 7.1850,
+                "longitude": 1.9900,
+                "zoom_level": 14.0,
+                "landmarks": [
+                    {"name": "Institut National Supérieur", "lat": 7.1860, "lon": 1.9910, "type": "hub"},
+                    {"name": "Campus Principal Abomey", "lat": 7.1840, "lon": 1.9890, "type": "stop"},
+                ]
+            },
+        ]
+        for c in campuses_data:
+            existing_c = (await db.execute(select(Campuses).where(Campuses.code == c["code"]))).scalars().first()
+            if not existing_c:
+                new_c = Campuses(
+                    code=c["code"],
+                    name=c["name"],
+                    city=c["city"],
+                    latitude=c["latitude"],
+                    longitude=c["longitude"],
+                    zoom_level=c["zoom_level"],
+                    is_active=True,
+                    landmarks=c["landmarks"]
+                )
+                db.add(new_c)
+                print(f"   🏛️ Campus créé : {c['code']} - {c['name']} ({c['city']})")
+            else:
+                existing_c.name = c["name"]
+                existing_c.city = c["city"]
+                existing_c.latitude = c["latitude"]
+                existing_c.longitude = c["longitude"]
+                existing_c.zoom_level = c["zoom_level"]
+                existing_c.landmarks = c["landmarks"]
+                print(f"   🏛️ Campus mis à jour : {c['code']}")
+        await db.flush()
 
         # ----------------------------------------------------------------------
         # ARRÊTS SPATIAUX POSTGIS (STOPS)

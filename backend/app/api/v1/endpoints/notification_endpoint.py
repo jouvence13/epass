@@ -51,6 +51,10 @@ async def get_my_notifications(
             cat = "PAYMENT"
             icon = "receipt"
             tone = "success"
+        elif cat in ("TICKET_VALIDATION", "TRIP_UPDATE") or "validation" in text or "pass validé" in text:
+            cat = "TRAFFIC"
+            icon = "confirmation-number"
+            tone = "info"
         else:
             cat = "GENERAL"
             icon = "notifications"

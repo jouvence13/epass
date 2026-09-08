@@ -34,6 +34,11 @@ export default function ControllerHubScreen({ navigation }: any) {
   });
 
   const [refreshing, setRefreshing] = useState(false);
+  const [recentAlert, setRecentAlert] = useState<{
+    title: string;
+    message: string;
+    time: string;
+  } | null>(null);
 
   const fetchActiveTrip = useCallback(async () => {
     try {
@@ -58,6 +63,24 @@ export default function ControllerHubScreen({ navigation }: any) {
             bus_code: data.bus_code || 'Bus Campus',
             delay_minutes: data.delay_minutes ?? 0,
           });
+        }
+      }
+
+      // Fetch latest live ticket validation alerts
+      const notifRes = await fetch(ENDPOINTS.NOTIFICATIONS, { credentials: 'include', headers });
+      if (notifRes.ok) {
+        const notifs = await notifRes.json();
+        if (Array.isArray(notifs) && notifs.length > 0) {
+          const valNotif = notifs.find((n: any) =>
+            n.title?.includes('Validation') || n.title?.includes('Pass') || n.category === 'TRAFFIC' || n.category === 'TICKET_VALIDATION'
+          );
+          if (valNotif) {
+            setRecentAlert({
+              title: valNotif.title,
+              message: valNotif.message,
+              time: valNotif.time,
+            });
+          }
         }
       }
     } catch (e) {
@@ -161,6 +184,26 @@ export default function ControllerHubScreen({ navigation }: any) {
               </Text>
             </View>
             <MaterialIcons name="chevron-right" size={24} color="#b45309" />
+          </Pressable>
+        )}
+
+        {/* Live Ticket & MoMoPay Validation Alert Banner */}
+        {recentAlert && (
+          <Pressable style={styles.liveValidationBanner} onPress={handleScanPress}>
+            <View style={styles.liveValidationIconBox}>
+              <MaterialIcons name="flash-on" size={20} color="#ffffff" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={styles.liveValidationTitle}>{recentAlert.title}</Text>
+                <View style={styles.pulseDotGreen} />
+                <Text style={styles.liveValidationTime}>{recentAlert.time}</Text>
+              </View>
+              <Text style={styles.liveValidationMessage} numberOfLines={2}>
+                {recentAlert.message}
+              </Text>
+            </View>
+            <MaterialIcons name="qr-code-scanner" size={20} color={colors.primary} />
           </Pressable>
         )}
 
@@ -392,4 +435,26 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
   guideStepText: { ...typography.bodySm, color: colors.onSurfaceVariant, flex: 1 },
+  liveValidationBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: '#04785715',
+    borderWidth: 1.5,
+    borderColor: '#059669',
+    borderRadius: radius.lg,
+    padding: spacing.sm,
+  },
+  liveValidationIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#059669',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  liveValidationTitle: { ...typography.labelCaps, color: '#065f46', fontSize: 11, fontWeight: '700' },
+  pulseDotGreen: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: '#10b981' },
+  liveValidationTime: { ...typography.bodySm, color: '#047857', fontSize: 10 },
+  liveValidationMessage: { ...typography.bodySm, color: colors.onSurface, fontSize: 12, marginTop: 2 },
 });
