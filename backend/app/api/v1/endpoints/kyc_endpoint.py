@@ -134,11 +134,40 @@ async def list_pending_kyc_submissions(
     current_admin: Users = Depends(require_roles([UserRoleEnum.ADMIN_CROUS, UserRoleEnum.SUPERADMIN])),
     db: AsyncSession = Depends(get_async_db)
 ):
-    """Admin CROUS: List all pending KYC document submissions."""
+    """Admin: List all pending KYC document submissions with full user profile info."""
     query = await db.execute(
-        select(KycDocuments).where(KycDocuments.verification_status == KycStatusEnum.PENDING)
+        select(KycDocuments, Users)
+        .join(Users, KycDocuments.user_id == Users.user_id)
+        .where(KycDocuments.verification_status == KycStatusEnum.PENDING)
+        .order_by(KycDocuments.created_at.desc())
     )
-    return query.scalars().all()
+    results = query.all()
+    
+    docs_out = []
+    for doc, user in results:
+        doc_url = doc.document_url
+        if doc_url and ("uploads/" in doc_url or "uploads\\" in doc_url):
+            filename = doc_url.replace("\\", "/").split("uploads/")[-1]
+            doc_url = f"/uploads/{filename}"
+
+        docs_out.append(
+            KycDocumentOutSchema(
+                document_id=doc.document_id,
+                user_id=doc.user_id,
+                document_type=doc.document_type,
+                document_url=doc_url,
+                verification_status=doc.verification_status,
+                rejection_reason=doc.rejection_reason,
+                academic_year=doc.academic_year,
+                created_at=doc.created_at,
+                user_full_name=f"{user.first_name} {user.last_name}".strip(),
+                user_matricule=user.matricule_uac,
+                user_phone=user.phone_number,
+                user_role=user.role.value if hasattr(user.role, 'value') else str(user.role),
+            )
+        )
+    return docs_out
+
 
 
 @router.put("/verify", status_code=status.HTTP_200_OK)

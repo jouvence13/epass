@@ -6,7 +6,6 @@ import {
   Pressable,
   ScrollView,
   Platform,
-  Dimensions,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { colors, radius, spacing, typography } from '../theme/theme';
@@ -40,8 +39,9 @@ export interface CampusItem {
   name: string;
   city: string;
   icon: string;
-  latitude?: number;
-  longitude?: number;
+  latitude: number;
+  longitude: number;
+  zoom: number;
   landmarks?: Array<{ name: string; lat: number; lon: number; type: string }>;
 }
 
@@ -53,6 +53,14 @@ interface LiveCampusMapProps {
   onSelectCampus?: (campus: string) => void;
 }
 
+const DEFAULT_CAMPUSES: CampusItem[] = [
+  { id: 'ALL', code: 'ALL', name: 'Tous les Campus', city: 'Bénin National', icon: 'public', latitude: 7.5, longitude: 2.3, zoom: 8 },
+  { id: 'UAC', code: 'UAC', name: 'UAC Abomey-Calavi', city: 'Abomey-Calavi', icon: 'school', latitude: 6.4474, longitude: 2.3557, zoom: 15 },
+  { id: 'UP', code: 'UP', name: 'UP Parakou', city: 'Parakou', icon: 'school', latitude: 9.3512, longitude: 2.6288, zoom: 15 },
+  { id: 'UNA', code: 'UNA', name: 'UNA Porto-Novo', city: 'Porto-Novo', icon: 'school', latitude: 6.4969, longitude: 2.6289, zoom: 15 },
+  { id: 'UNSTIM', code: 'UNSTIM', name: 'UNSTIM Abomey', city: 'Abomey', icon: 'school', latitude: 7.1856, longitude: 1.9912, zoom: 15 },
+];
+
 export default function LiveCampusMap({
   buses,
   onSelectBus,
@@ -60,13 +68,9 @@ export default function LiveCampusMap({
   selectedCampus = 'ALL',
   onSelectCampus,
 }: LiveCampusMapProps) {
-  const [campuses, setCampuses] = useState<CampusItem[]>([
-    { id: 'ALL', code: 'ALL', name: 'Tous les Campus', city: 'Bénin', icon: 'public' },
-    { id: 'UAC', code: 'UAC', name: 'UAC Abomey-Calavi', city: 'Abomey-Calavi', icon: 'school' },
-    { id: 'UP', code: 'UP', name: 'UP Parakou', city: 'Parakou', icon: 'school' },
-    { id: 'UNA', code: 'UNA', name: 'UNA Porto-Novo', city: 'Porto-Novo', icon: 'school' },
-  ]);
+  const [campuses, setCampuses] = useState<CampusItem[]>(DEFAULT_CAMPUSES);
   const [activeCampus, setActiveCampus] = useState(selectedCampus);
+  const [mapMode, setMapMode] = useState<'streets' | 'satellite' | 'osm'>('streets');
   const [activeBus, setActiveBus] = useState<BusLivePosition | null>(
     buses.find((b) => b.bus_id === selectedBusId) || buses[0] || null
   );
@@ -80,15 +84,16 @@ export default function LiveCampusMap({
           const data = await res.json();
           if (Array.isArray(data) && data.length > 0 && isMounted) {
             const formatted: CampusItem[] = [
-              { id: 'ALL', code: 'ALL', name: 'Tous les Campus', city: 'National', icon: 'public' },
+              { id: 'ALL', code: 'ALL', name: 'Tous les Campus', city: 'Bénin National', icon: 'public', latitude: 7.5, longitude: 2.3, zoom: 8 },
               ...data.map((c: any) => ({
                 id: c.code,
                 code: c.code,
                 name: `${c.code} ${c.city}`,
                 city: c.city,
                 icon: 'school',
-                latitude: c.latitude,
-                longitude: c.longitude,
+                latitude: c.latitude || 6.4474,
+                longitude: c.longitude || 2.3557,
+                zoom: 15,
                 landmarks: c.landmarks,
               })),
             ];
@@ -140,13 +145,184 @@ export default function LiveCampusMap({
     onSelectBus?.(b);
   };
 
-  const selectedCampusObj = campuses.find((c) => c.id === activeCampus);
-  const dynamicLandmarks = selectedCampusObj?.landmarks && selectedCampusObj.landmarks.length > 0
-    ? selectedCampusObj.landmarks
-    : [
-        { name: 'Hub Universitaire', lat: 6.4474, lon: 2.3557, type: 'hub' },
-        { name: 'Terminus Ville', lat: 6.4000, lon: 2.3400, type: 'stop' },
-      ];
+  const currentCampusObj = campuses.find((c) => c.id === activeCampus) || campuses[0];
+  const mapCenterLat = activeBus ? activeBus.latitude : currentCampusObj.latitude;
+  const mapCenterLon = activeBus ? activeBus.longitude : currentCampusObj.longitude;
+  const mapZoom = activeCampus === 'ALL' ? (activeBus ? 14 : 8) : 15;
+
+  // Generate interactive Leaflet / Google Maps HTML payload
+  const mapHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    body, html, #map { margin: 0; padding: 0; width: 100%; height: 100%; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    .bus-marker {
+      background: #008751;
+      border: 2.5px solid #ffffff;
+      color: #ffffff;
+      border-radius: 50%;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 12px rgba(0, 135, 81, 0.45);
+      font-size: 14px;
+      cursor: pointer;
+      position: relative;
+    }
+    .bus-marker.selected {
+      background: #E8112D;
+      border-color: #FCD116;
+      transform: scale(1.15);
+      box-shadow: 0 4px 14px rgba(232, 17, 45, 0.6);
+    }
+    .pulse-ring {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      border: 2px solid #008751;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0% { transform: scale(1); opacity: 0.9; }
+      100% { transform: scale(2.2); opacity: 0; }
+    }
+    .campus-badge {
+      background: #004D2E;
+      color: #FCD116;
+      border: 2px solid #ffffff;
+      font-weight: bold;
+      border-radius: 12px;
+      padding: 3px 8px;
+      font-size: 11px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      white-space: nowrap;
+    }
+    .leaflet-popup-content-wrapper {
+      border-radius: 12px;
+      padding: 0;
+      overflow: hidden;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+    }
+    .leaflet-popup-content {
+      margin: 0;
+      padding: 12px;
+      font-size: 12px;
+      line-height: 1.4;
+    }
+    .pop-header {
+      background: #008751;
+      color: white;
+      margin: -12px -12px 10px -12px;
+      padding: 10px 12px;
+      font-weight: 700;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .pop-row { margin: 4px 0; display: flex; justify-content: space-between; }
+    .pop-label { color: #64748b; font-weight: 500; }
+    .pop-val { color: #0f172a; font-weight: 700; }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <script>
+    var centerLat = ${mapCenterLat};
+    var centerLon = ${mapCenterLon};
+    var zoomLevel = ${mapZoom};
+
+    var map = L.map('map', {
+      center: [centerLat, centerLon],
+      zoom: zoomLevel,
+      zoomControl: false
+    });
+
+    L.control.zoom({ position: 'topright' }).addTo(map);
+
+    // Google Maps & OSM Tiles
+    var streetLayer = L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+      maxZoom: 20,
+      attribution: '© Google Maps Bénin'
+    });
+
+    var satLayer = L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+      maxZoom: 20,
+      attribution: '© Google Satellite'
+    });
+
+    var osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '© OpenStreetMap'
+    });
+
+    var currentMode = '${mapMode}';
+    if (currentMode === 'satellite') {
+      satLayer.addTo(map);
+    } else if (currentMode === 'osm') {
+      osmLayer.addTo(map);
+    } else {
+      streetLayer.addTo(map);
+    }
+
+    // Campuses
+    var campuses = ${JSON.stringify(campuses.filter((c) => c.id !== 'ALL'))};
+    campuses.forEach(function(c) {
+      var icon = L.divIcon({
+        className: 'custom-div-icon',
+        html: '<div class="campus-badge">🏛️ ' + c.name + '</div>',
+        iconSize: [120, 24],
+        iconAnchor: [60, 12]
+      });
+      L.marker([c.latitude, c.longitude], { icon: icon }).addTo(map);
+    });
+
+    // Buses
+    var buses = ${JSON.stringify(filteredBuses)};
+    var selectedBusId = '${activeBus?.bus_id || ''}';
+
+    buses.forEach(function(b) {
+      var isSel = (b.bus_id === selectedBusId);
+      var icon = L.divIcon({
+        className: 'custom-bus-icon',
+        html: '<div class="bus-marker ' + (isSel ? 'selected' : '') + '">' +
+                '<div class="pulse-ring"></div>' +
+                '🚌' +
+              '</div>',
+        iconSize: [32, 32],
+        iconAnchor: [16, 16]
+      });
+
+      var marker = L.marker([b.latitude, b.longitude], { icon: icon }).addTo(map);
+      
+      var popupContent = 
+        '<div class="pop-header">' +
+          '<span>' + b.bus_code + '</span>' +
+          '<span style="background: ' + (b.speed_kmh > 0 ? '#10b981' : '#FCD116') + '; color: #000; padding: 2px 6px; border-radius: 6px; font-size: 11px;">' + (b.speed_kmh > 0 ? b.speed_kmh + ' km/h' : 'À l’arrêt') + '</span>' +
+        '</div>' +
+        '<div class="pop-row"><span class="pop-label">Immatriculation:</span><span class="pop-val">' + b.immatriculation + '</span></div>' +
+        '<div class="pop-row"><span class="pop-label">Ligne:</span><span class="pop-val">' + b.route_name + '</span></div>' +
+        '<div class="pop-row"><span class="pop-label">Chauffeur:</span><span class="pop-val">' + b.driver_name + ' (' + b.driver_phone + ')</span></div>' +
+        '<div class="pop-row"><span class="pop-label">Places:</span><span class="pop-val">' + b.booked_seats + ' / ' + b.total_capacity + ' (' + b.occupancy_percentage + '%)</span></div>' +
+        '<div class="pop-row"><span class="pop-label">Prochain arrêt:</span><span class="pop-val">' + b.next_stop + '</span></div>';
+
+      marker.bindPopup(popupContent);
+      if (isSel) {
+        marker.openPopup();
+      }
+    });
+  </script>
+</body>
+</html>
+`;
 
   return (
     <View style={styles.container}>
@@ -155,12 +331,35 @@ export default function LiveCampusMap({
         <View style={styles.titleRow}>
           <View style={styles.liveIndicator}>
             <View style={styles.pulseDot} />
-            <Text style={styles.liveTag}>CARTE SATELLITE & FLOTTE EN DIRECT</Text>
+            <Text style={styles.liveTag}>GOOGLE MAPS & FLOTTE TEMPS RÉEL (BÉNIN)</Text>
           </View>
-          <Text style={styles.subTitle}>Suivi géospatial des navettes et appareils</Text>
+          <Text style={styles.subTitle}>Suivi géospatial officiel des navettes universitaires</Text>
+        </View>
+
+        {/* Map Type Switcher Buttons */}
+        <View style={styles.modeSwitcher}>
+          <Pressable
+            style={[styles.modeBtn, mapMode === 'streets' && styles.modeBtnActive]}
+            onPress={() => setMapMode('streets')}
+          >
+            <Text style={[styles.modeBtnText, mapMode === 'streets' && styles.modeBtnTextActive]}>Plan</Text>
+          </Pressable>
+          <Pressable
+            style={[styles.modeBtn, mapMode === 'satellite' && styles.modeBtnActive]}
+            onPress={() => setMapMode('satellite')}
+          >
+            <Text style={[styles.modeBtnText, mapMode === 'satellite' && styles.modeBtnTextActive]}>Satellite</Text>
+          </Pressable>
+          <Pressable
+            style={[styles.modeBtn, mapMode === 'osm' && styles.modeBtnActive]}
+            onPress={() => setMapMode('osm')}
+          >
+            <Text style={[styles.modeBtnText, mapMode === 'osm' && styles.modeBtnTextActive]}>OSM</Text>
+          </Pressable>
         </View>
       </View>
 
+      {/* Campus Selector Chips */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -187,81 +386,64 @@ export default function LiveCampusMap({
         })}
       </ScrollView>
 
-      {/* 2. Interactive Styled Map Canvas */}
+      {/* 2. Authentic Interactive Google Maps Layer */}
       <View style={styles.mapCanvas}>
-        {/* Background Grid & Roads Pattern */}
-        <View style={styles.mapBackground}>
-          <View style={styles.roadLineH} />
-          <View style={[styles.roadLineH, { top: '65%' }]} />
-          <View style={styles.roadLineV} />
-          <View style={[styles.roadLineV, { left: '70%' }]} />
-          <View style={styles.campusZone}>
-            <MaterialIcons name="account-balance" size={24} color="rgba(0,111,107,0.15)" />
-            <Text style={styles.campusZoneText}>
-              {selectedCampusObj ? `Zone ${selectedCampusObj.name}` : `Zone Campus ${activeCampus}`}
-            </Text>
+        {Platform.OS === 'web' ? (
+          // @ts-ignore - Web iframe rendering with real Google Maps tiles
+          <iframe
+            srcDoc={mapHtml}
+            style={{
+              width: '100%',
+              height: '100%',
+              border: 'none',
+              borderRadius: radius.lg,
+            }}
+            title="Carte Google Maps Temps Réel"
+          />
+        ) : (
+          <View style={styles.mobileFallback}>
+            <MaterialIcons name="map" size={48} color={colors.primary} />
+            <Text style={styles.mobileFallbackText}>Google Maps Bénin Connecté</Text>
+            <Text style={styles.mobileFallbackSub}>{filteredBuses.length} navettes en mouvement</Text>
           </View>
-        </View>
-
-        {/* Dynamic Campus Landmark Hubs */}
-        {dynamicLandmarks.map((lm, lIdx) => {
-          const lTop = lIdx === 0 ? '25%' : lIdx === 1 ? '70%' : lIdx === 2 ? '35%' : '60%';
-          const lLeft = lIdx === 0 ? '20%' : lIdx === 1 ? '68%' : lIdx === 2 ? '80%' : '15%';
-          const isStop = lm.type === 'stop';
-          return (
-            <View key={`${lm.name}-${lIdx}`} style={[styles.landmarkPin, { top: lTop as any, left: lLeft as any }]}>
-              <View style={[styles.landmarkDot, isStop && { backgroundColor: '#d97706' }]} />
-              <Text style={styles.landmarkLabel}>{lm.name}</Text>
-            </View>
-          );
-        })}
-
-        {/* Bus Markers on Map */}
-        {filteredBuses.map((bus, idx) => {
-          const isSelected = activeBus?.bus_id === bus.bus_id;
-          // Dynamic positions for demonstration in canvas
-          const topPos = idx === 0 ? '40%' : idx === 1 ? '55%' : idx === 2 ? '30%' : '65%';
-          const leftPos = idx === 0 ? '38%' : idx === 1 ? '60%' : idx === 2 ? '75%' : '28%';
-
-          return (
-            <Pressable
-              key={bus.bus_id}
-              style={[
-                styles.busMarker,
-                { top: topPos as any, left: leftPos as any },
-                isSelected && styles.busMarkerSelected,
-              ]}
-              onPress={() => handleSelect(bus)}
-            >
-              <View style={[styles.busMarkerIcon, isSelected && styles.busMarkerIconSelected]}>
-                <MaterialIcons name="directions-bus" size={18} color="#ffffff" />
-              </View>
-              <View style={styles.busMarkerBadge}>
-                <Text style={styles.busMarkerText}>{bus.bus_code.replace('Bus Campus ', '')}</Text>
-                <View style={[styles.statusDot, { backgroundColor: bus.speed_kmh > 0 ? '#10b981' : '#f59e0b' }]} />
-              </View>
-            </Pressable>
-          );
-        })}
-
-        {/* Map Floating Controls */}
-        <View style={styles.mapControls}>
-          <Pressable style={styles.mapCtrlBtn}>
-            <MaterialIcons name="my-location" size={18} color={colors.onSurface} />
-          </Pressable>
-          <Pressable style={styles.mapCtrlBtn}>
-            <MaterialIcons name="layers" size={18} color={colors.onSurface} />
-          </Pressable>
-        </View>
+        )}
 
         {/* Real-time Telemetry Pill */}
         <View style={styles.liveFleetPill}>
           <View style={styles.pulseDot} />
-          <Text style={styles.liveFleetText}>{filteredBuses.length} navettes actives en temps réel</Text>
+          <Text style={styles.liveFleetText}>{filteredBuses.length} navettes actives en direct</Text>
         </View>
       </View>
 
-      {/* 3. Selected Bus Detail Drawer */}
+      {/* 3. Bus Selector Thumbnails */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.busThumbRow}
+      >
+        {filteredBuses.map((bus) => {
+          const isSelected = activeBus?.bus_id === bus.bus_id;
+          return (
+            <Pressable
+              key={bus.bus_id}
+              style={[styles.busThumbCard, isSelected && styles.busThumbCardSelected]}
+              onPress={() => handleSelect(bus)}
+            >
+              <View style={[styles.busThumbIcon, isSelected && styles.busThumbIconSelected]}>
+                <MaterialIcons name="directions-bus" size={16} color={isSelected ? '#ffffff' : colors.primary} />
+              </View>
+              <View>
+                <Text style={[styles.busThumbTitle, isSelected && styles.busThumbTitleSelected]}>
+                  {bus.bus_code}
+                </Text>
+                <Text style={styles.busThumbSub}>{bus.speed_kmh > 0 ? `${bus.speed_kmh} km/h` : 'Arrêt'}</Text>
+              </View>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+
+      {/* 4. Selected Bus Detail Drawer */}
       {activeBus && (
         <View style={styles.busDetailCard}>
           <View style={styles.busDetailHeader}>
@@ -342,9 +524,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
   },
   titleRow: {
     flex: 1,
+    minWidth: 200,
   },
   liveIndicator: {
     flexDirection: 'row',
@@ -368,6 +553,30 @@ const styles = StyleSheet.create({
     color: colors.onSurfaceVariant,
     marginTop: 2,
   },
+  modeSwitcher: {
+    flexDirection: 'row',
+    backgroundColor: colors.surfaceContainer,
+    borderRadius: radius.full,
+    padding: 2,
+    borderWidth: 1,
+    borderColor: colors.outlineVariant,
+  },
+  modeBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: radius.full,
+  },
+  modeBtnActive: {
+    backgroundColor: colors.primary,
+  },
+  modeBtnText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.onSurfaceVariant,
+  },
+  modeBtnTextActive: {
+    color: '#ffffff',
+  },
   campusTabs: {
     gap: spacing.xs,
     paddingVertical: spacing.xs,
@@ -376,7 +585,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
-    paddingHorizontal: spacing.sm + 2,
+    paddingHorizontal: spacing.sm + 4,
     paddingVertical: 6,
     borderRadius: radius.full,
     backgroundColor: colors.surfaceContainer,
@@ -396,165 +605,96 @@ const styles = StyleSheet.create({
     color: '#ffffff',
   },
   mapCanvas: {
-    height: 240,
-    backgroundColor: '#1b2a32',
+    height: 320,
+    backgroundColor: '#e2e8f0',
     borderRadius: radius.lg,
     position: 'relative',
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: colors.outlineVariant,
   },
-  mapBackground: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#162329',
-  },
-  roadLineH: {
-    position: 'absolute',
-    top: '45%',
-    left: 0,
-    right: 0,
-    height: 12,
-    backgroundColor: '#263b45',
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-  },
-  roadLineV: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    left: '35%',
-    width: 12,
-    backgroundColor: '#263b45',
-    borderLeftWidth: 1,
-    borderRightWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-  },
-  campusZone: {
-    position: 'absolute',
-    top: '15%',
-    left: '15%',
-    width: 140,
-    height: 80,
-    backgroundColor: 'rgba(0,111,107,0.12)',
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: 'rgba(0,111,107,0.3)',
-    borderStyle: 'dashed',
+  mobileFallback: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
+    backgroundColor: '#f1f5f9',
+    gap: 6,
   },
-  campusZoneText: {
-    fontSize: 10,
+  mobileFallbackText: {
+    fontSize: 14,
     fontWeight: '700',
-    color: colors.primaryFixed,
-    textTransform: 'uppercase',
+    color: colors.primary,
   },
-  landmarkPin: {
-    position: 'absolute',
-    alignItems: 'center',
-    gap: 2,
-  },
-  landmarkDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: colors.primary,
-    borderWidth: 2,
-    borderColor: '#ffffff',
-  },
-  landmarkLabel: {
-    fontSize: 9,
-    color: 'rgba(255,255,255,0.7)',
-    fontWeight: '600',
-  },
-  busMarker: {
-    position: 'absolute',
-    alignItems: 'center',
-    transform: [{ translateX: -20 }, { translateY: -20 }],
-  },
-  busMarkerSelected: {
-    zIndex: 10,
-    transform: [{ translateX: -20 }, { translateY: -20 }, { scale: 1.15 }],
-  },
-  busMarkerIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: '#ffffff',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
-    elevation: 6,
-  },
-  busMarkerIconSelected: {
-    backgroundColor: '#d97706',
-  },
-  busMarkerBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    backgroundColor: 'rgba(0,0,0,0.75)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: radius.xs,
-    marginTop: 2,
-  },
-  busMarkerText: {
-    fontSize: 9,
-    fontWeight: '700',
-    color: '#ffffff',
-  },
-  statusDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
-  },
-  mapControls: {
-    position: 'absolute',
-    right: spacing.sm,
-    top: spacing.sm,
-    gap: spacing.xs,
-  },
-  mapCtrlBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: radius.md,
-    backgroundColor: 'rgba(255,255,255,0.9)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 3,
+  mobileFallbackSub: {
+    fontSize: 12,
+    color: colors.onSurfaceVariant,
   },
   liveFleetPill: {
     position: 'absolute',
-    bottom: spacing.sm,
-    left: spacing.sm,
+    bottom: 12,
+    left: 12,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: 'rgba(0,0,0,0.75)',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
+    backgroundColor: 'rgba(0, 77, 46, 0.92)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: radius.full,
+    borderWidth: 1,
+    borderColor: '#FCD116',
+    boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
   },
   liveFleetText: {
-    fontSize: 10,
+    fontSize: 11,
+    fontWeight: '700',
     color: '#ffffff',
-    fontWeight: '600',
+  },
+  busThumbRow: {
+    gap: spacing.xs,
+    paddingVertical: 4,
+  },
+  busThumbCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceContainer,
+    borderWidth: 1,
+    borderColor: colors.outlineVariant,
+  },
+  busThumbCardSelected: {
+    backgroundColor: colors.primaryContainer,
+    borderColor: colors.primary,
+  },
+  busThumbIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: radius.full,
+    backgroundColor: colors.primaryFixed,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  busThumbIconSelected: {
+    backgroundColor: colors.primary,
+  },
+  busThumbTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.onSurface,
+  },
+  busThumbTitleSelected: {
+    color: '#ffffff',
+  },
+  busThumbSub: {
+    fontSize: 10,
+    color: colors.onSurfaceVariant,
   },
   busDetailCard: {
-    backgroundColor: colors.surfaceContainerLow,
+    backgroundColor: colors.surfaceContainer,
     borderRadius: radius.lg,
-    padding: spacing.sm + 2,
+    padding: spacing.md,
     borderWidth: 1,
     borderColor: colors.outlineVariant,
     gap: spacing.sm,
@@ -580,10 +720,16 @@ const styles = StyleSheet.create({
   busDetailSub: {
     fontSize: 12,
     color: colors.onSurfaceVariant,
-    marginTop: 2,
+    marginTop: 1,
   },
   speedBox: {
     alignItems: 'flex-end',
+    backgroundColor: colors.surfaceContainerLowest,
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: 4,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.outlineVariant,
   },
   speedVal: {
     fontSize: 18,
@@ -591,26 +737,28 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
   speedUnit: {
-    fontSize: 10,
+    fontSize: 9,
+    fontWeight: '600',
     color: colors.onSurfaceVariant,
   },
   busDivider: {
     height: 1,
     backgroundColor: colors.outlineVariant,
+    opacity: 0.6,
   },
   detailGrid: {
     flexDirection: 'row',
-    gap: spacing.md,
+    justifyContent: 'space-between',
+    gap: spacing.sm,
   },
   gridCol: {
     flex: 1,
-    gap: 2,
   },
   gridLabel: {
+    ...typography.labelCaps,
     fontSize: 10,
-    fontWeight: '700',
     color: colors.outline,
-    letterSpacing: 0.5,
+    marginBottom: 2,
   },
   gridVal: {
     fontSize: 13,
@@ -620,9 +768,11 @@ const styles = StyleSheet.create({
   gridSub: {
     fontSize: 11,
     color: colors.onSurfaceVariant,
+    marginTop: 2,
   },
   capacitySection: {
     gap: 4,
+    marginTop: 4,
   },
   capacityHeader: {
     flexDirection: 'row',
@@ -640,12 +790,12 @@ const styles = StyleSheet.create({
   },
   progressBar: {
     height: 6,
-    backgroundColor: colors.surfaceContainerHigh,
-    borderRadius: radius.full,
+    borderRadius: 3,
+    backgroundColor: colors.outlineVariant,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    borderRadius: radius.full,
+    borderRadius: 3,
   },
 });

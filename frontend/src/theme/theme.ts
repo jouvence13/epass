@@ -2,56 +2,64 @@
 // (Academic Transit System design system — see DESIGN.md)
 
 export const colors = {
-  primary: '#001e40',
+  // Official Republic of Benin Design Palette
+  primary: '#008751', // Vert Officiel République du Bénin
   onPrimary: '#ffffff',
-  primaryContainer: '#003366',
-  onPrimaryContainer: '#799dd6',
-  primaryFixed: '#d5e3ff',
-  primaryFixedDim: '#a7c8ff',
-  onPrimaryFixed: '#001b3c',
-  onPrimaryFixedVariant: '#1f477b',
+  primaryContainer: '#004d2e', // Vert Forêt Institutionnel
+  onPrimaryContainer: '#a3e6c2',
+  primaryFixed: '#c7f2dc',
+  primaryFixedDim: '#8ee4b7',
+  onPrimaryFixed: '#002816',
+  onPrimaryFixedVariant: '#005934',
 
-  secondary: '#1b6d24',
-  onSecondary: '#ffffff',
-  secondaryContainer: '#a0f399',
-  onSecondaryContainer: '#217128',
-  secondaryFixed: '#a3f69c',
-  secondaryFixedDim: '#88d982',
+  secondary: '#FCD116', // Jaune Or République du Bénin
+  onSecondary: '#2b2100',
+  secondaryContainer: '#fef08a',
+  onSecondaryContainer: '#713f12',
+  secondaryFixed: '#fde047',
+  secondaryFixedDim: '#facc15',
 
-  tertiary: '#2b1b00',
+  tertiary: '#E8112D', // Rouge République du Bénin
   onTertiary: '#ffffff',
-  tertiaryContainer: '#472f00',
-  onTertiaryContainer: '#ce9000',
-  tertiaryFixed: '#ffdeac',
-  tertiaryFixedDim: '#ffba38',
-  onTertiaryFixed: '#281900',
-  onTertiaryFixedVariant: '#604100',
+  tertiaryContainer: '#ffe4e6',
+  onTertiaryContainer: '#9f1239',
+  tertiaryFixed: '#fecdd3',
+  tertiaryFixedDim: '#fda4af',
+  onTertiaryFixed: '#4c0519',
+  onTertiaryFixedVariant: '#881337',
 
-  error: '#ba1a1a',
+  error: '#E8112D',
   onError: '#ffffff',
-  errorContainer: '#ffdad6',
-  onErrorContainer: '#93000a',
+  errorContainer: '#fee2e2',
+  onErrorContainer: '#991b1b',
 
-  background: '#f8f9fa',
-  onBackground: '#191c1d',
-  surface: '#f8f9fa',
-  onSurface: '#191c1d',
-  surfaceVariant: '#e1e3e4',
-  onSurfaceVariant: '#43474f',
-  surfaceDim: '#d9dadb',
-  surfaceBright: '#f8f9fa',
+  background: '#f8fafc',
+  onBackground: '#0f172a',
+  surface: '#ffffff',
+  onSurface: '#0f172a',
+  surfaceVariant: '#f1f5f9',
+  onSurfaceVariant: '#475569',
+  surfaceDim: '#e2e8f0',
+  surfaceBright: '#ffffff',
   surfaceContainerLowest: '#ffffff',
-  surfaceContainerLow: '#f3f4f5',
-  surfaceContainer: '#edeeef',
-  surfaceContainerHigh: '#e7e8e9',
-  surfaceContainerHighest: '#e1e3e4',
+  surfaceContainerLow: '#f8fafc',
+  surfaceContainer: '#f1f5f9',
+  surfaceContainerHigh: '#e2e8f0',
+  surfaceContainerHighest: '#cbd5e1',
 
-  outline: '#737780',
-  outlineVariant: '#c3c6d1',
+  outline: '#64748b',
+  outlineVariant: '#cbd5e1',
 
-  inverseSurface: '#2e3132',
-  inverseOnSurface: '#f0f1f2',
-  inversePrimary: '#a7c8ff',
+  inverseSurface: '#1e293b',
+  inverseOnSurface: '#f8fafc',
+  inversePrimary: '#8ee4b7',
+
+  // Benin National & Brand Tokens
+  beninGreen: '#008751',
+  beninYellow: '#FCD116',
+  beninRed: '#E8112D',
+  beninDarkGreen: '#004D2E',
+  beninGold: '#D97706',
 
   // Mobile money brand slots
   mtnYellow: '#FFCC00',
@@ -59,6 +67,7 @@ export const colors = {
   white: '#ffffff',
   black: '#000000',
 };
+
 
 export const spacing = {
   xs: 4,

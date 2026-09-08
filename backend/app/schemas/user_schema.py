@@ -51,6 +51,11 @@ class KycDocumentOutSchema(BaseModel):
     rejection_reason: Optional[str] = None
     academic_year: str
     created_at: datetime
+    user_full_name: Optional[str] = None
+    user_matricule: Optional[str] = None
+    user_phone: Optional[str] = None
+    user_role: Optional[str] = None
+
 
 
 class UserProfileSchema(BaseModel):
