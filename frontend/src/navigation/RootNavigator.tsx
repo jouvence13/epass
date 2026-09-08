@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, ActivityIndicator } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, InitialState } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
 import { colors } from '../theme/theme';
+import { StorageService } from '../utils/storage';
 
 // Auth Screens
 import LoginScreen from '../screens/auth/LoginScreen';
@@ -34,8 +35,29 @@ const Stack = createNativeStackNavigator();
 
 export default function RootNavigator() {
   const { user, isAuthenticated, isInitialLoading } = useAuth();
+  const [isNavReady, setIsNavReady] = useState(false);
+  const [initialState, setInitialState] = useState<InitialState | undefined>();
 
-  if (isInitialLoading) {
+  useEffect(() => {
+    const restoreNavigationState = async () => {
+      try {
+        const savedState = await StorageService.getNavState();
+        if (savedState) {
+          setInitialState(savedState);
+        }
+      } catch (e) {
+        console.warn('Erreur de restauration de la navigation:', e);
+      } finally {
+        setIsNavReady(true);
+      }
+    };
+
+    if (!isInitialLoading) {
+      restoreNavigationState();
+    }
+  }, [isInitialLoading]);
+
+  if (isInitialLoading || !isNavReady) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background }}>
         <ActivityIndicator size="large" color={colors.primary} />
@@ -44,7 +66,12 @@ export default function RootNavigator() {
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer
+      initialState={initialState}
+      onStateChange={(state) => {
+        StorageService.saveNavState(state);
+      }}
+    >
       <Stack.Navigator
         screenOptions={{
           headerShown: false,

@@ -8,7 +8,9 @@ const STORAGE_KEYS = {
   WALLET: '@epass_wallet_balance',
   PHONE_NUMBERS: '@epass_phone_numbers',
   OFFLINE_CACHE_TIME: '@epass_offline_cache_time',
+  NAV_STATE: '@epass_nav_state',
 };
+
 
 // Universal Storage Adapter: supporte React Native Web (localStorage) & Mobile Native (AsyncStorage)
 const getNativeStorage = () => {
@@ -152,6 +154,28 @@ export const StorageService = {
     }
   },
 
+  async saveNavState(state: any): Promise<void> {
+    try {
+      if (!state) {
+        await UniversalStorage.removeItem(STORAGE_KEYS.NAV_STATE);
+      } else {
+        await UniversalStorage.setItem(STORAGE_KEYS.NAV_STATE, JSON.stringify(state));
+      }
+    } catch (e) {
+      console.warn('StorageService.saveNavState error:', e);
+    }
+  },
+
+  async getNavState(): Promise<any | null> {
+    try {
+      const data = await UniversalStorage.getItem(STORAGE_KEYS.NAV_STATE);
+      return data ? JSON.parse(data) : null;
+    } catch (e) {
+      console.warn('StorageService.getNavState error:', e);
+      return null;
+    }
+  },
+
   async clearAll(): Promise<void> {
     try {
       await Promise.all([
@@ -162,9 +186,11 @@ export const StorageService = {
         UniversalStorage.removeItem(STORAGE_KEYS.WALLET),
         UniversalStorage.removeItem(STORAGE_KEYS.PHONE_NUMBERS),
         UniversalStorage.removeItem(STORAGE_KEYS.OFFLINE_CACHE_TIME),
+        UniversalStorage.removeItem(STORAGE_KEYS.NAV_STATE),
       ]);
     } catch (e) {
       console.warn('StorageService.clearAll error:', e);
     }
   },
 };
+
