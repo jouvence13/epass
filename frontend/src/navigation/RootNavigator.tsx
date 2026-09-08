@@ -120,8 +120,9 @@ export default function RootNavigator() {
           </>
         ) : (
           // ================================================================
-          // STACK DIRECTION CROUS / SUPERADMIN (RBAC ADMIN)
+          // STACK DIRECTION CAMPUS / SUPERADMIN (RBAC ADMIN & SUPERADMIN)
           // ================================================================
+
           <>
             <Stack.Screen name="AdminTabs" component={AdminTabs} />
             <Stack.Screen name="DriverProfile" component={DriverProfileScreen} />

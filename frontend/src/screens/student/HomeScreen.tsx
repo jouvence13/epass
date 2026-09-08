@@ -170,7 +170,7 @@ export default function HomeScreen({ navigation }: any) {
       const newTicket = purchaseTicket({
         line: `Ligne ${selectedDeparture.route}`,
         route: selectedDeparture.route,
-        busId: 'Bus CROUS #402',
+        busId: 'Bus Campus #402',
         price: 100,
         paymentMethod: opName,
         slotId: selectedDeparture.id,
@@ -277,7 +277,7 @@ export default function HomeScreen({ navigation }: any) {
                 </Text>
                 <Text style={styles.homeKycSubtitle}>
                   {user?.kyc_status === 'PENDING'
-                    ? 'Pièces transmises au CROUS • Validation sous 24h ouvrées'
+                    ? 'Pièces transmises au Campus • Validation sous 24h ouvrées'
                     : 'Fournissez votre Carte d’Étudiant UAC et votre CIP'}
                 </Text>
               </View>
@@ -330,7 +330,7 @@ export default function HomeScreen({ navigation }: any) {
             </Text>
             <Text style={styles.noTicketSub}>
               {user?.kyc_status === 'PENDING'
-                ? 'Vos pièces justificatives sont en cours d’examen par le CROUS. Vos titres s’afficheront dès approbation.'
+                ? 'Vos pièces justificatives sont en cours d’examen par le Campus. Vos titres s’afficheront dès approbation.'
                 : 'Faites certifier votre compte étudiant avec votre carte UAC et CIP pour acheter des tickets subventionnés à 100 FCFA.'}
             </Text>
             <Pressable
@@ -391,7 +391,7 @@ export default function HomeScreen({ navigation }: any) {
             <MaterialIcons name="airplane-ticket" size={36} color={colors.outline} />
             <Text style={styles.noTicketTitle}>Aucun titre de transport actif</Text>
             <Text style={styles.noTicketSub}>
-              Achetez votre ticket subventionné à 100 FCFA pour voyager sereinement sur le réseau CROUS.
+              Achetez votre ticket subventionné à 100 FCFA pour voyager sereinement sur le réseau Campus.
             </Text>
             <Pressable
               style={styles.buyTicketActionBtn}
@@ -452,13 +452,13 @@ export default function HomeScreen({ navigation }: any) {
         </View>
 
         {/* ========================================================================= */}
-        {/* SECTION 2 : PROCHAINS DÉPARTS CROUS (DYNAMIQUE AVEC MODAL DE PAIEMENT)    */}
+        {/* SECTION 2 : PROCHAINS DÉPARTS Campus (DYNAMIQUE AVEC MODAL DE PAIEMENT)    */}
         {/* ========================================================================= */}
         <Card style={styles.section}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.xs }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               <MaterialIcons name="schedule" size={20} color={colors.primary} />
-              <Text style={styles.sectionTitle}>Prochains Départs CROUS</Text>
+              <Text style={styles.sectionTitle}>Prochains Départs Campus</Text>
             </View>
             <Text style={styles.tapToBookHint}>Appuyez pour réserver</Text>
           </View>
@@ -965,8 +965,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 
-  // Prochains Départs CROUS
+  // Prochains Départs Campus
   departuresList: {
+
     gap: spacing.sm,
     marginTop: spacing.xs,
   },

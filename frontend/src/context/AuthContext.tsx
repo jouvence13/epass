@@ -2,8 +2,9 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { ENDPOINTS } from '../config/api';
 import { StorageService } from '../utils/storage';
 
-export type UserRole = 'STUDENT' | 'DRIVER' | 'CONTROLLER' | 'ADMIN_CROUS' | 'SUPERADMIN';
+export type UserRole = 'STUDENT' | 'DRIVER' | 'CONTROLLER' | 'ADMIN' | 'ADMIN_CAMPUS' | 'ADMIN_CROUS' | 'SUPERADMIN';
 export type KycStatus = 'NOT_SUBMITTED' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'EXPIRED';
+
 
 export interface User {
   user_id: string;
@@ -88,7 +89,8 @@ interface AuthContextType {
     }
   ) => Promise<{ success: boolean; error?: string; user?: any }>;
   logout: () => void;
-  quickLogin: (roleKey: 'STUDENT' | 'DRIVER' | 'CONTROLLER' | 'ADMIN_CROUS') => Promise<void>;
+  quickLogin: (roleKey: 'STUDENT' | 'DRIVER' | 'CONTROLLER' | 'ADMIN' | 'ADMIN_CAMPUS' | 'ADMIN_CROUS' | 'SUPERADMIN') => Promise<void>;
+
   updateUserKycStatus: (status: KycStatus) => void;
 }
 
@@ -697,17 +699,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setJustLoggedOut(true);
   };
 
-  const quickLogin = async (roleKey: 'STUDENT' | 'DRIVER' | 'CONTROLLER' | 'ADMIN_CROUS') => {
-    const testCredentials = {
+  const quickLogin = async (roleKey: 'STUDENT' | 'DRIVER' | 'CONTROLLER' | 'ADMIN' | 'ADMIN_CAMPUS' | 'ADMIN_CROUS' | 'SUPERADMIN') => {
+    const testCredentials: Record<string, { phone: string; pass: string }> = {
       STUDENT: { phone: '+22997001122', pass: 'Student1234' },
       DRIVER: { phone: '+22997000001', pass: 'Driver1234' },
       CONTROLLER: { phone: '+22997000002', pass: 'Controller1234' },
+      ADMIN: { phone: '+22997000000', pass: 'Admin1234' },
+      ADMIN_CAMPUS: { phone: '+22997000000', pass: 'Admin1234' },
       ADMIN_CROUS: { phone: '+22997000000', pass: 'Admin1234' },
+      SUPERADMIN: { phone: '+22997000000', pass: 'Admin1234' },
     };
 
-    const cred = testCredentials[roleKey];
+    const cred = testCredentials[roleKey] || testCredentials.ADMIN;
     await login(cred.phone, cred.pass);
   };
+
 
   const updateUserKycStatus = (status: KycStatus) => {
     if (user) {

@@ -36,7 +36,8 @@ export default function AdminTabs() {
     logout();
   };
 
-  const title = user?.role === 'SUPERADMIN' ? 'Direction SuperAdmin' : 'Administration Universitaire';
+  const title = user?.role === 'SUPERADMIN' ? 'Direction SuperAdmin (National)' : 'Direction Campus (Directeur)';
+
   const bottomPadding = insets.bottom > 0 ? insets.bottom : 8;
   const tabHeight = 56 + bottomPadding;
 

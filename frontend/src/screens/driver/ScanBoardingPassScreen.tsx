@@ -46,8 +46,8 @@ export default function ScanBoardingPassScreen({ navigation }: any) {
         credentials: 'include',
         headers,
         body: JSON.stringify({
-          qr_code_token: (codeOrQr.startsWith('EPASS-') || codeOrQr.startsWith('CROUS-')) ? codeOrQr : undefined,
-          sms_backup_code: !(codeOrQr.startsWith('EPASS-') || codeOrQr.startsWith('CROUS-')) ? codeOrQr.replace('-', '') : undefined,
+          qr_code_token: (codeOrQr.startsWith('EPASS-') || codeOrQr.startsWith('CAMPUS-')) ? codeOrQr : undefined,
+          sms_backup_code: !(codeOrQr.startsWith('EPASS-') || codeOrQr.startsWith('CAMPUS-')) ? codeOrQr.replace('-', '') : undefined,
         }),
       });
 

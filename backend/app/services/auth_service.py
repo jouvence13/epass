@@ -116,13 +116,24 @@ def require_roles(allowed_roles: List[UserRoleEnum]):
     """
     USINE DE DÉPENDANCE (Dependency Factory) pour restreindre l'accès à certains rôles :
     Exemple d'utilisation sur un endpoint :
-      current_admin = Depends(require_roles([UserRoleEnum.ADMIN_CROUS, UserRoleEnum.SUPERADMIN]))
+      current_admin = Depends(require_roles([UserRoleEnum.ADMIN, UserRoleEnum.SUPERADMIN]))
     
     Si l'utilisateur connecté n'a pas l'un des rôles requis, une exception HTTP 403 Forbidden est levée.
     """
     async def role_checker(current_user: Users = Depends(get_current_authenticated_user)) -> Users:
         # Les SUPERADMIN ont toujours accès à toutes les fonctionnalités
-        if current_user.role not in allowed_roles and current_user.role != UserRoleEnum.SUPERADMIN:
+        if current_user.role == UserRoleEnum.SUPERADMIN:
+            return current_user
+
+        user_role = current_user.role
+        admin_roles = {UserRoleEnum.ADMIN, UserRoleEnum.ADMIN_CAMPUS, UserRoleEnum.ADMIN_CROUS}
+        
+        has_permission = (
+            user_role in allowed_roles or
+            (user_role in admin_roles and any(r in admin_roles for r in allowed_roles))
+        )
+
+        if not has_permission:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Accès refusé. Rôles autorisés pour cette action : {[r.value for r in allowed_roles]}",
@@ -130,3 +141,4 @@ def require_roles(allowed_roles: List[UserRoleEnum]):
         return current_user
     
     return role_checker
+

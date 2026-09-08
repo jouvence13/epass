@@ -698,7 +698,7 @@ export default function KycOnboardingScreen({ navigation }: any) {
                       <View style={styles.pdfCardPlaceholder}>
                         <MaterialIcons name="picture-as-pdf" size={54} color="#ef4444" />
                         <Text style={styles.pdfTitleText}>{studentCardInfo.name}</Text>
-                        <Text style={styles.pdfSubText}>Document PDF universitaire prêt pour transmission CROUS</Text>
+                        <Text style={styles.pdfSubText}>Document PDF universitaire prêt pour transmission l'Administration Universitaire</Text>
                       </View>
                     ) : (
                       <Image
@@ -788,7 +788,7 @@ export default function KycOnboardingScreen({ navigation }: any) {
                       <View style={styles.pdfCardPlaceholder}>
                         <MaterialIcons name="picture-as-pdf" size={54} color="#ef4444" />
                         <Text style={styles.pdfTitleText}>{identityInfo.name}</Text>
-                        <Text style={styles.pdfSubText}>Certificat CIP officiel prêt pour transmission CROUS</Text>
+                        <Text style={styles.pdfSubText}>Certificat CIP officiel prêt pour transmission l'Administration Universitaire</Text>
                       </View>
                     ) : (
                       <Image

@@ -21,7 +21,7 @@ import { useNotifications } from '../../context/NotificationContext';
 
 interface PaymentMethod {
   id: string;
-  type: 'MTN_MOMO' | 'MOOV_MONEY' | 'CELTIIS_CASH' | 'CROUS_WALLET';
+  type: 'MTN_MOMO' | 'MOOV_MONEY' | 'CELTIIS_CASH' | 'CAMPUS_WALLET';
   title: string;
   account: string;
   isDefault: boolean;
@@ -314,7 +314,7 @@ export default function PaymentMethodsScreen({ navigation }: any) {
 
                 {/* Actions par carte */}
                 <View style={{ alignItems: 'flex-end', gap: 6 }}>
-                  {method.type !== 'CROUS_WALLET' ? (
+                  {method.type !== 'CAMPUS_WALLET' ? (
                     <Pressable
                       style={styles.editBtn}
                       onPress={() => openEditModal(method)}
@@ -332,7 +332,7 @@ export default function PaymentMethodsScreen({ navigation }: any) {
                     </Pressable>
                   )}
 
-                  {!method.isDefault && method.type !== 'CROUS_WALLET' && (
+                  {!method.isDefault && method.type !== 'CAMPUS_WALLET' && (
                     <Pressable
                       style={styles.setDefaultBtn}
                       onPress={() => setDefaultMethod(method.id)}

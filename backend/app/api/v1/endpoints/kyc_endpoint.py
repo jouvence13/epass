@@ -131,7 +131,7 @@ async def get_my_kyc_documents(
 
 @router.get("/pending", response_model=List[KycDocumentOutSchema])
 async def list_pending_kyc_submissions(
-    current_admin: Users = Depends(require_roles([UserRoleEnum.ADMIN_CROUS, UserRoleEnum.SUPERADMIN])),
+    current_admin: Users = Depends(require_roles([UserRoleEnum.ADMIN, UserRoleEnum.ADMIN_CAMPUS, UserRoleEnum.ADMIN_CROUS, UserRoleEnum.SUPERADMIN])),
     db: AsyncSession = Depends(get_async_db)
 ):
     """Admin: List all pending KYC document submissions with full user profile info."""
@@ -174,7 +174,7 @@ async def list_pending_kyc_submissions(
 @router.put("/verify", status_code=status.HTTP_200_OK)
 async def verify_kyc_submission(
     payload: KycModerationRequestSchema,
-    current_admin: Users = Depends(require_roles([UserRoleEnum.ADMIN_CROUS, UserRoleEnum.SUPERADMIN])),
+    current_admin: Users = Depends(require_roles([UserRoleEnum.ADMIN, UserRoleEnum.ADMIN_CAMPUS, UserRoleEnum.ADMIN_CROUS, UserRoleEnum.SUPERADMIN])),
     db: AsyncSession = Depends(get_async_db)
 ):
     """

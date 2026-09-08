@@ -90,7 +90,9 @@ class AdminCreateUserSchema(BaseModel):
     matricule_uac: Optional[str] = Field(None, example="DRV-2024-001")
     phone_number: str = Field(..., example="+22997000000")
     first_name: str = Field(..., example="Chauffeur")
-    last_name: str = Field(..., example="CROUS")
+    last_name: str = Field(..., example="Campus")
     password: str = Field(..., min_length=6, example="Driver1234")
-    role: UserRoleEnum = Field(..., example="DRIVER", description="Rôle utilisateur (STUDENT, DRIVER, CONTROLLER, ADMIN_CROUS)")
+    role: UserRoleEnum = Field(..., example="DRIVER", description="Rôle utilisateur (STUDENT, DRIVER, CONTROLLER, ADMIN, SUPERADMIN)")
     kyc_status: Optional[KycStatusEnum] = KycStatusEnum.APPROVED
+    campus_code: Optional[str] = Field("UAC", example="UAC")
+

@@ -422,8 +422,9 @@ export default function AdminDashboardScreen({ navigation }: any) {
                 {user?.first_name} {user?.last_name}
               </Text>
               <Text style={styles.adminRole}>
-                {isSuperAdmin ? 'Super Administrateur National' : 'Direction des Transports Universitaires'}
+                {isSuperAdmin ? 'Super Administrateur National (Bénin)' : `Directeur de Campus Universitaire (${user?.matricule_uac || 'UAC Abomey-Calavi'})`}
               </Text>
+
             </View>
           </View>
           <Pressable style={styles.logoutBtn} onPress={logout}>

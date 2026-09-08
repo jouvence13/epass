@@ -111,7 +111,8 @@ export default function ActiveTicketScreen({ navigation }: any) {
     id: selectedLineKey,
     name: 'Campus Express',
     code: 'Ligne Campus',
-    busNumber: 'Bus CROUS',
+    busNumber: 'Bus Campus',
+
     occupancy: 'Places disponibles',
     speed: '40 km/h',
     currentLocation: 'Campus Calavi',

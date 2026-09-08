@@ -35,18 +35,25 @@ router = APIRouter(prefix="/admin", tags=["Admin & Fleet Management"])
 @router.post("/users", response_model=UserProfileSchema, status_code=status.HTTP_201_CREATED)
 async def create_user_by_admin(
     payload: AdminCreateUserSchema,
-    current_admin: Users = Depends(require_roles([UserRoleEnum.SUPERADMIN, UserRoleEnum.ADMIN_CROUS])),
+    current_admin: Users = Depends(require_roles([UserRoleEnum.SUPERADMIN, UserRoleEnum.ADMIN, UserRoleEnum.ADMIN_CAMPUS, UserRoleEnum.ADMIN_CROUS])),
     db: AsyncSession = Depends(get_async_db)
 ):
     """
-    SuperAdmin & Admin CROUS: Create any staff or student user account (DRIVER, CONTROLLER, ADMIN_CROUS, STUDENT).
-    Règle stricte: Il est strictement impossible de créer un autre compte SUPERADMIN.
+    SuperAdmin: Peut créer des Directeurs de Campus, Chauffeurs, Contrôleurs et Étudiants.
+    Directeur de Campus: Peut créer et affecter uniquement les Chauffeurs et Contrôleurs de son campus.
     """
     if payload.role == UserRoleEnum.SUPERADMIN:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Action interdite : Il est impossible de créer un compte avec le rôle SUPERADMIN."
         )
+
+    if current_admin.role != UserRoleEnum.SUPERADMIN and payload.role in {UserRoleEnum.ADMIN, UserRoleEnum.ADMIN_CAMPUS, UserRoleEnum.ADMIN_CROUS}:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Action réservée : Seul le Super Administrateur National peut nommer ou créer des Directeurs de Campus."
+        )
+
 
     # Check uniqueness of phone number and matricule
     query_conditions = [Users.phone_number == payload.phone_number]
@@ -87,7 +94,7 @@ async def create_user_by_admin(
 
 @router.get("/fleet", response_model=List[BusOutSchema])
 async def list_fleet_buses(
-    current_admin: Users = Depends(require_roles([UserRoleEnum.ADMIN_CROUS, UserRoleEnum.SUPERADMIN])),
+    current_admin: Users = Depends(require_roles([UserRoleEnum.ADMIN, UserRoleEnum.ADMIN_CAMPUS, UserRoleEnum.ADMIN_CROUS, UserRoleEnum.SUPERADMIN])),
     db: AsyncSession = Depends(get_async_db)
 ):
     """Admin: List all buses in the fleet."""
@@ -98,7 +105,7 @@ async def list_fleet_buses(
 @router.post("/fleet/bus", response_model=BusOutSchema, status_code=status.HTTP_201_CREATED)
 async def create_bus(
     payload: BusCreateSchema,
-    current_admin: Users = Depends(require_roles([UserRoleEnum.ADMIN_CROUS, UserRoleEnum.SUPERADMIN])),
+    current_admin: Users = Depends(require_roles([UserRoleEnum.ADMIN, UserRoleEnum.ADMIN_CAMPUS, UserRoleEnum.ADMIN_CROUS, UserRoleEnum.SUPERADMIN])),
     db: AsyncSession = Depends(get_async_db)
 ):
     """Admin: Register a new bus in the fleet."""
@@ -118,7 +125,7 @@ async def create_bus(
 @router.post("/stops", response_model=StopOutSchema, status_code=status.HTTP_201_CREATED)
 async def create_stop(
     payload: StopCreateSchema,
-    current_admin: Users = Depends(require_roles([UserRoleEnum.ADMIN_CROUS, UserRoleEnum.SUPERADMIN])),
+    current_admin: Users = Depends(require_roles([UserRoleEnum.ADMIN, UserRoleEnum.ADMIN_CAMPUS, UserRoleEnum.ADMIN_CROUS, UserRoleEnum.SUPERADMIN])),
     db: AsyncSession = Depends(get_async_db)
 ):
     """Admin: Create a new geographic bus stop with PostGIS Point(lon, lat)."""
@@ -142,7 +149,7 @@ async def create_stop(
 @router.post("/routes", response_model=RouteOutSchema, status_code=status.HTTP_201_CREATED)
 async def create_route(
     payload: RouteCreateSchema,
-    current_admin: Users = Depends(require_roles([UserRoleEnum.ADMIN_CROUS, UserRoleEnum.SUPERADMIN])),
+    current_admin: Users = Depends(require_roles([UserRoleEnum.ADMIN, UserRoleEnum.ADMIN_CAMPUS, UserRoleEnum.ADMIN_CROUS, UserRoleEnum.SUPERADMIN])),
     db: AsyncSession = Depends(get_async_db)
 ):
     """Admin: Create a new bus route / line."""
@@ -163,7 +170,7 @@ async def create_route(
 @router.post("/trips", response_model=TripOutSchema, status_code=status.HTTP_201_CREATED)
 async def schedule_trip(
     payload: TripCreateSchema,
-    current_admin: Users = Depends(require_roles([UserRoleEnum.ADMIN_CROUS, UserRoleEnum.SUPERADMIN])),
+    current_admin: Users = Depends(require_roles([UserRoleEnum.ADMIN, UserRoleEnum.ADMIN_CAMPUS, UserRoleEnum.ADMIN_CROUS, UserRoleEnum.SUPERADMIN])),
     db: AsyncSession = Depends(get_async_db)
 ):
     """Admin: Schedule a new bus trip with capacity quota."""
@@ -189,7 +196,7 @@ async def schedule_trip(
 
 @router.get("/audit-fin")
 async def get_financial_audit(
-    current_admin: Users = Depends(require_roles([UserRoleEnum.ADMIN_CROUS, UserRoleEnum.SUPERADMIN])),
+    current_admin: Users = Depends(require_roles([UserRoleEnum.ADMIN, UserRoleEnum.ADMIN_CAMPUS, UserRoleEnum.ADMIN_CROUS, UserRoleEnum.SUPERADMIN])),
     db: AsyncSession = Depends(get_async_db)
 ) -> Dict[str, Any]:
     """
@@ -217,7 +224,7 @@ async def get_financial_audit(
 @router.get("/users", response_model=List[UserProfileSchema])
 async def list_users(
     role: str = None,
-    current_admin: Users = Depends(require_roles([UserRoleEnum.ADMIN_CROUS, UserRoleEnum.SUPERADMIN])),
+    current_admin: Users = Depends(require_roles([UserRoleEnum.ADMIN, UserRoleEnum.ADMIN_CAMPUS, UserRoleEnum.ADMIN_CROUS, UserRoleEnum.SUPERADMIN])),
     db: AsyncSession = Depends(get_async_db)
 ):
     """Admin: List all registered users with optional role filter."""
@@ -230,7 +237,7 @@ async def list_users(
 
 @router.get("/routes", response_model=List[RouteOutSchema])
 async def list_routes(
-    current_admin: Users = Depends(require_roles([UserRoleEnum.ADMIN_CROUS, UserRoleEnum.SUPERADMIN])),
+    current_admin: Users = Depends(require_roles([UserRoleEnum.ADMIN, UserRoleEnum.ADMIN_CAMPUS, UserRoleEnum.ADMIN_CROUS, UserRoleEnum.SUPERADMIN])),
     db: AsyncSession = Depends(get_async_db)
 ):
     """Admin: List all bus lines/routes."""
@@ -244,7 +251,7 @@ async def list_routes(
 
 @router.get("/trips", response_model=List[TripOutSchema])
 async def list_trips(
-    current_admin: Users = Depends(require_roles([UserRoleEnum.ADMIN_CROUS, UserRoleEnum.SUPERADMIN])),
+    current_admin: Users = Depends(require_roles([UserRoleEnum.ADMIN, UserRoleEnum.ADMIN_CAMPUS, UserRoleEnum.ADMIN_CROUS, UserRoleEnum.SUPERADMIN])),
     db: AsyncSession = Depends(get_async_db)
 ):
     """Admin: List all scheduled & active trips."""
@@ -296,7 +303,7 @@ GLOBAL_SYSTEM_PRICING = {
 
 @router.get("/pricing")
 async def get_system_pricing(
-    current_admin: Users = Depends(require_roles([UserRoleEnum.ADMIN_CROUS, UserRoleEnum.SUPERADMIN]))
+    current_admin: Users = Depends(require_roles([UserRoleEnum.ADMIN, UserRoleEnum.ADMIN_CAMPUS, UserRoleEnum.ADMIN_CROUS, UserRoleEnum.SUPERADMIN]))
 ) -> Dict[str, Any]:
     """Admin & SuperAdmin: Get active student fares and national subvention configuration."""
     return GLOBAL_SYSTEM_PRICING
@@ -335,7 +342,7 @@ async def update_system_pricing(
 @router.get("/accounting/breakdown")
 async def get_accounting_breakdown(
     campus: Optional[str] = None,
-    current_admin: Users = Depends(require_roles([UserRoleEnum.ADMIN_CROUS, UserRoleEnum.SUPERADMIN])),
+    current_admin: Users = Depends(require_roles([UserRoleEnum.ADMIN, UserRoleEnum.ADMIN_CAMPUS, UserRoleEnum.ADMIN_CROUS, UserRoleEnum.SUPERADMIN])),
     db: AsyncSession = Depends(get_async_db)
 ) -> Dict[str, Any]:
     """
@@ -442,7 +449,7 @@ class BusAssignRequestSchema(BaseModel):
 @router.post("/fleet/assign")
 async def assign_bus_to_driver(
     payload: BusAssignRequestSchema,
-    current_admin: Users = Depends(require_roles([UserRoleEnum.ADMIN_CROUS, UserRoleEnum.SUPERADMIN])),
+    current_admin: Users = Depends(require_roles([UserRoleEnum.ADMIN, UserRoleEnum.ADMIN_CAMPUS, UserRoleEnum.ADMIN_CROUS, UserRoleEnum.SUPERADMIN])),
     db: AsyncSession = Depends(get_async_db)
 ):
     """
@@ -493,7 +500,7 @@ async def assign_bus_to_driver(
 @router.get("/fleet/live-positions")
 async def get_fleet_live_positions(
     campus: Optional[str] = None,
-    current_admin: Users = Depends(require_roles([UserRoleEnum.ADMIN_CROUS, UserRoleEnum.SUPERADMIN])),
+    current_admin: Users = Depends(require_roles([UserRoleEnum.ADMIN, UserRoleEnum.ADMIN_CAMPUS, UserRoleEnum.ADMIN_CROUS, UserRoleEnum.SUPERADMIN])),
     db: AsyncSession = Depends(get_async_db)
 ) -> List[Dict[str, Any]]:
     """

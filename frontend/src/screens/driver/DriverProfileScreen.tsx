@@ -258,7 +258,8 @@ export default function DriverProfileScreen({ navigation }: any) {
         {
           title: "Attestation d'Affectation Universitaire",
           subtitle: "Certificat d'affectation aux lignes de transport universitaire",
-          type: 'ATTESTATION_CROUS',
+          type: 'ATTESTATION_UNIVERSITAIRE',
+
           icon: 'verified-user',
         },
       ]

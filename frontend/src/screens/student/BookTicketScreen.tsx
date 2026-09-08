@@ -445,8 +445,9 @@ export default function BookTicketScreen({ navigation }: any) {
                     <Text style={styles.operatorTileCode}>*888#</Text>
                   </Pressable>
 
-                  {/* PORTEFEUILLE CROUS */}
+                  {/* PORTEFEUILLE CAMPUS */}
                   <Pressable
+
                     style={[
                       styles.operatorTile,
                       paymentOperator === 'WALLET' && styles.operatorTileActive,
