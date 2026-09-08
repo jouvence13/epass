@@ -61,8 +61,12 @@ export const ENDPOINTS = {
   DRIVER_UPLOAD_DOCS: `${API_V1_URL}/kyc/driver/upload`,
   CONTROLLER_UPLOAD_DOCS: `${API_V1_URL}/kyc/controller/upload`,
 
-  // Administration CROUS & SuperAdmin
+  // Administration Campus & SuperAdmin
   ADMIN_AUDIT_FIN: `${API_V1_URL}/admin/audit-fin`,
+  ADMIN_ACCOUNTING_BREAKDOWN: `${API_V1_URL}/admin/accounting/breakdown`,
+  ADMIN_PRICING: `${API_V1_URL}/admin/pricing`,
+  ADMIN_LIVE_POSITIONS: `${API_V1_URL}/admin/fleet/live-positions`,
+  ADMIN_ASSIGN_BUS: `${API_V1_URL}/admin/fleet/assign`,
   ADMIN_USERS: `${API_V1_URL}/admin/users`,
   ADMIN_CREATE_USER: `${API_V1_URL}/admin/users`,
   ADMIN_FLEET: `${API_V1_URL}/admin/fleet`,

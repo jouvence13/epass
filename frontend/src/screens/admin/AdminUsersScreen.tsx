@@ -31,7 +31,8 @@ interface UserItem {
 }
 
 export default function AdminUsersScreen() {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
+  const isSuperAdmin = user?.role === 'SUPERADMIN';
   const { showToast } = useNotifications();
 
   const [loading, setLoading] = useState(true);
@@ -270,7 +271,7 @@ export default function AdminUsersScreen() {
               {[
                 { key: 'DRIVER', label: 'Chauffeur' },
                 { key: 'CONTROLLER', label: 'Contrôleur' },
-                { key: 'ADMIN_CROUS', label: 'Admin Campus' },
+                ...(isSuperAdmin ? [{ key: 'ADMIN_CROUS', label: 'Admin Campus' }] : []),
               ].map((r) => (
                 <Pressable
                   key={r.key}

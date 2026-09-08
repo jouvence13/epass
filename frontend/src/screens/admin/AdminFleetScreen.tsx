@@ -4,23 +4,26 @@ import {
   Text,
   StyleSheet,
   FlatList,
+  ScrollView,
   Pressable,
   ActivityIndicator,
   RefreshControl,
   Modal,
   TextInput,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import Card from '../../components/Card';
 import Badge from '../../components/Badge';
+import PrimaryButton from '../../components/PrimaryButton';
 import { colors, radius, spacing, typography } from '../../theme/theme';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
 import { ENDPOINTS } from '../../config/api';
 
 export default function AdminFleetScreen() {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const { showToast } = useNotifications();
 
   const [activeTab, setActiveTab] = useState<'BUSES' | 'ROUTES' | 'TRIPS'>('BUSES');
@@ -30,13 +33,21 @@ export default function AdminFleetScreen() {
   const [buses, setBuses] = useState<any[]>([]);
   const [routes, setRoutes] = useState<any[]>([]);
   const [trips, setTrips] = useState<any[]>([]);
+  const [drivers, setDrivers] = useState<any[]>([]);
 
-  // Modal create bus state
+  // Modal Create Bus
   const [showAddBusModal, setShowAddBusModal] = useState(false);
   const [newBusCode, setNewBusCode] = useState('');
   const [newImmat, setNewImmat] = useState('');
   const [newCap, setNewCap] = useState('50');
   const [creating, setCreating] = useState(false);
+
+  // Modal Assign Bus
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [selectedBusForAssign, setSelectedBusForAssign] = useState<any | null>(null);
+  const [selectedDriverId, setSelectedDriverId] = useState<string>('');
+  const [selectedRouteId, setSelectedRouteId] = useState<string>('');
+  const [assigning, setAssigning] = useState(false);
 
   const fetchFleetData = useCallback(async () => {
     try {
@@ -45,22 +56,32 @@ export default function AdminFleetScreen() {
         headers['Authorization'] = `Bearer ${token}`;
       }
 
-      const [busesRes, routesRes, tripsRes] = await Promise.all([
+      const [busesRes, routesRes, tripsRes, driversRes] = await Promise.all([
         fetch(ENDPOINTS.ADMIN_FLEET, { credentials: 'include', headers }),
         fetch(ENDPOINTS.ADMIN_ROUTES, { credentials: 'include', headers }),
         fetch(ENDPOINTS.ADMIN_TRIPS, { credentials: 'include', headers }),
+        fetch(`${ENDPOINTS.ADMIN_USERS}?role=DRIVER`, { credentials: 'include', headers }),
       ]);
 
       if (busesRes.ok) setBuses(await busesRes.json());
-      if (routesRes.ok) setRoutes(await routesRes.json());
+      if (routesRes.ok) {
+        const rData = await routesRes.json();
+        setRoutes(rData);
+        if (rData.length > 0 && !selectedRouteId) setSelectedRouteId(rData[0].route_id);
+      }
       if (tripsRes.ok) setTrips(await tripsRes.json());
+      if (driversRes.ok) {
+        const dData = await driversRes.json();
+        setDrivers(dData);
+        if (dData.length > 0 && !selectedDriverId) setSelectedDriverId(dData[0].user_id);
+      }
     } catch (e) {
       console.warn('Error fetching fleet data:', e);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [token]);
+  }, [token, selectedDriverId, selectedRouteId]);
 
   useEffect(() => {
     fetchFleetData();
@@ -135,6 +156,54 @@ export default function AdminFleetScreen() {
     }
   };
 
+  const openAssignModal = (bus: any) => {
+    setSelectedBusForAssign(bus);
+    setShowAssignModal(true);
+  };
+
+  const handleAssignBus = async () => {
+    if (!selectedBusForAssign || !selectedDriverId || !selectedRouteId) {
+      Alert.alert('Champs incomplets', 'Veuillez sélectionner un chauffeur et une ligne.');
+      return;
+    }
+
+    setAssigning(true);
+    try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch(ENDPOINTS.ADMIN_ASSIGN_BUS, {
+        method: 'POST',
+        credentials: 'include',
+        headers,
+        body: JSON.stringify({
+          bus_id: selectedBusForAssign.bus_id,
+          driver_id: selectedDriverId,
+          route_id: selectedRouteId,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        showToast({
+          title: 'Bus Assigné !',
+          message: data.message || 'Le bus a été assigné au chauffeur.',
+          type: 'success',
+          category: 'TRAFFIC',
+        });
+        setShowAssignModal(false);
+        await fetchFleetData();
+      } else {
+        const err = await res.json().catch(() => null);
+        Alert.alert('Erreur', err?.detail || 'Impossible d\'assigner le bus.');
+      }
+    } catch (e) {
+      Alert.alert('Erreur Réseau', 'Vérifiez votre connexion.');
+    } finally {
+      setAssigning(false);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
       {/* Header */}
@@ -158,7 +227,11 @@ export default function AdminFleetScreen() {
             style={[styles.tabBtn, activeTab === 'BUSES' && styles.tabBtnActive]}
             onPress={() => setActiveTab('BUSES')}
           >
-            <MaterialIcons name="directions-bus" size={18} color={activeTab === 'BUSES' ? colors.primary : colors.onSurfaceVariant} />
+            <MaterialIcons
+              name="directions-bus"
+              size={18}
+              color={activeTab === 'BUSES' ? colors.primary : colors.onSurfaceVariant}
+            />
             <Text style={[styles.tabBtnText, activeTab === 'BUSES' && styles.tabBtnTextActive]}>
               Navettes ({buses.length})
             </Text>
@@ -168,7 +241,11 @@ export default function AdminFleetScreen() {
             style={[styles.tabBtn, activeTab === 'ROUTES' && styles.tabBtnActive]}
             onPress={() => setActiveTab('ROUTES')}
           >
-            <MaterialIcons name="alt-route" size={18} color={activeTab === 'ROUTES' ? colors.primary : colors.onSurfaceVariant} />
+            <MaterialIcons
+              name="alt-route"
+              size={18}
+              color={activeTab === 'ROUTES' ? colors.primary : colors.onSurfaceVariant}
+            />
             <Text style={[styles.tabBtnText, activeTab === 'ROUTES' && styles.tabBtnTextActive]}>
               Lignes ({routes.length})
             </Text>
@@ -178,14 +255,19 @@ export default function AdminFleetScreen() {
             style={[styles.tabBtn, activeTab === 'TRIPS' && styles.tabBtnActive]}
             onPress={() => setActiveTab('TRIPS')}
           >
-            <MaterialIcons name="schedule" size={18} color={activeTab === 'TRIPS' ? colors.primary : colors.onSurfaceVariant} />
+            <MaterialIcons
+              name="schedule"
+              size={18}
+              color={activeTab === 'TRIPS' ? colors.primary : colors.onSurfaceVariant}
+            />
             <Text style={[styles.tabBtnText, activeTab === 'TRIPS' && styles.tabBtnTextActive]}>
-              Trajets ({trips.length})
+              Rotations ({trips.length})
             </Text>
           </Pressable>
         </View>
       </View>
 
+      {/* Content */}
       {loading ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
           <ActivityIndicator size="large" color={colors.primary} />
@@ -213,8 +295,16 @@ export default function AdminFleetScreen() {
               </View>
               <View style={styles.cardDivider} />
               <View style={styles.busMetricRow}>
-                <Text style={styles.metricText}>Capacité Max : <Text style={{ fontWeight: '700' }}>{item.max_capacity} places</Text></Text>
-                <Text style={styles.metricText}>Type : Navette Campus</Text>
+                <Text style={styles.metricText}>
+                  Capacité : <Text style={{ fontWeight: '700' }}>{item.max_capacity} places</Text>
+                </Text>
+                <Pressable
+                  style={styles.assignBtn}
+                  onPress={() => openAssignModal(item)}
+                >
+                  <MaterialIcons name="assignment-ind" size={16} color="#ffffff" />
+                  <Text style={styles.assignBtnText}>Attribuer Chauffeur / Ligne</Text>
+                </Pressable>
               </View>
             </Card>
           )}
@@ -254,12 +344,16 @@ export default function AdminFleetScreen() {
                 </View>
                 <View style={{ flex: 1, marginLeft: spacing.sm }}>
                   <Text style={styles.itemTitle}>Rotation #{item.trip_id?.substring(0, 8)?.toUpperCase()}</Text>
-                  <Text style={styles.itemSub}>Départ : {new Date(item.departure_time).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</Text>
+                  <Text style={styles.itemSub}>
+                    Départ : {new Date(item.departure_time).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                  </Text>
                 </View>
                 <Badge label={item.status} variant={item.status === 'SCHEDULED' ? 'primary' : 'success'} />
               </View>
               <View style={styles.cardDivider} />
-              <Text style={styles.metricText}>Places restantes : {item.available_seats} / {item.total_seats}</Text>
+              <Text style={styles.metricText}>
+                Places restantes : {item.available_seats} / {item.total_seats}
+              </Text>
             </Card>
           )}
         />
@@ -278,7 +372,7 @@ export default function AdminFleetScreen() {
             <TextInput
               value={newBusCode}
               onChangeText={setNewBusCode}
-              placeholder="Ex: BUS-UAC-05"
+              placeholder="Ex: BUS-CAMPUS-05"
               placeholderTextColor={colors.outline}
               style={styles.modalInput}
             />
@@ -298,21 +392,91 @@ export default function AdminFleetScreen() {
               onChangeText={setNewCap}
               placeholder="50"
               placeholderTextColor={colors.outline}
-              keyboardType="number-pad"
+              keyboardType="numeric"
               style={styles.modalInput}
             />
 
             <View style={styles.modalActions}>
-              <Pressable style={styles.modalCancelBtn} onPress={() => setShowAddBusModal(false)}>
-                <Text style={styles.modalCancelText}>Annuler</Text>
+              <Pressable style={styles.cancelBtn} onPress={() => setShowAddBusModal(false)}>
+                <Text style={styles.cancelBtnText}>Annuler</Text>
               </Pressable>
-              <Pressable style={styles.modalConfirmBtn} onPress={handleCreateBus} disabled={creating}>
-                {creating ? (
-                  <ActivityIndicator color="#ffffff" size="small" />
-                ) : (
-                  <Text style={styles.modalConfirmText}>Enregistrer</Text>
-                )}
+              <PrimaryButton
+                label={creating ? 'Création...' : 'Créer le Bus'}
+                onPress={handleCreateBus}
+                disabled={creating}
+                style={{ flex: 1 }}
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal Assign Bus to Driver & Route */}
+      <Modal visible={showAssignModal} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <MaterialIcons name="assignment-ind" size={24} color={colors.primary} />
+              <Text style={styles.modalTitle}>Attribution de Navette</Text>
+            </View>
+
+            <Text style={styles.assignSubtitle}>
+              Navette : <Text style={{ fontWeight: '700', color: colors.primary }}>{selectedBusForAssign?.bus_code}</Text> ({selectedBusForAssign?.immatriculation_number})
+            </Text>
+
+            {/* Select Driver */}
+            <Text style={styles.inputLabel}>Sélectionner le Chauffeur *</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.selectorRow}>
+              {drivers.map((d) => (
+                <Pressable
+                  key={d.user_id}
+                  style={[styles.selectorChip, selectedDriverId === d.user_id && styles.selectorChipActive]}
+                  onPress={() => setSelectedDriverId(d.user_id)}
+                >
+                  <MaterialIcons
+                    name="person"
+                    size={16}
+                    color={selectedDriverId === d.user_id ? '#ffffff' : colors.onSurface}
+                  />
+                  <Text style={[styles.selectorText, selectedDriverId === d.user_id && styles.selectorTextActive]}>
+                    {d.first_name} {d.last_name}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+
+            {/* Select Route */}
+            <Text style={styles.inputLabel}>Sélectionner la Ligne de Campus *</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.selectorRow}>
+              {routes.map((r) => (
+                <Pressable
+                  key={r.route_id}
+                  style={[styles.selectorChip, selectedRouteId === r.route_id && styles.selectorChipActive]}
+                  onPress={() => setSelectedRouteId(r.route_id)}
+                >
+                  <MaterialIcons
+                    name="alt-route"
+                    size={16}
+                    color={selectedRouteId === r.route_id ? '#ffffff' : colors.onSurface}
+                  />
+                  <Text style={[styles.selectorText, selectedRouteId === r.route_id && styles.selectorTextActive]}>
+                    {r.route_name}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+
+            <View style={styles.modalActions}>
+              <Pressable style={styles.cancelBtn} onPress={() => setShowAssignModal(false)}>
+                <Text style={styles.cancelBtnText}>Annuler</Text>
               </Pressable>
+              <PrimaryButton
+                label={assigning ? 'Attribution...' : 'Confirmer l\'Attribution'}
+                icon="check"
+                onPress={handleAssignBus}
+                disabled={assigning}
+                style={{ flex: 1 }}
+              />
             </View>
           </View>
         </View>
@@ -323,10 +487,10 @@ export default function AdminFleetScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
-  header: { padding: spacing.containerMargin, gap: spacing.sm },
+  header: { padding: spacing.containerMargin, paddingBottom: spacing.sm, gap: spacing.sm },
   headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   eyebrow: { ...typography.labelCaps, color: colors.onSurfaceVariant, fontSize: 10 },
-  title: { ...typography.headlineMd, color: colors.primary },
+  title: { ...typography.headlineLg, color: colors.onSurface, fontSize: 20, fontWeight: '700' },
   addBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -337,7 +501,14 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
   },
   addBtnText: { ...typography.labelCaps, color: '#ffffff', fontSize: 11, fontWeight: '700' },
-  tabRow: { flexDirection: 'row', gap: spacing.xs, backgroundColor: colors.surfaceContainer, padding: 4, borderRadius: radius.md },
+  tabRow: {
+    flexDirection: 'row',
+    backgroundColor: colors.surfaceContainer,
+    borderRadius: radius.md,
+    padding: 3,
+    borderWidth: 1,
+    borderColor: colors.outlineVariant,
+  },
   tabBtn: {
     flex: 1,
     flexDirection: 'row',
@@ -347,12 +518,12 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: radius.sm,
   },
-  tabBtnActive: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.outlineVariant },
-  tabBtnText: { ...typography.labelCaps, color: colors.onSurfaceVariant, fontSize: 11 },
+  tabBtnActive: { backgroundColor: colors.surfaceContainerLowest },
+  tabBtnText: { fontSize: 11, fontWeight: '600', color: colors.onSurfaceVariant },
   tabBtnTextActive: { color: colors.primary, fontWeight: '700' },
-  list: { paddingHorizontal: spacing.containerMargin, paddingBottom: spacing.xl, gap: spacing.md },
-  card: { padding: spacing.md, gap: spacing.xs, backgroundColor: colors.surfaceContainer },
-  rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  list: { padding: spacing.containerMargin, gap: spacing.sm, paddingBottom: spacing.xl },
+  card: { padding: spacing.md, gap: spacing.sm, backgroundColor: colors.surfaceContainer },
+  rowBetween: { flexDirection: 'row', alignItems: 'center' },
   busCodeCircle: {
     width: 44,
     height: 44,
@@ -362,27 +533,86 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   itemTitle: { ...typography.headlineSm, fontSize: 15, color: colors.onSurface },
-  itemSub: { ...typography.bodySm, color: colors.onSurfaceVariant, fontSize: 11 },
-  cardDivider: { height: 1, backgroundColor: colors.outlineVariant, marginVertical: spacing.xs },
-  busMetricRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  itemSub: { ...typography.bodySm, color: colors.onSurfaceVariant, fontSize: 12, marginTop: 2 },
+  cardDivider: { height: 1, backgroundColor: colors.outlineVariant },
+  busMetricRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   metricText: { ...typography.bodySm, color: colors.onSurfaceVariant, fontSize: 11 },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center' },
-  modalCard: { width: '85%', backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.lg, gap: spacing.xs },
-  modalHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginBottom: spacing.sm },
-  modalTitle: { ...typography.headlineSm, fontSize: 16, color: colors.onSurface },
-  inputLabel: { ...typography.labelCaps, color: colors.onSurfaceVariant, fontSize: 11, marginTop: 4 },
+  assignBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 6,
+    borderRadius: radius.sm,
+  },
+  assignBtnText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'flex-end',
+  },
+  modalCard: {
+    backgroundColor: colors.surfaceContainerLowest,
+    borderTopLeftRadius: radius.xl,
+    borderTopRightRadius: radius.xl,
+    padding: spacing.lg,
+    gap: spacing.sm,
+  },
+  modalHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginBottom: spacing.xs },
+  modalTitle: { ...typography.headlineSm, fontSize: 17, color: colors.onSurface },
+  assignSubtitle: { fontSize: 13, color: colors.onSurfaceVariant, marginBottom: spacing.xs },
+  inputLabel: { fontSize: 12, fontWeight: '700', color: colors.onSurface, marginTop: spacing.xs },
   modalInput: {
+    backgroundColor: colors.surfaceContainer,
     borderWidth: 1,
     borderColor: colors.outlineVariant,
     borderRadius: radius.md,
-    paddingHorizontal: spacing.sm,
-    height: 44,
-    ...typography.bodyMd,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm + 2,
+    fontSize: 14,
     color: colors.onSurface,
   },
+  selectorRow: {
+    gap: spacing.xs,
+    paddingVertical: spacing.xs,
+  },
+  selectorChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.surfaceContainer,
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: 8,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.outlineVariant,
+  },
+  selectorChipActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  selectorText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.onSurface,
+  },
+  selectorTextActive: {
+    color: '#ffffff',
+  },
   modalActions: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md },
-  modalCancelBtn: { flex: 1, height: 42, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.outline, borderRadius: radius.md },
-  modalCancelText: { ...typography.labelCaps, color: colors.onSurface, fontSize: 11 },
-  modalConfirmBtn: { flex: 1.5, height: 42, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary, borderRadius: radius.md },
-  modalConfirmText: { ...typography.labelCaps, color: '#ffffff', fontSize: 11, fontWeight: '700' },
+  cancelBtn: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: 12,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.outlineVariant,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelBtnText: { ...typography.labelCaps, color: colors.onSurface, fontSize: 12 },
 });
