@@ -17,6 +17,10 @@ export interface User {
   campus_id?: string | null;
   campus_code?: string | null;
   campus_name?: string | null;
+  last_kyc_verification_date?: string | null;
+  next_kyc_due_date?: string | null;
+  is_active?: boolean;
+  created_at?: string | null;
 }
 
 export interface StudentTicket {
@@ -485,9 +489,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const timeoutId = setTimeout(() => controller.abort(), 3500);
 
         try {
+          const authHeaders = {
+            ...DEFAULT_HEADERS,
+            ...(cachedToken && cachedToken !== 'cookie_session' && cachedToken !== 'cached_session'
+              ? { Authorization: `Bearer ${cachedToken}` }
+              : {}),
+          };
+
           const profileRes = await fetch(ENDPOINTS.MY_PROFILE, {
             credentials: 'include',
-            headers: DEFAULT_HEADERS,
+            headers: authHeaders,
             signal: controller.signal,
           });
           clearTimeout(timeoutId);
@@ -502,12 +513,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               role: p.role,
               matricule_uac: p.matricule_uac,
               kyc_status: p.kyc_status,
+              campus_id: p.campus_id,
+              campus_code: p.campus_code || 'UAC',
+              campus_name: p.campus_name || "Université d'Abomey-Calavi",
+              last_kyc_verification_date: p.last_kyc_verification_date,
+              next_kyc_due_date: p.next_kyc_due_date,
+              is_active: p.is_active,
+              created_at: p.created_at,
             };
             setUser(userData);
-            setToken('cookie_session');
+            const activeTok = cachedToken || 'cookie_session';
+            setToken(activeTok);
             setIsOffline(false);
             await StorageService.saveUser(userData);
-            await StorageService.saveToken('cookie_session');
+            await StorageService.saveToken(activeTok);
           } else if (!cachedUser) {
             setUser(null);
             setToken(null);
