@@ -10,7 +10,7 @@ from app.core.database import get_async_db
 from app.core.security import hash_password
 from app.models.user_model import Users, UserRoleEnum, KycStatusEnum
 from app.models.campus_model import Campuses
-from app.models.fleet_model import Buses, Stops, Routes, BusStatusEnum
+from app.models.fleet_model import Buses, Stops, Routes, RouteStops, BusStatusEnum
 from app.models.trip_model import Trips, TripStatusEnum
 from app.models.payment_model import Payments, PaymentStatusEnum
 from app.models.ticket_model import Tickets, TicketStatusEnum
@@ -20,7 +20,10 @@ from app.schemas.fleet_schema import (
     BusOutSchema,
     StopCreateSchema,
     StopOutSchema,
+    RouteStopCreateSchema,
+    RouteStopOutSchema,
     RouteCreateSchema,
+    RouteUpdateSchema,
     RouteOutSchema,
 )
 from app.schemas.trip_schema import TripCreateSchema, TripOutSchema
@@ -134,6 +137,34 @@ async def create_bus(
     return bus
 
 
+@router.get("/stops", response_model=List[StopOutSchema])
+async def list_stops(
+    current_admin: Users = Depends(require_roles([UserRoleEnum.ADMIN, UserRoleEnum.ADMIN_CAMPUS, UserRoleEnum.ADMIN_CROUS, UserRoleEnum.SUPERADMIN])),
+    db: AsyncSession = Depends(get_async_db)
+):
+    """Admin: List all registered geographic bus stops."""
+    result = await db.execute(
+        select(
+            Stops.stop_id,
+            Stops.stop_name,
+            func.ST_Y(Stops.geolocation).label("latitude"),
+            func.ST_X(Stops.geolocation).label("longitude"),
+            Stops.created_at
+        ).order_by(Stops.stop_name.asc())
+    )
+    rows = result.all()
+    return [
+        StopOutSchema(
+            stop_id=r.stop_id,
+            stop_name=r.stop_name,
+            latitude=r.latitude if r.latitude is not None else 6.4474,
+            longitude=r.longitude if r.longitude is not None else 2.3557,
+            created_at=r.created_at
+        )
+        for r in rows
+    ]
+
+
 @router.post("/stops", response_model=StopOutSchema, status_code=status.HTTP_201_CREATED)
 async def create_stop(
     payload: StopCreateSchema,
@@ -164,7 +195,7 @@ async def create_route(
     current_admin: Users = Depends(require_roles([UserRoleEnum.ADMIN, UserRoleEnum.ADMIN_CAMPUS, UserRoleEnum.ADMIN_CROUS, UserRoleEnum.SUPERADMIN])),
     db: AsyncSession = Depends(get_async_db)
 ):
-    """Admin: Create a new bus route / line."""
+    """Admin: Create a new bus route / line with full stops itinerary."""
     route = Routes(
         route_name=payload.route_name,
         origin_stop_id=payload.origin_stop_id,
@@ -174,9 +205,150 @@ async def create_route(
         is_active=payload.is_active
     )
     db.add(route)
+    await db.flush()
+
+    if payload.intermediate_stops and len(payload.intermediate_stops) > 0:
+        for s in payload.intermediate_stops:
+            rs = RouteStops(
+                route_id=route.route_id,
+                stop_id=s.stop_id,
+                stop_order=s.stop_order,
+                estimated_minutes_from_origin=s.estimated_minutes_from_origin,
+                connection_label=s.connection_label
+            )
+            db.add(rs)
+    else:
+        # Default route stops: Origin (order 1, 0m) and Destination (order 2, duration)
+        rs_orig = RouteStops(
+            route_id=route.route_id,
+            stop_id=route.origin_stop_id,
+            stop_order=1,
+            estimated_minutes_from_origin=0
+        )
+        rs_dest = RouteStops(
+            route_id=route.route_id,
+            stop_id=route.destination_stop_id,
+            stop_order=2,
+            estimated_minutes_from_origin=route.estimated_duration_minutes
+        )
+        db.add(rs_orig)
+        db.add(rs_dest)
+
     await db.commit()
-    await db.refresh(route)
-    return route
+
+    q = (
+        select(Routes)
+        .options(
+            selectinload(Routes.origin_stop),
+            selectinload(Routes.destination_stop),
+            selectinload(Routes.route_stops).selectinload(RouteStops.stop)
+        )
+        .where(Routes.route_id == route.route_id)
+    )
+    created_route = (await db.execute(q)).scalars().first()
+    return created_route
+
+
+@router.put("/routes/{route_id}", response_model=RouteOutSchema)
+async def update_route(
+    route_id: uuid.UUID,
+    payload: RouteUpdateSchema,
+    current_admin: Users = Depends(require_roles([UserRoleEnum.ADMIN, UserRoleEnum.ADMIN_CAMPUS, UserRoleEnum.ADMIN_CROUS, UserRoleEnum.SUPERADMIN])),
+    db: AsyncSession = Depends(get_async_db)
+):
+    """Admin: Update an existing bus route."""
+    route = await db.get(Routes, route_id)
+    if not route:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ligne non trouvée.")
+
+    if payload.route_name is not None:
+        route.route_name = payload.route_name
+    if payload.origin_stop_id is not None:
+        route.origin_stop_id = payload.origin_stop_id
+    if payload.destination_stop_id is not None:
+        route.destination_stop_id = payload.destination_stop_id
+    if payload.base_price is not None:
+        route.base_price = payload.base_price
+    if payload.estimated_duration_minutes is not None:
+        route.estimated_duration_minutes = payload.estimated_duration_minutes
+    if payload.is_active is not None:
+        route.is_active = payload.is_active
+
+    await db.commit()
+
+    q = (
+        select(Routes)
+        .options(
+            selectinload(Routes.origin_stop),
+            selectinload(Routes.destination_stop),
+            selectinload(Routes.route_stops).selectinload(RouteStops.stop)
+        )
+        .where(Routes.route_id == route_id)
+    )
+    return (await db.execute(q)).scalars().first()
+
+
+@router.delete("/routes/{route_id}")
+async def delete_route(
+    route_id: uuid.UUID,
+    current_admin: Users = Depends(require_roles([UserRoleEnum.ADMIN, UserRoleEnum.ADMIN_CAMPUS, UserRoleEnum.ADMIN_CROUS, UserRoleEnum.SUPERADMIN])),
+    db: AsyncSession = Depends(get_async_db)
+):
+    """Admin: Deactivate or remove a route."""
+    route = await db.get(Routes, route_id)
+    if not route:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ligne non trouvée.")
+
+    route.is_active = False
+    await db.commit()
+    return {"status": "success", "message": f"Ligne {route.route_name} désactivée avec succès."}
+
+
+@router.post("/routes/{route_id}/stops", response_model=RouteStopOutSchema, status_code=status.HTTP_201_CREATED)
+async def add_stop_to_route(
+    route_id: uuid.UUID,
+    payload: RouteStopCreateSchema,
+    current_admin: Users = Depends(require_roles([UserRoleEnum.ADMIN, UserRoleEnum.ADMIN_CAMPUS, UserRoleEnum.ADMIN_CROUS, UserRoleEnum.SUPERADMIN])),
+    db: AsyncSession = Depends(get_async_db)
+):
+    """Admin: Add a stop to a route sequence."""
+    route = await db.get(Routes, route_id)
+    if not route:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ligne non trouvée.")
+
+    stop = await db.get(Stops, payload.stop_id)
+    if not stop:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Arrêt non trouvé.")
+
+    rs = RouteStops(
+        route_id=route_id,
+        stop_id=payload.stop_id,
+        stop_order=payload.stop_order,
+        estimated_minutes_from_origin=payload.estimated_minutes_from_origin,
+        connection_label=payload.connection_label
+    )
+    db.add(rs)
+    await db.commit()
+    await db.refresh(rs)
+    return rs
+
+
+@router.delete("/routes/{route_id}/stops/{route_stop_id}")
+async def remove_stop_from_route(
+    route_id: uuid.UUID,
+    route_stop_id: uuid.UUID,
+    current_admin: Users = Depends(require_roles([UserRoleEnum.ADMIN, UserRoleEnum.ADMIN_CAMPUS, UserRoleEnum.ADMIN_CROUS, UserRoleEnum.SUPERADMIN])),
+    db: AsyncSession = Depends(get_async_db)
+):
+    """Admin: Remove a stop from a route sequence."""
+    rs = await db.get(RouteStops, route_stop_id)
+    if not rs or rs.route_id != route_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Arrêt d'itinéraire non trouvé.")
+
+    await db.delete(rs)
+    await db.commit()
+    return {"status": "success", "message": "Arrêt retiré de la ligne avec succès."}
+
 
 
 @router.post("/trips", response_model=TripOutSchema, status_code=status.HTTP_201_CREATED)
@@ -325,13 +497,18 @@ async def list_routes(
     current_admin: Users = Depends(require_roles([UserRoleEnum.ADMIN, UserRoleEnum.ADMIN_CAMPUS, UserRoleEnum.ADMIN_CROUS, UserRoleEnum.SUPERADMIN])),
     db: AsyncSession = Depends(get_async_db)
 ):
-    """Admin: List all bus lines/routes."""
+    """Admin: List all bus lines/routes with stops."""
     result = await db.execute(
         select(Routes)
-        .options(selectinload(Routes.origin_stop), selectinload(Routes.destination_stop))
+        .options(
+            selectinload(Routes.origin_stop),
+            selectinload(Routes.destination_stop),
+            selectinload(Routes.route_stops).selectinload(RouteStops.stop)
+        )
         .order_by(Routes.route_name.asc())
     )
     return result.scalars().all()
+
 
 
 @router.get("/trips", response_model=List[TripOutSchema])

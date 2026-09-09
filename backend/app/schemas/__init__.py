@@ -15,7 +15,10 @@ from app.schemas.fleet_schema import (
     BusOutSchema,
     StopCreateSchema,
     StopOutSchema,
+    RouteStopCreateSchema,
+    RouteStopOutSchema,
     RouteCreateSchema,
+    RouteUpdateSchema,
     RouteOutSchema,
 )
 from app.schemas.trip_schema import (

@@ -4,12 +4,11 @@ import {
   Text,
   StyleSheet,
   FlatList,
-  ScrollView,
-  Pressable,
-  ActivityIndicator,
   RefreshControl,
+  Pressable,
   Modal,
   TextInput,
+  ScrollView,
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -35,13 +34,14 @@ export default function AdminFleetScreen() {
   const [trips, setTrips] = useState<any[]>([]);
   const [drivers, setDrivers] = useState<any[]>([]);
   const [campuses, setCampuses] = useState<any[]>([]);
+  const [stops, setStops] = useState<any[]>([]);
 
   // Modal Create Bus
   const [showAddBusModal, setShowAddBusModal] = useState(false);
   const [newBusCode, setNewBusCode] = useState('');
   const [newImmat, setNewImmat] = useState('');
   const [newCap, setNewCap] = useState('50');
-  const [creating, setCreating] = useState(false);
+  const [creatingBus, setCreatingBus] = useState(false);
 
   // Modal Assign Bus
   const [showAssignModal, setShowAssignModal] = useState(false);
@@ -49,6 +49,40 @@ export default function AdminFleetScreen() {
   const [selectedDriverId, setSelectedDriverId] = useState<string>('');
   const [selectedRouteId, setSelectedRouteId] = useState<string>('');
   const [assigning, setAssigning] = useState(false);
+
+  // Modal Create Route
+  const [showAddRouteModal, setShowAddRouteModal] = useState(false);
+  const [newRouteName, setNewRouteName] = useState('');
+  const [newOriginStopId, setNewOriginStopId] = useState('');
+  const [newDestStopId, setNewDestStopId] = useState('');
+  const [newRouteDuration, setNewRouteDuration] = useState('35');
+  const [newRoutePrice, setNewRoutePrice] = useState('250');
+  const [creatingRoute, setCreatingRoute] = useState(false);
+
+  // Modal Quick Create Stop
+  const [showAddStopModal, setShowAddStopModal] = useState(false);
+  const [newStopName, setNewStopName] = useState('');
+  const [newStopLat, setNewStopLat] = useState('6.4474');
+  const [newStopLon, setNewStopLon] = useState('2.3557');
+  const [creatingStop, setCreatingStop] = useState(false);
+
+  // Modal Add Stop to Route
+  const [showAddStopToRouteModal, setShowAddStopToRouteModal] = useState(false);
+  const [selectedRouteForStop, setSelectedRouteForStop] = useState<any | null>(null);
+  const [targetStopId, setTargetStopId] = useState('');
+  const [stopOrder, setStopOrder] = useState('2');
+  const [stopEtaMin, setStopEtaMin] = useState('10');
+  const [stopConnection, setStopConnection] = useState('');
+  const [addingStopToRoute, setAddingStopToRoute] = useState(false);
+
+  // Modal Create Trip / Rotation
+  const [showAddTripModal, setShowAddTripModal] = useState(false);
+  const [tripRouteId, setTripRouteId] = useState('');
+  const [tripBusId, setTripBusId] = useState('');
+  const [tripDriverId, setTripDriverId] = useState('');
+  const [tripTime, setTripTime] = useState('08:00');
+  const [tripSeats, setTripSeats] = useState('50');
+  const [creatingTrip, setCreatingTrip] = useState(false);
 
   // Modal Create Campus
   const [showAddCampusModal, setShowAddCampusModal] = useState(false);
@@ -61,17 +95,20 @@ export default function AdminFleetScreen() {
 
   const fetchFleetData = useCallback(async () => {
     try {
-      const headers: Record<string, string> = {};
-      if (token) {
+      const headers: Record<string, string> = {
+        'ngrok-skip-browser-warning': 'true',
+      };
+      if (token && token !== 'cookie_session' && token !== 'cached_session') {
         headers['Authorization'] = `Bearer ${token}`;
       }
 
-      const [busesRes, routesRes, tripsRes, driversRes, campusesRes] = await Promise.all([
+      const [busesRes, routesRes, tripsRes, driversRes, campusesRes, stopsRes] = await Promise.all([
         fetch(ENDPOINTS.ADMIN_FLEET, { credentials: 'include', headers }),
         fetch(ENDPOINTS.ADMIN_ROUTES, { credentials: 'include', headers }),
         fetch(ENDPOINTS.ADMIN_TRIPS, { credentials: 'include', headers }),
         fetch(`${ENDPOINTS.ADMIN_USERS}?role=DRIVER`, { credentials: 'include', headers }),
         fetch(ENDPOINTS.CAMPUSES, { credentials: 'include', headers }),
+        fetch(ENDPOINTS.ADMIN_STOPS, { credentials: 'include', headers }),
       ]);
 
       if (busesRes.ok) setBuses(await busesRes.json());
@@ -79,21 +116,30 @@ export default function AdminFleetScreen() {
         const rData = await routesRes.json();
         setRoutes(rData);
         if (rData.length > 0 && !selectedRouteId) setSelectedRouteId(rData[0].route_id);
+        if (rData.length > 0 && !tripRouteId) setTripRouteId(rData[0].route_id);
       }
       if (tripsRes.ok) setTrips(await tripsRes.json());
       if (driversRes.ok) {
         const dData = await driversRes.json();
         setDrivers(dData);
         if (dData.length > 0 && !selectedDriverId) setSelectedDriverId(dData[0].user_id);
+        if (dData.length > 0 && !tripDriverId) setTripDriverId(dData[0].user_id);
       }
       if (campusesRes.ok) setCampuses(await campusesRes.json());
+      if (stopsRes.ok) {
+        const sData = await stopsRes.json();
+        setStops(sData);
+        if (sData.length > 0 && !newOriginStopId) setNewOriginStopId(sData[0].stop_id);
+        if (sData.length > 1 && !newDestStopId) setNewDestStopId(sData[1].stop_id);
+        if (sData.length > 0 && !targetStopId) setTargetStopId(sData[0].stop_id);
+      }
     } catch (e) {
       console.warn('Error fetching fleet data:', e);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [token, selectedDriverId, selectedRouteId]);
+  }, [token, selectedDriverId, selectedRouteId, tripRouteId, tripDriverId, newOriginStopId, newDestStopId, targetStopId]);
 
   useEffect(() => {
     fetchFleetData();
@@ -115,14 +161,10 @@ export default function AdminFleetScreen() {
       return;
     }
 
-    setCreating(true);
+    setCreatingBus(true);
     try {
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      };
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
 
       const res = await fetch(ENDPOINTS.ADMIN_CREATE_BUS, {
         method: 'POST',
@@ -164,7 +206,230 @@ export default function AdminFleetScreen() {
         category: 'GENERAL',
       });
     } finally {
-      setCreating(false);
+      setCreatingBus(false);
+    }
+  };
+
+  const handleCreateStop = async () => {
+    if (!newStopName.trim()) {
+      Alert.alert('Champs requis', 'Nom de l’arrêt obligatoire.');
+      return;
+    }
+
+    setCreatingStop(true);
+    try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch(ENDPOINTS.ADMIN_CREATE_STOP, {
+        method: 'POST',
+        credentials: 'include',
+        headers,
+        body: JSON.stringify({
+          stop_name: newStopName.trim(),
+          latitude: parseFloat(newStopLat) || 6.4474,
+          longitude: parseFloat(newStopLon) || 2.3557,
+        }),
+      });
+
+      if (res.ok) {
+        const stopObj = await res.json();
+        showToast({
+          title: 'Arrêt Créé !',
+          message: `L'arrêt ${stopObj.stop_name} est maintenant disponible.`,
+          type: 'success',
+          category: 'GENERAL',
+        });
+        setShowAddStopModal(false);
+        setNewStopName('');
+        await fetchFleetData();
+      } else {
+        const err = await res.json().catch(() => null);
+        Alert.alert('Erreur', err?.detail || 'Impossible de créer l’arrêt.');
+      }
+    } catch (e) {
+      Alert.alert('Erreur Réseau', 'Impossible de joindre le serveur.');
+    } finally {
+      setCreatingStop(false);
+    }
+  };
+
+  const handleCreateRoute = async () => {
+    if (!newRouteName.trim() || !newOriginStopId || !newDestStopId) {
+      Alert.alert('Champs requis', 'Veuillez saisir le nom de ligne, l’arrêt de départ et l’arrêt d’arrivée.');
+      return;
+    }
+    if (newOriginStopId === newDestStopId) {
+      Alert.alert('Erreur', 'L’arrêt de départ et l’arrêt d’arrivée doivent être différents.');
+      return;
+    }
+
+    setCreatingRoute(true);
+    try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch(ENDPOINTS.ADMIN_CREATE_ROUTE, {
+        method: 'POST',
+        credentials: 'include',
+        headers,
+        body: JSON.stringify({
+          route_name: newRouteName.trim(),
+          origin_stop_id: newOriginStopId,
+          destination_stop_id: newDestStopId,
+          base_price: parseFloat(newRoutePrice) || 250,
+          estimated_duration_minutes: parseInt(newRouteDuration, 10) || 35,
+          is_active: true,
+        }),
+      });
+
+      if (res.ok) {
+        const rData = await res.json();
+        showToast({
+          title: 'Ligne Enregistrée !',
+          message: `La ligne "${rData.route_name}" a été fixée avec succès.`,
+          type: 'success',
+          category: 'GENERAL',
+        });
+        setShowAddRouteModal(false);
+        setNewRouteName('');
+        await fetchFleetData();
+      } else {
+        const err = await res.json().catch(() => null);
+        Alert.alert('Erreur', err?.detail || 'Impossible de créer la ligne.');
+      }
+    } catch (e) {
+      Alert.alert('Erreur Réseau', 'Impossible de joindre le serveur.');
+    } finally {
+      setCreatingRoute(false);
+    }
+  };
+
+  const handleAddStopToRoute = async () => {
+    if (!selectedRouteForStop || !targetStopId) {
+      Alert.alert('Champs incomplets', 'Veuillez sélectionner un arrêt.');
+      return;
+    }
+
+    setAddingStopToRoute(true);
+    try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch(ENDPOINTS.ADMIN_ADD_ROUTE_STOP(selectedRouteForStop.route_id), {
+        method: 'POST',
+        credentials: 'include',
+        headers,
+        body: JSON.stringify({
+          stop_id: targetStopId,
+          stop_order: parseInt(stopOrder, 10) || 2,
+          estimated_minutes_from_origin: parseInt(stopEtaMin, 10) || 10,
+          connection_label: stopConnection.trim() || null,
+        }),
+      });
+
+      if (res.ok) {
+        showToast({
+          title: 'Arrêt Ajouté à la Ligne !',
+          message: 'L\'arrêt intermédiaire a été ajouté à l\'itinéraire.',
+          type: 'success',
+          category: 'GENERAL',
+        });
+        setShowAddStopToRouteModal(false);
+        await fetchFleetData();
+      } else {
+        const err = await res.json().catch(() => null);
+        Alert.alert('Erreur', err?.detail || 'Impossible d\'ajouter l\'arrêt.');
+      }
+    } catch (e) {
+      Alert.alert('Erreur Réseau', 'Impossible de joindre le serveur.');
+    } finally {
+      setAddingStopToRoute(false);
+    }
+  };
+
+  const handleDeleteRoute = (route: any) => {
+    Alert.alert(
+      'Désactiver la Ligne',
+      `Voulez-vous vraiment désactiver la ligne "${route.route_name}" ?`,
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Désactiver',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const headers: Record<string, string> = {};
+              if (token) headers['Authorization'] = `Bearer ${token}`;
+              const res = await fetch(ENDPOINTS.ADMIN_DELETE_ROUTE(route.route_id), {
+                method: 'DELETE',
+                credentials: 'include',
+                headers,
+              });
+              if (res.ok) {
+                showToast({
+                  title: 'Ligne Désactivée',
+                  message: `La ligne ${route.route_name} est désormais inactive.`,
+                  type: 'info',
+                  category: 'GENERAL',
+                });
+                await fetchFleetData();
+              }
+            } catch (e) {
+              Alert.alert('Erreur', 'Impossible de désactiver la ligne.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleCreateTrip = async () => {
+    if (!tripRouteId || !tripBusId || !tripDriverId) {
+      Alert.alert('Champs incomplets', 'Veuillez sélectionner la ligne, le bus et le chauffeur.');
+      return;
+    }
+
+    setCreatingTrip(true);
+    try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const now = new Date();
+      const [h, m] = tripTime.split(':').map((x) => parseInt(x, 10) || 0);
+      const depDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m, 0);
+
+      const res = await fetch(ENDPOINTS.ADMIN_CREATE_TRIP, {
+        method: 'POST',
+        credentials: 'include',
+        headers,
+        body: JSON.stringify({
+          route_id: tripRouteId,
+          bus_id: tripBusId,
+          driver_id: tripDriverId,
+          departure_time: depDate.toISOString(),
+          estimated_arrival_time: new Date(depDate.getTime() + 45 * 60000).toISOString(),
+          total_seats: parseInt(tripSeats, 10) || 50,
+        }),
+      });
+
+      if (res.ok) {
+        showToast({
+          title: 'Rotation Programmée !',
+          message: `Le départ de ${tripTime} a été planifié avec succès.`,
+          type: 'success',
+          category: 'GENERAL',
+        });
+        setShowAddTripModal(false);
+        await fetchFleetData();
+      } else {
+        const err = await res.json().catch(() => null);
+        Alert.alert('Erreur', err?.detail || 'Impossible de créer la rotation.');
+      }
+    } catch (e) {
+      Alert.alert('Erreur Réseau', 'Impossible de joindre le serveur.');
+    } finally {
+      setCreatingTrip(false);
     }
   };
 
@@ -277,13 +542,25 @@ export default function AdminFleetScreen() {
       <View style={styles.header}>
         <View style={styles.headerTop}>
           <View>
-            <Text style={styles.eyebrow}>INFRASTRUCTURE & OPÉRATIONS</Text>
-            <Text style={styles.title}>Flotte & Lignes Campus</Text>
+            <Text style={styles.eyebrow}>INFRASTRUCTURE & OPÉRATIONS (CROUS / SUPERADMIN)</Text>
+            <Text style={styles.title}>Flotte & Itinéraires de Campus</Text>
           </View>
           {activeTab === 'BUSES' && (
             <Pressable style={styles.addBtn} onPress={() => setShowAddBusModal(true)}>
               <MaterialIcons name="add" size={20} color="#ffffff" />
               <Text style={styles.addBtnText}>Nouveau Bus</Text>
+            </Pressable>
+          )}
+          {activeTab === 'ROUTES' && (
+            <Pressable style={styles.addBtn} onPress={() => setShowAddRouteModal(true)}>
+              <MaterialIcons name="add" size={20} color="#ffffff" />
+              <Text style={styles.addBtnText}>Nouvelle Ligne</Text>
+            </Pressable>
+          )}
+          {activeTab === 'TRIPS' && (
+            <Pressable style={styles.addBtn} onPress={() => setShowAddTripModal(true)}>
+              <MaterialIcons name="add" size={20} color="#ffffff" />
+              <Text style={styles.addBtnText}>Nouvelle Rotation</Text>
             </Pressable>
           )}
           {activeTab === 'CAMPUSES' && (
@@ -320,7 +597,7 @@ export default function AdminFleetScreen() {
               color={activeTab === 'ROUTES' ? colors.primary : colors.onSurfaceVariant}
             />
             <Text style={[styles.tabBtnText, activeTab === 'ROUTES' && styles.tabBtnTextActive]}>
-              Lignes ({routes.length})
+              Lignes & Arrêts ({routes.length})
             </Text>
           </Pressable>
 
@@ -354,12 +631,8 @@ export default function AdminFleetScreen() {
         </ScrollView>
       </View>
 
-      {/* Content */}
-      {loading ? (
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
-      ) : activeTab === 'BUSES' ? (
+      {/* Main Content */}
+      {activeTab === 'BUSES' ? (
         <FlatList
           data={buses}
           keyExtractor={(item) => item.bus_id}
@@ -373,17 +646,19 @@ export default function AdminFleetScreen() {
                 </View>
                 <View style={{ flex: 1, marginLeft: spacing.sm }}>
                   <Text style={styles.itemTitle}>{item.bus_code}</Text>
-                  <Text style={styles.itemSub}>Immatriculation : {item.immatriculation_number}</Text>
+                  <Text style={styles.itemSub}>Immat: {item.immatriculation_number} • Capacité : {item.max_capacity} pl.</Text>
                 </View>
                 <Badge
-                  label={item.status === 'OPERATIONAL' ? 'EN SERVICE' : 'MAINTENANCE'}
-                  variant={item.status === 'OPERATIONAL' ? 'success' : 'warning'}
+                  label={item.status}
+                  tone={item.status === 'OPERATIONAL' ? 'success' : item.status === 'MAINTENANCE' ? 'warning' : 'neutral'}
                 />
               </View>
+
               <View style={styles.cardDivider} />
+
               <View style={styles.busMetricRow}>
                 <Text style={styles.metricText}>
-                  Capacité : <Text style={{ fontWeight: '700' }}>{item.max_capacity} places</Text>
+                  Chauffeur : <Text style={{ fontWeight: '700' }}>{item.current_driver_id ? 'Assigné' : 'Non Assigné'}</Text>
                 </Text>
                 <Pressable
                   style={styles.assignBtn}
@@ -402,20 +677,75 @@ export default function AdminFleetScreen() {
           keyExtractor={(item) => item.route_id}
           contentContainerStyle={styles.list}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />}
-          renderItem={({ item }) => (
-            <Card style={styles.card}>
-              <View style={styles.rowBetween}>
-                <View style={[styles.busCodeCircle, { backgroundColor: '#e0f2fe' }]}>
-                  <MaterialIcons name="alt-route" size={24} color="#0284c7" />
+          renderItem={({ item }) => {
+            const sortedStops = item.route_stops ? [...item.route_stops].sort((a: any, b: any) => a.stop_order - b.stop_order) : [];
+            return (
+              <Card style={styles.card}>
+                <View style={styles.rowBetween}>
+                  <View style={[styles.busCodeCircle, { backgroundColor: '#e0f2fe' }]}>
+                    <MaterialIcons name="alt-route" size={24} color="#0284c7" />
+                  </View>
+                  <View style={{ flex: 1, marginLeft: spacing.sm }}>
+                    <Text style={styles.itemTitle}>{item.route_name}</Text>
+                    <Text style={styles.itemSub}>
+                      {item.origin_stop?.stop_name || 'Départ'} ↔ {item.destination_stop?.stop_name || 'Arrivée'}
+                    </Text>
+                  </View>
+                  <Badge label={`${item.base_price || 250} FCFA`} tone="primary" />
                 </View>
-                <View style={{ flex: 1, marginLeft: spacing.sm }}>
-                  <Text style={styles.itemTitle}>{item.route_name}</Text>
-                  <Text style={styles.itemSub}>Durée estimée : {item.estimated_duration_minutes} min</Text>
+
+                {/* Stops sequence preview */}
+                <View style={styles.stopsSeqBox}>
+                  <Text style={styles.stopsSeqTitle}>
+                    Itinéraire ({sortedStops.length > 0 ? sortedStops.length : 2} arrêts • ~{item.estimated_duration_minutes} min) :
+                  </Text>
+                  <View style={styles.stopsSeqList}>
+                    {sortedStops.length > 0 ? (
+                      sortedStops.map((rs: any, idx: number) => (
+                        <View key={rs.route_stop_id || idx} style={styles.stopChip}>
+                          <Text style={styles.stopChipOrder}>{rs.stop_order}</Text>
+                          <Text style={styles.stopChipName}>{rs.stop?.stop_name || 'Arrêt'}</Text>
+                          {rs.estimated_minutes_from_origin !== undefined && (
+                            <Text style={styles.stopChipTime}>+{rs.estimated_minutes_from_origin}m</Text>
+                          )}
+                        </View>
+                      ))
+                    ) : (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                        <Text style={styles.stopsSeqEmpty}>
+                          {item.origin_stop?.stop_name || 'Départ'} (0m) ➔ {item.destination_stop?.stop_name || 'Arrivée'} ({item.estimated_duration_minutes}m)
+                        </Text>
+                      </View>
+                    )}
+                  </View>
                 </View>
-                <Badge label="100 FCFA" variant="neutral" />
-              </View>
-            </Card>
-          )}
+
+                <View style={styles.cardDivider} />
+
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Pressable
+                    style={styles.addStopToRouteBtn}
+                    onPress={() => {
+                      setSelectedRouteForStop(item);
+                      setStopOrder(String((sortedStops.length || 2) + 1));
+                      setShowAddStopToRouteModal(true);
+                    }}
+                  >
+                    <MaterialIcons name="add-location-alt" size={14} color={colors.primary} />
+                    <Text style={styles.addStopToRouteText}>Ajouter Arrêt</Text>
+                  </Pressable>
+
+                  <Pressable
+                    style={styles.deleteRouteBtn}
+                    onPress={() => handleDeleteRoute(item)}
+                  >
+                    <MaterialIcons name="delete-outline" size={14} color={colors.error} />
+                    <Text style={styles.deleteRouteText}>Désactiver</Text>
+                  </Pressable>
+                </View>
+              </Card>
+            );
+          }}
         />
       ) : activeTab === 'TRIPS' ? (
         <FlatList
@@ -430,16 +760,16 @@ export default function AdminFleetScreen() {
                   <MaterialIcons name="schedule" size={24} color="#b45309" />
                 </View>
                 <View style={{ flex: 1, marginLeft: spacing.sm }}>
-                  <Text style={styles.itemTitle}>Rotation #{item.trip_id?.substring(0, 8)?.toUpperCase()}</Text>
+                  <Text style={styles.itemTitle}>{item.route?.route_name || 'Rotation Campus'}</Text>
                   <Text style={styles.itemSub}>
-                    Départ : {new Date(item.departure_time).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                    Départ : {new Date(item.departure_time).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })} • Bus: {item.bus?.bus_code || 'Navette'}
                   </Text>
                 </View>
-                <Badge label={item.status} variant={item.status === 'SCHEDULED' ? 'primary' : 'success'} />
+                <Badge label={item.status} tone={item.status === 'SCHEDULED' ? 'primary' : 'success'} />
               </View>
               <View style={styles.cardDivider} />
               <Text style={styles.metricText}>
-                Places restantes : {item.available_seats} / {item.total_seats}
+                Places restantes : <Text style={{ fontWeight: '700' }}>{item.available_seats} / {item.total_seats}</Text>
               </Text>
             </Card>
           )}
@@ -460,7 +790,7 @@ export default function AdminFleetScreen() {
                   <Text style={styles.itemTitle}>{item.code} • {item.name}</Text>
                   <Text style={styles.itemSub}>Ville : {item.city} • Coordonnées : {item.latitude?.toFixed(4)}, {item.longitude?.toFixed(4)}</Text>
                 </View>
-                <Badge label={item.is_active ? 'ACTIF' : 'INACTIF'} variant={item.is_active ? 'success' : 'neutral'} />
+                <Badge label={item.is_active ? 'ACTIF' : 'INACTIF'} tone={item.is_active ? 'success' : 'neutral'} />
               </View>
               <View style={styles.cardDivider} />
               <Text style={styles.metricText}>
@@ -470,6 +800,334 @@ export default function AdminFleetScreen() {
           )}
         />
       )}
+
+      {/* Modal Add Route (Ligne) */}
+      <Modal visible={showAddRouteModal} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <MaterialIcons name="alt-route" size={24} color={colors.primary} />
+              <Text style={styles.modalTitle}>Créer un Itinéraire / Ligne</Text>
+            </View>
+
+            <Text style={styles.inputLabel}>Nom de la Ligne *</Text>
+            <TextInput
+              value={newRouteName}
+              onChangeText={setNewRouteName}
+              placeholder="Ex: Campus Calavi ↔ Parakou Centre"
+              placeholderTextColor={colors.outline}
+              style={styles.modalInput}
+            />
+
+            {/* Origin Stop */}
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text style={styles.inputLabel}>Arrêt de Départ (Origine) *</Text>
+              <Pressable onPress={() => setShowAddStopModal(true)}>
+                <Text style={styles.quickAddStopText}>+ Nouvel Arrêt</Text>
+              </Pressable>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.selectorRow}>
+              {stops.map((s) => (
+                <Pressable
+                  key={s.stop_id}
+                  style={[styles.selectorChip, newOriginStopId === s.stop_id && styles.selectorChipActive]}
+                  onPress={() => setNewOriginStopId(s.stop_id)}
+                >
+                  <MaterialIcons name="place" size={14} color={newOriginStopId === s.stop_id ? '#fff' : colors.primary} />
+                  <Text style={[styles.selectorText, newOriginStopId === s.stop_id && styles.selectorTextActive]}>
+                    {s.stop_name}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+
+            {/* Destination Stop */}
+            <Text style={styles.inputLabel}>Arrêt d'Arrivée (Terminus) *</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.selectorRow}>
+              {stops.map((s) => (
+                <Pressable
+                  key={s.stop_id}
+                  style={[styles.selectorChip, newDestStopId === s.stop_id && styles.selectorChipActive]}
+                  onPress={() => setNewDestStopId(s.stop_id)}
+                >
+                  <MaterialIcons name="flag" size={14} color={newDestStopId === s.stop_id ? '#fff' : colors.secondary} />
+                  <Text style={[styles.selectorText, newDestStopId === s.stop_id && styles.selectorTextActive]}>
+                    {s.stop_name}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+
+            {/* Duration and Price */}
+            <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.inputLabel}>Durée estimée (min) *</Text>
+                <TextInput
+                  value={newRouteDuration}
+                  onChangeText={setNewRouteDuration}
+                  placeholder="35"
+                  placeholderTextColor={colors.outline}
+                  keyboardType="numeric"
+                  style={styles.modalInput}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.inputLabel}>Tarif de Base (FCFA) *</Text>
+                <TextInput
+                  value={newRoutePrice}
+                  onChangeText={setNewRoutePrice}
+                  placeholder="250"
+                  placeholderTextColor={colors.outline}
+                  keyboardType="numeric"
+                  style={styles.modalInput}
+                />
+              </View>
+            </View>
+
+            <View style={styles.modalActions}>
+              <Pressable style={styles.cancelBtn} onPress={() => setShowAddRouteModal(false)}>
+                <Text style={styles.cancelBtnText}>Annuler</Text>
+              </Pressable>
+              <PrimaryButton
+                label={creatingRoute ? 'Création...' : 'Fixer l\'Itinéraire'}
+                onPress={handleCreateRoute}
+                disabled={creatingRoute}
+                style={{ flex: 1.5 }}
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal Quick Create Stop */}
+      <Modal visible={showAddStopModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <MaterialIcons name="add-location" size={24} color={colors.primary} />
+              <Text style={styles.modalTitle}>Créer un Arrêt Physique</Text>
+            </View>
+
+            <Text style={styles.inputLabel}>Nom de l'Arrêt *</Text>
+            <TextInput
+              value={newStopName}
+              onChangeText={setNewStopName}
+              placeholder="Ex: Carrefour Tankpè"
+              placeholderTextColor={colors.outline}
+              style={styles.modalInput}
+            />
+
+            <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.inputLabel}>Latitude</Text>
+                <TextInput
+                  value={newStopLat}
+                  onChangeText={setNewStopLat}
+                  placeholder="6.4474"
+                  placeholderTextColor={colors.outline}
+                  keyboardType="numeric"
+                  style={styles.modalInput}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.inputLabel}>Longitude</Text>
+                <TextInput
+                  value={newStopLon}
+                  onChangeText={setNewStopLon}
+                  placeholder="2.3557"
+                  placeholderTextColor={colors.outline}
+                  keyboardType="numeric"
+                  style={styles.modalInput}
+                />
+              </View>
+            </View>
+
+            <View style={styles.modalActions}>
+              <Pressable style={styles.cancelBtn} onPress={() => setShowAddStopModal(false)}>
+                <Text style={styles.cancelBtnText}>Annuler</Text>
+              </Pressable>
+              <PrimaryButton
+                label={creatingStop ? 'Création...' : 'Créer l\'Arrêt'}
+                onPress={handleCreateStop}
+                disabled={creatingStop}
+                style={{ flex: 1.5 }}
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal Add Stop to Route */}
+      <Modal visible={showAddStopToRouteModal} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <MaterialIcons name="add-location-alt" size={24} color={colors.primary} />
+              <Text style={styles.modalTitle}>Ajouter un Arrêt Intermédiaire</Text>
+            </View>
+            <Text style={styles.assignSubtitle}>
+              Ligne : <Text style={{ fontWeight: '700', color: colors.primary }}>{selectedRouteForStop?.route_name}</Text>
+            </Text>
+
+            <Text style={styles.inputLabel}>Sélectionner l'Arrêt *</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.selectorRow}>
+              {stops.map((s) => (
+                <Pressable
+                  key={s.stop_id}
+                  style={[styles.selectorChip, targetStopId === s.stop_id && styles.selectorChipActive]}
+                  onPress={() => setTargetStopId(s.stop_id)}
+                >
+                  <Text style={[styles.selectorText, targetStopId === s.stop_id && styles.selectorTextActive]}>
+                    {s.stop_name}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+
+            <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.inputLabel}>Ordre (ex: 2, 3) *</Text>
+                <TextInput
+                  value={stopOrder}
+                  onChangeText={setStopOrder}
+                  placeholder="2"
+                  placeholderTextColor={colors.outline}
+                  keyboardType="numeric"
+                  style={styles.modalInput}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.inputLabel}>Temps depuis départ (min) *</Text>
+                <TextInput
+                  value={stopEtaMin}
+                  onChangeText={setStopEtaMin}
+                  placeholder="10"
+                  placeholderTextColor={colors.outline}
+                  keyboardType="numeric"
+                  style={styles.modalInput}
+                />
+              </View>
+            </View>
+
+            <Text style={styles.inputLabel}>Correspondance Éventuelle (Optionnel)</Text>
+            <TextInput
+              value={stopConnection}
+              onChangeText={setStopConnection}
+              placeholder="Ex: Ligne B"
+              placeholderTextColor={colors.outline}
+              style={styles.modalInput}
+            />
+
+            <View style={styles.modalActions}>
+              <Pressable style={styles.cancelBtn} onPress={() => setShowAddStopToRouteModal(false)}>
+                <Text style={styles.cancelBtnText}>Annuler</Text>
+              </Pressable>
+              <PrimaryButton
+                label={addingStopToRoute ? 'Ajout...' : 'Insérer dans la Ligne'}
+                onPress={handleAddStopToRoute}
+                disabled={addingStopToRoute}
+                style={{ flex: 1.5 }}
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal Add Trip (Rotation) */}
+      <Modal visible={showAddTripModal} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <MaterialIcons name="schedule" size={24} color={colors.primary} />
+              <Text style={styles.modalTitle}>Programmer une Rotation</Text>
+            </View>
+
+            {/* Select Route */}
+            <Text style={styles.inputLabel}>Sélectionner la Ligne *</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.selectorRow}>
+              {routes.map((r) => (
+                <Pressable
+                  key={r.route_id}
+                  style={[styles.selectorChip, tripRouteId === r.route_id && styles.selectorChipActive]}
+                  onPress={() => setTripRouteId(r.route_id)}
+                >
+                  <Text style={[styles.selectorText, tripRouteId === r.route_id && styles.selectorTextActive]}>
+                    {r.route_name}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+
+            {/* Select Bus */}
+            <Text style={styles.inputLabel}>Sélectionner la Navette *</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.selectorRow}>
+              {buses.map((b) => (
+                <Pressable
+                  key={b.bus_id}
+                  style={[styles.selectorChip, tripBusId === b.bus_id && styles.selectorChipActive]}
+                  onPress={() => setTripBusId(b.bus_id)}
+                >
+                  <Text style={[styles.selectorText, tripBusId === b.bus_id && styles.selectorTextActive]}>
+                    {b.bus_code}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+
+            {/* Select Driver */}
+            <Text style={styles.inputLabel}>Sélectionner le Chauffeur *</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.selectorRow}>
+              {drivers.map((d) => (
+                <Pressable
+                  key={d.user_id}
+                  style={[styles.selectorChip, tripDriverId === d.user_id && styles.selectorChipActive]}
+                  onPress={() => setTripDriverId(d.user_id)}
+                >
+                  <Text style={[styles.selectorText, tripDriverId === d.user_id && styles.selectorTextActive]}>
+                    {d.first_name} {d.last_name}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+
+            <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.inputLabel}>Heure de Départ (HH:MM)</Text>
+                <TextInput
+                  value={tripTime}
+                  onChangeText={setTripTime}
+                  placeholder="08:00"
+                  placeholderTextColor={colors.outline}
+                  style={styles.modalInput}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.inputLabel}>Quota Places</Text>
+                <TextInput
+                  value={tripSeats}
+                  onChangeText={setTripSeats}
+                  placeholder="50"
+                  placeholderTextColor={colors.outline}
+                  keyboardType="numeric"
+                  style={styles.modalInput}
+                />
+              </View>
+            </View>
+
+            <View style={styles.modalActions}>
+              <Pressable style={styles.cancelBtn} onPress={() => setShowAddTripModal(false)}>
+                <Text style={styles.cancelBtnText}>Annuler</Text>
+              </Pressable>
+              <PrimaryButton
+                label={creatingTrip ? 'Planification...' : 'Planifier la Rotation'}
+                onPress={handleCreateTrip}
+                disabled={creatingTrip}
+                style={{ flex: 1.5 }}
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Modal Add Campus */}
       <Modal visible={showAddCampusModal} transparent animationType="fade">
@@ -589,9 +1247,9 @@ export default function AdminFleetScreen() {
                 <Text style={styles.cancelBtnText}>Annuler</Text>
               </Pressable>
               <PrimaryButton
-                label={creating ? 'Création...' : 'Créer le Bus'}
+                label={creatingBus ? 'Création...' : 'Créer le Bus'}
                 onPress={handleCreateBus}
-                disabled={creating}
+                disabled={creatingBus}
                 style={{ flex: 1 }}
               />
             </View>
@@ -660,7 +1318,6 @@ export default function AdminFleetScreen() {
               </Pressable>
               <PrimaryButton
                 label={assigning ? 'Attribution...' : 'Confirmer l\'Attribution'}
-                icon="check"
                 onPress={handleAssignBus}
                 disabled={assigning}
                 style={{ flex: 1 }}
@@ -705,6 +1362,7 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingVertical: 8,
     borderRadius: radius.sm,
+    paddingHorizontal: 8,
   },
   tabBtnActive: { backgroundColor: colors.surfaceContainerLowest },
   tabBtnText: { fontSize: 11, fontWeight: '600', color: colors.onSurfaceVariant },
@@ -739,6 +1397,96 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#ffffff',
   },
+  stopsSeqBox: {
+    backgroundColor: colors.surfaceContainerLowest,
+    padding: spacing.xs + 2,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.outlineVariant,
+    gap: 4,
+  },
+  stopsSeqTitle: {
+    ...typography.labelCaps,
+    fontSize: 10,
+    color: colors.onSurfaceVariant,
+    fontWeight: '700',
+  },
+  stopsSeqList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 4,
+  },
+  stopChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: colors.surfaceContainer,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  stopChipOrder: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: colors.primary,
+    backgroundColor: '#ffffff',
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    textAlign: 'center',
+    lineHeight: 14,
+  },
+  stopChipName: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: colors.onSurface,
+  },
+  stopChipTime: {
+    fontSize: 9,
+    color: colors.secondary,
+    fontWeight: '700',
+  },
+  stopsSeqEmpty: {
+    fontSize: 11,
+    color: colors.onSurfaceVariant,
+    fontStyle: 'italic',
+  },
+  addStopToRouteBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: radius.sm,
+    backgroundColor: colors.surfaceContainerLowest,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  addStopToRouteText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  deleteRouteBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: radius.sm,
+    backgroundColor: '#fee2e2',
+  },
+  deleteRouteText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.error,
+  },
+  quickAddStopText: {
+    ...typography.labelCaps,
+    fontSize: 11,
+    color: colors.primary,
+    fontWeight: '700',
+  },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.6)',
@@ -749,34 +1497,40 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: radius.xl,
     borderTopRightRadius: radius.xl,
     padding: spacing.lg,
+    paddingBottom: spacing.xl + 8,
     gap: spacing.sm,
+    maxHeight: '90%',
   },
-  modalHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginBottom: spacing.xs },
-  modalTitle: { ...typography.headlineSm, fontSize: 17, color: colors.onSurface },
-  assignSubtitle: { fontSize: 13, color: colors.onSurfaceVariant, marginBottom: spacing.xs },
-  inputLabel: { fontSize: 12, fontWeight: '700', color: colors.onSurface, marginTop: spacing.xs },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.xs,
+  },
+  modalTitle: { ...typography.headlineSm, color: colors.onSurface, fontSize: 18 },
+  inputLabel: { ...typography.labelCaps, color: colors.onSurfaceVariant, fontSize: 10, marginTop: 4 },
   modalInput: {
     backgroundColor: colors.surfaceContainer,
+    borderRadius: radius.md,
+    padding: spacing.md,
     borderWidth: 1,
     borderColor: colors.outlineVariant,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm + 2,
     fontSize: 14,
     color: colors.onSurface,
   },
   selectorRow: {
+    flexDirection: 'row',
     gap: spacing.xs,
-    paddingVertical: spacing.xs,
+    paddingVertical: 4,
   },
   selectorChip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: colors.surfaceContainer,
-    paddingHorizontal: spacing.sm + 2,
+    paddingHorizontal: spacing.sm,
     paddingVertical: 8,
     borderRadius: radius.md,
+    backgroundColor: colors.surfaceContainer,
     borderWidth: 1,
     borderColor: colors.outlineVariant,
   },
@@ -784,23 +1538,18 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     borderColor: colors.primary,
   },
-  selectorText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.onSurface,
-  },
-  selectorTextActive: {
-    color: '#ffffff',
-  },
+  selectorText: { ...typography.bodySm, color: colors.onSurface, fontSize: 12 },
+  selectorTextActive: { color: '#ffffff', fontWeight: '700' },
+  assignSubtitle: { ...typography.bodySm, color: colors.onSurfaceVariant },
   modalActions: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md },
   cancelBtn: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: 12,
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.md,
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.outlineVariant,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
-  cancelBtnText: { ...typography.labelCaps, color: colors.onSurface, fontSize: 12 },
+  cancelBtnText: { ...typography.labelCaps, color: colors.onSurfaceVariant, fontSize: 12 },
 });

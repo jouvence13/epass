@@ -57,6 +57,26 @@ class StopOutSchema(BaseModel):
     created_at: datetime
 
 
+class RouteStopCreateSchema(BaseModel):
+    stop_id: uuid.UUID
+    stop_order: int = Field(..., ge=1)
+    estimated_minutes_from_origin: int = Field(0, ge=0)
+    connection_label: Optional[str] = None
+
+
+class RouteStopOutSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    route_stop_id: uuid.UUID
+    route_id: uuid.UUID
+    stop_id: uuid.UUID
+    stop_order: int
+    estimated_minutes_from_origin: int
+    connection_label: Optional[str] = None
+    stop: Optional[StopOutSchema] = None
+    created_at: datetime
+
+
 class RouteCreateSchema(BaseModel):
     route_name: str = Field(..., example="Calavi - Étoile Rouge (Cotonou)")
     origin_stop_id: uuid.UUID
@@ -64,6 +84,16 @@ class RouteCreateSchema(BaseModel):
     base_price: float = Field(150.00, ge=0)
     estimated_duration_minutes: int = Field(..., ge=1, example=35)
     is_active: bool = True
+    intermediate_stops: Optional[list[RouteStopCreateSchema]] = None
+
+
+class RouteUpdateSchema(BaseModel):
+    route_name: Optional[str] = None
+    origin_stop_id: Optional[uuid.UUID] = None
+    destination_stop_id: Optional[uuid.UUID] = None
+    base_price: Optional[float] = Field(None, ge=0)
+    estimated_duration_minutes: Optional[int] = Field(None, ge=1)
+    is_active: Optional[bool] = None
 
 
 class RouteOutSchema(BaseModel):
@@ -78,4 +108,6 @@ class RouteOutSchema(BaseModel):
     is_active: bool
     origin_stop: Optional[StopOutSchema] = None
     destination_stop: Optional[StopOutSchema] = None
+    route_stops: Optional[list[RouteStopOutSchema]] = None
     created_at: datetime
+

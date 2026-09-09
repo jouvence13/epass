@@ -311,11 +311,7 @@ async def get_live_lines(
     now = datetime.now(timezone.utc)
 
     for r in routes:
-        key = "LIGNE_A" if "Express" in r.route_name or "Ligne A" in r.route_name else (
-            "LIGNE_B" if "Godomey" in r.route_name or "Ligne B" in r.route_name else (
-                "LIGNE_PORTO_NOVO" if "Porto-Novo" in r.route_name else "LIGNE_C"
-            )
-        )
+        route_id_str = str(r.route_id)
 
         active_trip = next((t for t in r.trips if t.status in [TripStatusEnum.SCHEDULED, TripStatusEnum.BOARDING, TripStatusEnum.EN_ROUTE]), None)
         if not active_trip and r.trips:
@@ -386,11 +382,32 @@ async def get_live_lines(
                     stop_dict["connection"] = rs.connection_label
 
                 stops_list.append(stop_dict)
+        else:
+            # Fallback when route has no intermediate stops: generate origin and destination
+            arr_time = (dep_base + timedelta(minutes=r.estimated_duration_minutes)).strftime("%H:%M")
+            stops_list = [
+                {
+                    "id": str(r.origin_stop_id)[:8] if r.origin_stop_id else "orig",
+                    "name": f"{origin_n} (Terminus)",
+                    "status": "passed",
+                    "time": dep_base.strftime("%H:%M")
+                },
+                {
+                    "id": str(r.destination_stop_id)[:8] if r.destination_stop_id else "dest",
+                    "name": f"{dest_n} (Terminus)",
+                    "status": "current",
+                    "time": arr_time,
+                    "etaMinutes": max(5, r.estimated_duration_minutes)
+                }
+            ]
 
-        line_configs[key] = {
-            "id": key,
+        config = {
+            "id": route_id_str,
+            "routeId": route_id_str,
             "name": r.route_name,
             "code": f"{r.route_name} ({origin_n} ↔ {dest_n})",
+            "origin": origin_n,
+            "destination": dest_n,
             "busNumber": bus_label,
             "occupancy": f"{occupied}/{total_seats} places ({pct}%)",
             "speed": speed_val,
@@ -401,7 +418,23 @@ async def get_live_lines(
             "stops": stops_list
         }
 
+        # Index by route_id, route_name, and simple slug
+        line_configs[route_id_str] = config
+        line_configs[r.route_name] = config
+        line_configs[r.route_name.lower().strip()] = config
+
+        # Legacy aliases for backward compatibility if names match
+        if "Ligne A" in r.route_name or "Express" in r.route_name:
+            line_configs["LIGNE_A"] = config
+        if "Ligne B" in r.route_name or "Godomey" in r.route_name:
+            line_configs["LIGNE_B"] = config
+        if "Porto-Novo" in r.route_name:
+            line_configs["LIGNE_PORTO_NOVO"] = config
+        if "Akpakpa" in r.route_name or "Ligne C" in r.route_name:
+            line_configs["LIGNE_C"] = config
+
     return line_configs
+
 
 
 @router.get("/{trip_id}", response_model=TripOutSchema)

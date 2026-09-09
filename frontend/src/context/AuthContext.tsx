@@ -35,7 +35,9 @@ export interface StudentTicket {
   paymentMethod: string;
   timeSlot?: string;
   recycleCount?: number;
+  routeId?: string;
 }
+
 
 export interface BusSlot {
   id: string;

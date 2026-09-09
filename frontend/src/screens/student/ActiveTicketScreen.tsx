@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   Alert,
   Pressable,
   Modal,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -21,7 +22,7 @@ import { useAuth, StudentTicket } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
 import { ENDPOINTS } from '../../config/api';
 
-interface RouteStop {
+export interface RouteStop {
   id: string;
   name: string;
   status: 'passed' | 'current' | 'upcoming';
@@ -30,10 +31,13 @@ interface RouteStop {
   connection?: string;
 }
 
-interface BusLineConfig {
+export interface BusLineConfig {
   id: string;
+  routeId?: string;
   name: string;
   code: string;
+  origin?: string;
+  destination?: string;
   busNumber: string;
   occupancy: string;
   speed: string;
@@ -44,157 +48,140 @@ interface BusLineConfig {
   stops: RouteStop[];
 }
 
-const DEFAULT_BUS_LINES: Record<string, BusLineConfig> = {
-  LIGNE_A: {
-    id: 'LIGNE_A',
-    name: 'Campus Express • Ligne A',
-    code: 'Calavi Campus ↔ Cotonou Étoile Rouge',
-    busNumber: 'Bus Campus #402',
-    occupancy: '32/50 places (64%)',
-    speed: '42 km/h',
-    currentLocation: 'Campus Abomey-Calavi',
-    nextStop: 'Échangeur Godomey',
-    nextStopEta: '4 min',
-    totalEta: '25 min',
-    stops: [
-      { id: 'st-1', name: 'Campus UAC Calavi (Terminus)', status: 'passed', time: '07:30' },
-      { id: 'st-2', name: 'Carrefour IITA', status: 'current', time: '07:38', etaMinutes: 2 },
-      { id: 'st-3', name: 'Échangeur Godomey', status: 'upcoming', time: '07:46', etaMinutes: 8, connection: 'Ligne B' },
-      { id: 'st-4', name: 'Stade GMK Mathieu Kérékou', status: 'upcoming', time: '07:55', etaMinutes: 17 },
-      { id: 'st-5', name: "Place de l'Étoile Rouge (Terminus)", status: 'upcoming', time: '08:05', etaMinutes: 25 },
-    ],
-  },
-  LIGNE_B: {
-    id: 'LIGNE_B',
-    name: 'Campus Express • Ligne B',
-    code: 'Calavi Campus ↔ Godomey Échangeur',
-    busNumber: 'Bus Campus #405',
-    occupancy: '24/50 places (48%)',
-    speed: '38 km/h',
-    currentLocation: 'Carrefour Arconville',
-    nextStop: 'Godomey Magasin',
-    nextStopEta: '3 min',
-    totalEta: '18 min',
-    stops: [
-      { id: 'st-b1', name: 'Campus UAC Calavi (Terminus)', status: 'passed', time: '08:00' },
-      { id: 'st-b2', name: 'Carrefour Tankpè', status: 'passed', time: '08:07' },
-      { id: 'st-b3', name: 'Carrefour Arconville', status: 'current', time: '08:14', etaMinutes: 2 },
-      { id: 'st-b4', name: 'Godomey Magasin', status: 'upcoming', time: '08:20', etaMinutes: 6 },
-      { id: 'st-b5', name: 'Échangeur Godomey (Terminus)', status: 'upcoming', time: '08:28', etaMinutes: 14 },
-    ],
-  },
-  LIGNE_C: {
-    id: 'LIGNE_C',
-    name: 'Campus Express • Ligne C',
-    code: 'Calavi Campus ↔ Akpakpa Sacré-Cœur',
-    busNumber: 'Bus Campus #408',
-    occupancy: '41/50 places (82%)',
-    speed: '35 km/h',
-    currentLocation: 'Carrefour Vèdoko',
-    nextStop: 'Carrefour Marina',
-    nextStopEta: '5 min',
-    totalEta: '35 min',
-    stops: [
-      { id: 'st-c1', name: 'Campus UAC Calavi (Terminus)', status: 'passed', time: '07:15' },
-      { id: 'st-c2', name: 'Échangeur Godomey', status: 'passed', time: '07:28' },
-      { id: 'st-c3', name: 'Carrefour Vèdoko', status: 'current', time: '07:38', etaMinutes: 3 },
-      { id: 'st-c4', name: 'Carrefour Marina / Ganhi', status: 'upcoming', time: '07:50', etaMinutes: 15 },
-      { id: 'st-c5', name: 'Akpakpa Sacré-Cœur (Terminus)', status: 'upcoming', time: '08:05', etaMinutes: 30 },
-    ],
-  },
-  LIGNE_PORTO_NOVO: {
-    id: 'LIGNE_PORTO_NOVO',
-    name: 'Inter-Campus • Porto-Novo',
-    code: 'Calavi Campus ↔ Porto-Novo Gare',
-    busNumber: 'Navette Inter-Campus #501',
-    occupancy: '45/50 places (90%)',
-    speed: '50 km/h',
-    currentLocation: 'Carrefour Sèmè-Kpodji',
-    nextStop: 'Gare Routière Ouando',
-    nextStopEta: '10 min',
-    totalEta: '45 min',
-    stops: [
-      { id: 'st-p1', name: 'Campus UAC Calavi (Terminus)', status: 'passed', time: '06:45' },
-      { id: 'st-p2', name: 'Échangeur Houéyiho', status: 'passed', time: '07:05' },
-      { id: 'st-p3', name: 'Carrefour Sèmè-Kpodji', status: 'current', time: '07:25', etaMinutes: 4 },
-      { id: 'st-p4', name: 'Gare Routière Ouando', status: 'upcoming', time: '07:45', etaMinutes: 18 },
-      { id: 'st-p5', name: 'Porto-Novo Site Central UNA (Terminus)', status: 'upcoming', time: '08:00', etaMinutes: 30 },
-    ],
-  },
-};
-
 export default function ActiveTicketScreen({ navigation }: any) {
-  const { user, token, tickets, activeTicket, setActiveTicket, busSlots, recycleTicket } = useAuth();
+  const { user, token, tickets, activeTicket, setActiveTicket, busSlots, recycleTicket, refreshTickets } = useAuth();
   const { showToast } = useNotifications();
 
-  // Lignes et arrêts de bus dynamiques chargés depuis le Backend API
-  const [busLines, setBusLines] = useState<Record<string, BusLineConfig>>(DEFAULT_BUS_LINES);
+  // Lignes et arrêts de bus 100% dynamiques chargés depuis le Backend API / Base de données
+  const [busLines, setBusLines] = useState<Record<string, BusLineConfig>>({});
+  const [loadingLines, setLoadingLines] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchLiveLines = async () => {
+    try {
+      const headers: Record<string, string> = {
+        'ngrok-skip-browser-warning': 'true',
+      };
+      if (token && token !== 'cookie_session' && token !== 'cached_session') {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      const res = await fetch(ENDPOINTS.LIVE_LINES, {
+        credentials: 'include',
+        headers,
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data && typeof data === 'object' && Object.keys(data).length > 0) {
+          setBusLines(data);
+        }
+      }
+    } catch (e) {
+      console.warn('Live lines fetch error:', e);
+    } finally {
+      setLoadingLines(false);
+      setRefreshing(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchLiveLines = async () => {
-      try {
-        const headers: Record<string, string> = {
-          'ngrok-skip-browser-warning': 'true',
-        };
-        if (token && token !== 'cookie_session' && token !== 'cached_session') {
-          headers['Authorization'] = `Bearer ${token}`;
-        }
-        const res = await fetch(ENDPOINTS.LIVE_LINES, {
-          credentials: 'include',
-          headers,
-        });
-        if (res.ok) {
-          const data = await res.json();
-          if (data && typeof data === 'object' && Object.keys(data).length > 0) {
-            setBusLines((prev) => ({ ...prev, ...data }));
-          }
-        }
-      } catch (e) {
-        console.warn('Live lines fetch error:', e);
-      }
-    };
-
     fetchLiveLines();
   }, [token]);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await Promise.all([fetchLiveLines(), refreshTickets ? refreshTickets() : Promise.resolve()]);
+  };
 
   // Billets actifs de l'étudiant
   const userActiveTickets = tickets.filter((t) => t.status === 'ACTIVE');
 
-  // Déterminer la ligne associée à un billet
-  const getLineKeyForTicket = (t?: StudentTicket | null): string => {
-    if (!t) return 'LIGNE_A';
-    const text = `${t.line || ''} ${t.route || ''}`.toLowerCase();
-    if (text.includes('porto-novo') || text.includes('porto novo')) return 'LIGNE_PORTO_NOVO';
-    if (text.includes('godomey') || text.includes('ligne b')) return 'LIGNE_B';
-    if (text.includes('akpakpa') || text.includes('ligne c')) return 'LIGNE_C';
-    return 'LIGNE_A';
+  // Trouver la ligne correspondante dans les données retournées par le backend
+  const findMatchingLineKey = (t?: StudentTicket | null): string => {
+    if (!t) {
+      const firstKey = Object.keys(busLines)[0];
+      return firstKey || '';
+    }
+
+    // 1. Match direct par routeId / id
+    if (t.routeId && busLines[t.routeId]) return t.routeId;
+    if (t.id && busLines[t.id]) return t.id;
+
+    // 2. Match direct par nom de ligne ou route
+    if (t.line && busLines[t.line]) return t.line;
+    if (t.route && busLines[t.route]) return t.route;
+
+    // 3. Match partiel / textuel sur les noms de ligne fixés par l'admin
+    const tLineText = `${t.line || ''} ${t.route || ''}`.toLowerCase();
+    for (const [key, line] of Object.entries(busLines)) {
+      const lName = (line.name || '').toLowerCase();
+      const lCode = (line.code || '').toLowerCase();
+      if (
+        (lName && tLineText.includes(lName)) ||
+        (lCode && tLineText.includes(lCode)) ||
+        (line.origin && tLineText.includes(line.origin.toLowerCase()))
+      ) {
+        return key;
+      }
+    }
+
+    // 4. Premier disponible
+    return Object.keys(busLines)[0] || '';
   };
 
-  const [selectedLineKey, setSelectedLineKey] = useState<string>(
-    getLineKeyForTicket(activeTicket)
-  );
+  const [selectedLineKey, setSelectedLineKey] = useState<string>('');
 
-  // Synchronisation automatique de la ligne suivie lorsque le ticket actif change
   useEffect(() => {
-    if (activeTicket) {
-      setSelectedLineKey(getLineKeyForTicket(activeTicket));
+    const matchedKey = findMatchingLineKey(activeTicket);
+    if (matchedKey) {
+      setSelectedLineKey(matchedKey);
     }
-  }, [activeTicket?.id]);
+  }, [activeTicket?.id, busLines]);
 
-  // Ensemble des lignes pour lesquelles l'étudiant possède un billet actif
-  const myActiveLineKeys = Array.from(
-    new Set(userActiveTickets.map((t) => getLineKeyForTicket(t)))
-  );
+  // Ensemble des clés de ligne pour les billets actifs de l'étudiant
+  const availableLineKeys = useMemo(() => {
+    const keys = new Set<string>();
+    userActiveTickets.forEach((t) => {
+      const k = findMatchingLineKey(t);
+      if (k) keys.add(k);
+    });
+    return Array.from(keys);
+  }, [userActiveTickets, busLines]);
 
-  const availableLineKeys = myActiveLineKeys.length > 0 ? myActiveLineKeys : ['LIGNE_A'];
+  // Construction de la configuration active de ligne (dynamique 100%)
+  const activeLine: BusLineConfig = useMemo(() => {
+    if (selectedLineKey && busLines[selectedLineKey]) {
+      return busLines[selectedLineKey];
+    }
+    const firstAvailable = Object.values(busLines)[0];
+    if (firstAvailable) {
+      return firstAvailable;
+    }
+
+    // Structure dynamique basée sur le ticket actif
+    const routeName = activeTicket?.route || activeTicket?.line || 'Ligne Campus Universitaire';
+    return {
+      id: activeTicket?.id || 'dynamic-line',
+      name: routeName,
+      code: routeName,
+      busNumber: activeTicket?.busId || 'Bus Campus',
+      occupancy: 'En rotation',
+      speed: '40 km/h',
+      currentLocation: 'Campus Universitaire',
+      nextStop: 'Arrêt suivant',
+      nextStopEta: '5 min',
+      totalEta: '30 min',
+      stops: [
+        { id: 'st-orig', name: 'Départ Campus (Terminus)', status: 'passed', time: '07:30' },
+        { id: 'st-mid', name: 'Arrêt Intermédiaire', status: 'current', time: '07:45', etaMinutes: 5 },
+        { id: 'st-dest', name: 'Terminus Destination', status: 'upcoming', time: '08:00', etaMinutes: 20 },
+      ],
+    };
+  }, [selectedLineKey, busLines, activeTicket]);
 
   // État du Modal de Recyclage
   const [recycleModalVisible, setRecycleModalVisible] = useState(false);
   const [selectedTargetSlotId, setSelectedTargetSlotId] = useState<string>('slot-2');
   const [isRecycling, setIsRecycling] = useState(false);
-
-  const activeLine: BusLineConfig =
-    busLines[selectedLineKey] || DEFAULT_BUS_LINES[selectedLineKey] || Object.values(busLines)[0] || DEFAULT_BUS_LINES.LIGNE_A;
 
   // Animations
   const pulse = useRef(new Animated.Value(0)).current;
@@ -314,7 +301,7 @@ export default function ActiveTicketScreen({ navigation }: any) {
                 <Text style={styles.kycRequirementsTitle}>Documents requis :</Text>
                 <View style={styles.kycReqItem}>
                   <MaterialIcons name="check-circle" size={16} color={colors.primary} />
-                  <Text style={styles.kycReqText}>Carte d’Étudiant UAC (valide)</Text>
+                  <Text style={styles.kycReqText}>Carte d’Étudiant Béninoise (valide)</Text>
                 </View>
                 <View style={styles.kycReqItem}>
                   <MaterialIcons name="check-circle" size={16} color={colors.primary} />
@@ -338,7 +325,10 @@ export default function ActiveTicketScreen({ navigation }: any) {
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />}
+      >
         {/* Sélecteur de Ticket dynamique (Scrollable horizontalement pour supporter 2, 5, 10+ tickets) */}
         {userActiveTickets.length > 1 && (
           <View style={styles.ticketSwitcherContainer}>
@@ -368,7 +358,8 @@ export default function ActiveTicketScreen({ navigation }: any) {
                     style={[styles.ticketSwitcherTab, isSelected && styles.ticketSwitcherTabActive]}
                     onPress={() => {
                       setActiveTicket(t);
-                      setSelectedLineKey(getLineKeyForTicket(t));
+                      const key = findMatchingLineKey(t);
+                      if (key) setSelectedLineKey(key);
                     }}
                   >
                     <MaterialIcons
@@ -384,7 +375,7 @@ export default function ActiveTicketScreen({ navigation }: any) {
                         style={[styles.ticketSwitcherSubtext, isSelected && styles.ticketSwitcherSubtextActive]}
                         numberOfLines={1}
                       >
-                        {t.line.replace('Campus Express • ', '')}
+                        {t.line ? t.line.replace('Campus Express • ', '') : t.route || 'Ligne Campus'}
                       </Text>
                     </View>
                     {isItemRecycled && (
@@ -405,8 +396,8 @@ export default function ActiveTicketScreen({ navigation }: any) {
         <View style={styles.alertBanner}>
           <MaterialIcons name="info-outline" size={22} color={colors.onErrorContainer} style={{ marginTop: 2 }} />
           <View style={{ flex: 1 }}>
-            <Text style={styles.alertTitle}>Information Trafic : Réseau Campus</Text>
-            <Text style={styles.alertBody}>Circulation fluide sur les axes inter-campus universitaires du Bénin.</Text>
+            <Text style={styles.alertTitle}>Information Trafic : Réseau Universitaire</Text>
+            <Text style={styles.alertBody}>Itinéraires officiels synchronisés avec la base de données du campus.</Text>
           </View>
         </View>
 
@@ -414,7 +405,7 @@ export default function ActiveTicketScreen({ navigation }: any) {
         <Card floating style={styles.ticketCard}>
           <View style={styles.ticketCardBadgesRow}>
             <Badge
-              label={isApproved ? 'Ticket Valide & Payé (100 F)' : user?.kyc_status === 'PENDING' ? 'KYC En Attente' : 'KYC Non Soumis'}
+              label={isApproved ? `Ticket Valide (${activeTicket?.price || 100} F)` : user?.kyc_status === 'PENDING' ? 'KYC En Attente' : 'KYC Non Soumis'}
               tone={isApproved ? 'success' : 'warning'}
               icon={isApproved ? 'check-circle' : user?.kyc_status === 'PENDING' ? 'schedule' : 'info'}
             />
@@ -422,9 +413,9 @@ export default function ActiveTicketScreen({ navigation }: any) {
               <Badge label="Reporté / Recyclé (1/1)" tone="primary" icon="recycling" />
             )}
           </View>
-          <Text style={styles.route}>{activeTicket?.route || activeLine.code}</Text>
+          <Text style={styles.route}>{activeTicket?.route || activeLine.code || activeLine.name}</Text>
           <Text style={styles.studentId}>
-            {activeTicket?.line || activeLine.name} • {activeTicket?.busId || activeLine.busNumber} • Matricule : {user?.matricule_uac || 'UAC-2024-XXXX'}
+            {activeTicket?.line || activeLine.name} • {activeTicket?.busId || activeLine.busNumber} • Matricule : {user?.matricule_uac || 'ETUDIANT-BENIN'}
           </Text>
 
           <View style={styles.qrWrap}>
@@ -456,12 +447,12 @@ export default function ActiveTicketScreen({ navigation }: any) {
             style={{ width: '100%' }}
           />
           <Text style={styles.availFor}>
-            Valable pour la journée en cours • Payé via {activeTicket?.paymentMethod || 'Portefeuille Campus'} (100 FCFA)
+            Valable pour la journée en cours • Payé via {activeTicket?.paymentMethod || 'Portefeuille Campus'} ({activeTicket?.price || 100} FCFA)
           </Text>
         </Card>
 
         {/* ========================================================================= */}
-        {/* SUIVI GPS EN DIRECT & TRAJET SUR LA CARTE (FILTRÉ AUX BILLETS DE L'ÉTUDIANT) */}
+        {/* SUIVI GPS EN DIRECT & TRAJET SUR LA CARTE (100% ISSU DE LA BASE DE DONNÉES) */}
         {/* ========================================================================= */}
         <Card style={styles.mapCard}>
           {/* Header de la carte avec sélecteur de ligne */}
@@ -499,7 +490,7 @@ export default function ActiveTicketScreen({ navigation }: any) {
                     onPress={() => setSelectedLineKey(key)}
                   >
                     <Text style={[styles.lineTabText, isActive && styles.lineTabTextActive]}>
-                      {lineInfo.code}
+                      {lineInfo.name || lineInfo.code}
                     </Text>
                   </Pressable>
                 );
@@ -507,7 +498,7 @@ export default function ActiveTicketScreen({ navigation }: any) {
             </View>
           )}
 
-          {/* Aire de la carte stylisée */}
+          {/* Aire de la carte stylisée avec repères dynamiques */}
           <View style={styles.mapArea}>
             {/* Grille de repères */}
             <View style={[StyleSheet.absoluteFill, styles.mapGrid]}>
@@ -520,31 +511,45 @@ export default function ActiveTicketScreen({ navigation }: any) {
             <View style={styles.routeMainRoad} />
             <View style={styles.routeDashedLine} />
 
-            {/* Arrêt Départ Calavi */}
-            <View style={[styles.mapStopMarker, { left: '8%', top: '55%' }]}>
-              <View style={[styles.stopDot, styles.stopDotPassed]} />
-              <Text style={styles.stopMapLabel}>Campus UAC</Text>
-            </View>
+            {/* Arrêts positionnés 100% dynamiquement à partir de la liste des arrêts en base de données */}
+            {activeLine.stops && activeLine.stops.length > 0 && (
+              activeLine.stops.map((stop, idx) => {
+                const total = Math.max(1, activeLine.stops.length - 1);
+                const leftPct = Math.round((idx / total) * 78 + 8);
+                const topPct = Math.round(55 - (idx / total) * 20);
 
-            {/* Arrêt Intermédiaire 1 */}
-            <View style={[styles.mapStopMarker, { left: '32%', top: '48%' }]}>
-              <View style={[styles.stopDot, styles.stopDotPassed]} />
-              <Text style={styles.stopMapLabel}>IITA</Text>
-            </View>
+                const isCurrent = stop.status === 'current';
+                const isPassed = stop.status === 'passed';
 
-            {/* Arrêt Intermédiaire 2 (Prochain arrêt) */}
-            <View style={[styles.mapStopMarker, { left: '56%', top: '41%' }]}>
-              <View style={[styles.stopDot, styles.stopDotActive]} />
-              <Text style={[styles.stopMapLabel, { color: colors.primary, fontWeight: '700' }]}>
-                {activeLine.nextStop}
-              </Text>
-            </View>
-
-            {/* Arrêt Terminus Cotonou */}
-            <View style={[styles.mapStopMarker, { left: '82%', top: '34%' }]}>
-              <View style={[styles.stopDot, styles.stopDotUpcoming]} />
-              <Text style={styles.stopMapLabel}>Terminus</Text>
-            </View>
+                return (
+                  <View
+                    key={stop.id || idx}
+                    style={[
+                      styles.mapStopMarker,
+                      { left: `${leftPct}%`, top: `${topPct}%` },
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.stopDot,
+                        isPassed && styles.stopDotPassed,
+                        isCurrent && styles.stopDotActive,
+                        !isPassed && !isCurrent && styles.stopDotUpcoming,
+                      ]}
+                    />
+                    <Text
+                      style={[
+                        styles.stopMapLabel,
+                        isCurrent && { color: colors.primary, fontWeight: '700' },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {stop.name.replace(' (Terminus)', '')}
+                    </Text>
+                  </View>
+                );
+              })
+            )}
 
             {/* Bus en mouvement animé */}
             <Animated.View
@@ -574,19 +579,21 @@ export default function ActiveTicketScreen({ navigation }: any) {
           </View>
 
           {/* ========================================================================= */}
-          {/* DÉTAIL DU TRAJET & DESTINATIONS SUR LE CHEMIN                              */}
+          {/* DÉTAIL DU TRAJET & DESTINATIONS SUR LE CHEMIN (BASE DE DONNÉES)           */}
           {/* ========================================================================= */}
           <View style={styles.stopsTimelineContainer}>
             <View style={styles.stopsTimelineHeader}>
               <MaterialIcons name="alt-route" size={20} color={colors.primary} />
-              <Text style={styles.stopsTimelineTitle}>Destinations & Arrêts sur le chemin</Text>
+              <Text style={styles.stopsTimelineTitle}>
+                Destinations & Arrêts sur l'Itinéraire ({activeLine.stops?.length || 0})
+              </Text>
             </View>
 
             <View style={styles.timelineList}>
-              {activeLine.stops.map((stop, index) => {
+              {activeLine.stops && activeLine.stops.map((stop, index) => {
                 const isLast = index === activeLine.stops.length - 1;
                 return (
-                  <View key={stop.id} style={styles.stopRow}>
+                  <View key={stop.id || index} style={styles.stopRow}>
                     {/* Colonne heure / ETA */}
                     <View style={styles.stopTimeCol}>
                       <Text
@@ -1022,7 +1029,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     alignItems: 'center',
     gap: 4,
-    transform: [{ translateX: -12 }],
+    transform: [{ translateX: -14 }],
   },
   stopDot: {
     width: 14,
@@ -1053,6 +1060,7 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: 4,
     textAlign: 'center',
+    maxWidth: 90,
   },
   busMarker: {
     position: 'absolute',

@@ -88,12 +88,19 @@ export const ENDPOINTS = {
   ADMIN_ASSIGN_CAMPUS: (userId: string) => `${API_V1_URL}/admin/users/${userId}/campus`,
   ADMIN_FLEET: `${API_V1_URL}/admin/fleet`,
   ADMIN_CREATE_BUS: `${API_V1_URL}/admin/fleet/bus`,
+  ADMIN_STOPS: `${API_V1_URL}/admin/stops`,
+  ADMIN_CREATE_STOP: `${API_V1_URL}/admin/stops`,
   ADMIN_ROUTES: `${API_V1_URL}/admin/routes`,
   ADMIN_CREATE_ROUTE: `${API_V1_URL}/admin/routes`,
+  ADMIN_UPDATE_ROUTE: (routeId: string) => `${API_V1_URL}/admin/routes/${routeId}`,
+  ADMIN_DELETE_ROUTE: (routeId: string) => `${API_V1_URL}/admin/routes/${routeId}`,
+  ADMIN_ADD_ROUTE_STOP: (routeId: string) => `${API_V1_URL}/admin/routes/${routeId}/stops`,
+  ADMIN_DELETE_ROUTE_STOP: (routeId: string, routeStopId: string) => `${API_V1_URL}/admin/routes/${routeId}/stops/${routeStopId}`,
   ADMIN_TRIPS: `${API_V1_URL}/admin/trips`,
   ADMIN_CREATE_TRIP: `${API_V1_URL}/admin/trips`,
   ADMIN_KYC_PENDING: `${API_V1_URL}/kyc/pending`,
   ADMIN_KYC_VERIFY: `${API_V1_URL}/kyc/verify`,
+
 
   // WebSockets
   WS_STUDENT_TRACKING: (tripId: string) => `${WS_BASE_URL}/ws/student/track/${tripId}`,
