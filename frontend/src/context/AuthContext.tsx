@@ -184,36 +184,46 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   // Synchronisation dynamique des billets de l'étudiant depuis le Backend API
-  const refreshTickets = useCallback(async () => {
+  const refreshTickets = useCallback(async (authToken?: string) => {
     try {
+      const activeTok = authToken || token;
+      const headers: Record<string, string> = { ...DEFAULT_HEADERS };
+      if (activeTok && activeTok !== 'cookie_session' && activeTok !== 'cached_session') {
+        headers['Authorization'] = `Bearer ${activeTok}`;
+      }
       const res = await fetch(ENDPOINTS.TICKET_HISTORY, {
         credentials: 'include',
+        headers,
       });
 
       if (res.ok) {
         const historyData = await res.json();
         if (Array.isArray(historyData) && historyData.length > 0) {
-          const mappedTickets: StudentTicket[] = historyData.map((tk: any) => ({
-            id: tk.ticket_id,
-            code: tk.code,
-            line: tk.route_name || 'Campus Express • Ligne A',
-            route: tk.route_name?.includes('Godomey')
-              ? 'Calavi Campus → Échangeur Godomey'
-              : tk.route_name?.includes('Akpakpa')
-              ? 'Calavi Campus → Akpakpa Sacré-Cœur'
-              : tk.route_name?.includes('Porto-Novo') || tk.route_name?.includes('Porto Novo')
-              ? 'Calavi Campus → Porto-Novo Gare'
-              : tk.route_name?.includes('Express') || tk.route_name?.includes('Ligne A')
-              ? 'Calavi Campus → Cotonou Étoile Rouge'
-              : tk.route_name || 'Calavi Campus → Cotonou Étoile Rouge',
-            busId: tk.bus_code || 'Bus Campus #402',
-            price: Number(tk.amount_paid) || 100,
-            date: tk.created_at ? new Date(tk.created_at).toLocaleDateString('fr-FR') : 'Aujourd\'hui',
-            status: tk.status as any,
-            paymentMethod: 'Portefeuille Universitaire',
-            timeSlot: 'Rotation Garantie',
-            recycleCount: typeof tk.recycle_count === 'number' ? tk.recycle_count : 0,
-          }));
+          const mappedTickets: StudentTicket[] = historyData.map((tk: any) => {
+            const isAct = tk.raw_status === 'ISSUED' || tk.status === 'Valid Ticket' || tk.status === 'ACTIVE';
+            const isUsed = tk.raw_status === 'VALIDATED' || tk.status === 'Validated' || tk.status === 'USED';
+            return {
+              id: tk.ticket_id,
+              code: tk.code,
+              line: tk.route_name || 'Campus Express • Ligne A',
+              route: tk.route_name?.includes('Godomey')
+                ? 'Calavi Campus → Échangeur Godomey'
+                : tk.route_name?.includes('Akpakpa')
+                ? 'Calavi Campus → Akpakpa Sacré-Cœur'
+                : tk.route_name?.includes('Porto-Novo') || tk.route_name?.includes('Porto Novo')
+                ? 'Calavi Campus → Porto-Novo Gare'
+                : tk.route_name?.includes('Express') || tk.route_name?.includes('Ligne A')
+                ? 'Calavi Campus → Cotonou Étoile Rouge'
+                : tk.route_name || 'Calavi Campus → Cotonou Étoile Rouge',
+              busId: tk.bus_code || 'Bus Campus #402',
+              price: Number(tk.amount_paid) || 100,
+              date: tk.created_at ? new Date(tk.created_at).toLocaleDateString('fr-FR') : 'Aujourd\'hui',
+              status: isAct ? 'ACTIVE' : isUsed ? 'USED' : 'EXPIRED',
+              paymentMethod: 'Portefeuille Universitaire',
+              timeSlot: 'Rotation Garantie',
+              recycleCount: typeof tk.recycle_count === 'number' ? tk.recycle_count : 0,
+            };
+          });
           setTickets(mappedTickets);
           setActiveTicket((prev) => {
             if (prev) {
@@ -227,7 +237,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (e) {
       console.warn('Student tickets fetch error:', e);
     }
-  }, []);
+  }, [token]);
 
   // Débit dynamique du portefeuille
   const debitWallet = (amount: number): boolean => {
@@ -664,18 +674,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
 
-      setToken('cookie_session');
+      const accessToken = data.access_token || 'cookie_session';
+      setToken(accessToken);
       setUser(userData);
       setIsOffline(false);
       setIsLoading(false);
 
       // Sauvegarder la session dans le stockage persistant
       await StorageService.saveUser(userData);
-      await StorageService.saveToken('cookie_session');
+      await StorageService.saveToken(accessToken);
 
       // Recharger départs et billets en direct depuis le backend
       refreshTrips();
-      refreshTickets();
+      refreshTickets(accessToken);
 
       return { success: true, user: userData };
     } catch (err: any) {
@@ -764,7 +775,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       ADMIN: { phone: '+2290197000000', pass: 'Admin1234', role: 'ADMIN' },
       ADMIN_CAMPUS: { phone: '+2290197000000', pass: 'Admin1234', role: 'ADMIN_CAMPUS' },
       ADMIN_CROUS: { phone: '+2290197000000', pass: 'Admin1234', role: 'ADMIN' },
-      SUPERADMIN: { phone: '+2290197000000', pass: 'Admin1234', role: 'SUPERADMIN' },
+      SUPERADMIN: { phone: '+2290190000000', pass: 'SuperAdmin1234', role: 'SUPERADMIN' },
     };
 
     const cred = testCredentials[roleKey] || testCredentials.ADMIN;
