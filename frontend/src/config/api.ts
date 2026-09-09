@@ -4,10 +4,12 @@
 import { Platform } from 'react-native';
 
 // 1. Variable d'environnement Expo (ex: tunnel ngrok, serveur distant, etc.)
-// Peut être définie dans frontend/.env avec EXPO_PUBLIC_API_URL=https://...
 const ENV_API_URL = process.env.EXPO_PUBLIC_API_URL;
 
-// 2. IP Réseau local de la machine hôte pour les téléphones physiques et émulateurs connectés en Wi-Fi
+// 2. URL Publique HTTPS du Tunnel pour l'APK mobile (accessible en 4G, Wi-Fi et partout dans le monde) :
+export const PUBLIC_TUNNEL_URL = 'https://bee2-2c0f-53c0-618-9c00-db91-3bc3-36df-8940.ngrok-free.app';
+
+// 3. IP Réseau local de la machine hôte
 export const LOCAL_LAN_API_URL = 'http://192.168.1.87:8001';
 
 const getBaseUrl = () => {
@@ -17,8 +19,8 @@ const getBaseUrl = () => {
   if (Platform.OS === 'web') {
     return 'http://localhost:8001';
   }
-  // Sur mobile Android / iOS (Émulateur ou Appareil physique sur le même réseau Wi-Fi)
-  return LOCAL_LAN_API_URL;
+  // Sur mobile Android / iOS (APK autonome), utiliser le tunnel sécurisé HTTPS
+  return PUBLIC_TUNNEL_URL;
 };
 
 export const API_BASE_URL = getBaseUrl();
