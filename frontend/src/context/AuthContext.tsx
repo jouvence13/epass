@@ -163,9 +163,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Synchronisation dynamique des départs depuis le Backend API
   const refreshTrips = useCallback(async () => {
     try {
+      const headers: Record<string, string> = { ...DEFAULT_HEADERS };
+      if (token && token !== 'cookie_session' && token !== 'cached_session') {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
       const res = await fetch(ENDPOINTS.AVAILABLE_TRIPS, {
         credentials: 'include',
-        headers: DEFAULT_HEADERS,
+        headers,
       });
       if (res.ok) {
         const data = await res.json();
@@ -187,7 +191,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (e) {
       console.warn('Trips fetch error:', e);
     }
-  }, []);
+  }, [token]);
+
 
   // Synchronisation dynamique des billets de l'étudiant depuis le Backend API
   const refreshTickets = useCallback(async (authToken?: string) => {

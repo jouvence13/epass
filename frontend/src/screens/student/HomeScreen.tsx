@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   TextInput,
   Alert,
   ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -32,8 +33,28 @@ export default function HomeScreen({ navigation }: any) {
     busSlots,
     debitWallet,
     purchaseTicket,
+    refreshTrips,
+    refreshTickets,
   } = useAuth();
   const { showToast } = useNotifications();
+
+  const [refreshing, setRefreshing] = useState(false);
+
+  useEffect(() => {
+    if (refreshTrips) {
+      refreshTrips();
+    }
+  }, [refreshTrips]);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await Promise.all([
+      refreshTrips ? refreshTrips() : Promise.resolve(),
+      refreshTickets ? refreshTickets() : Promise.resolve(),
+    ]);
+    setRefreshing(false);
+  };
+
 
   const studentName = user ? `${user.first_name} ${user.last_name}` : 'Étudiant';
   const activeTicketsList = tickets.filter((t) => t.status === 'ACTIVE');
@@ -201,12 +222,13 @@ export default function HomeScreen({ navigation }: any) {
     }, 900);
   };
 
+
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
-      <ScrollView contentContainerStyle={styles.scroll}>
-        {/* ========================================================================= */}
-        {/* BANNIÈRE DE BIENVENUE APRÈS INSCRIPTION (Notification éphémère)           */}
-        {/* ========================================================================= */}
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />}
+      >
         {justRegistered && (
           <View style={styles.welcomeBanner}>
             <View style={styles.welcomeHeader}>
@@ -226,7 +248,6 @@ export default function HomeScreen({ navigation }: any) {
           </View>
         )}
 
-        {/* En-tête Salutation & Solde Rapide */}
         <View style={styles.greetingHeader}>
           <View style={styles.greetingWrap}>
             <Text style={styles.greeting}>Bonjour, {user?.first_name || 'Étudiant'}</Text>
@@ -241,9 +262,6 @@ export default function HomeScreen({ navigation }: any) {
           </Pressable>
         </View>
 
-        {/* ========================================================================= */}
-        {/* BANNIÈRE D'ÉTAT DU KYC ACADÉMIQUE                                         */}
-        {/* ========================================================================= */}
         {user?.kyc_status !== 'APPROVED' && (
           <View
             style={[
@@ -297,28 +315,14 @@ export default function HomeScreen({ navigation }: any) {
           </View>
         )}
 
-        {/* ========================================================================= */}
-        {/* SECTION 1 : MES TICKETS PAYÉS & ACTIFS                                     */}
-        {/* ========================================================================= */}
         <View style={styles.sectionHeadRow}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <MaterialIcons name="confirmation-number" size={22} color={colors.primary} />
             <Text style={styles.sectionHeaderTitle}>Mes Tickets Payés & Actifs</Text>
           </View>
-          <Badge
-            label={
-              user?.kyc_status !== 'APPROVED'
-                ? user?.kyc_status === 'PENDING'
-                  ? 'KYC En Attente'
-                  : 'KYC Verrouillé'
-                : `${activeTicketsList.length} Valide(s)`
-            }
-            tone={user?.kyc_status === 'APPROVED' ? 'success' : user?.kyc_status === 'PENDING' ? 'warning' : 'error'}
-          />
         </View>
 
         {user?.kyc_status !== 'APPROVED' ? (
-          /* KYC non approuvé -> Affichage du verrouillage explicite */
           <Card style={styles.noTicketCard}>
             <MaterialIcons
               name={user?.kyc_status === 'PENDING' ? 'pending-actions' : 'lock-outline'}
@@ -327,11 +331,6 @@ export default function HomeScreen({ navigation }: any) {
             />
             <Text style={styles.noTicketTitle}>
               {user?.kyc_status === 'PENDING' ? 'Validation Académique en Cours' : 'Accès aux Billets Verrouillé'}
-            </Text>
-            <Text style={styles.noTicketSub}>
-              {user?.kyc_status === 'PENDING'
-                ? 'Vos pièces justificatives sont en cours d’examen par le Campus. Vos titres s’afficheront dès approbation.'
-                : 'Faites certifier votre compte étudiant avec votre carte UAC et CIP pour acheter des tickets subventionnés à 100 FCFA.'}
             </Text>
             <Pressable
               style={[styles.buyTicketActionBtn, user?.kyc_status === 'PENDING' && { backgroundColor: '#d97706' }]}
@@ -349,12 +348,8 @@ export default function HomeScreen({ navigation }: any) {
               <Card key={t.id} floating style={styles.activeTicketCard}>
                 <View style={styles.ticketCardHeader}>
                   <View style={{ flex: 1 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                      <Badge label={`Ticket #${idx + 1}`} tone="primary" />
-                      <Badge label="Validé & Payé (100 F)" tone="success" icon="check-circle" />
-                    </View>
                     <Text style={styles.ticketRoute}>{t.route}</Text>
-                    <Text style={styles.ticketBusSub}>{t.line} • {t.busId}</Text>
+                    <Text style={styles.ticketBusSub}>{t.line}</Text>
                   </View>
                   <Pressable
                     style={styles.qrOpenBtn}
@@ -364,78 +359,37 @@ export default function HomeScreen({ navigation }: any) {
                     }}
                   >
                     <MaterialIcons name="qr-code-2" size={26} color={colors.onPrimary} />
-                    <Text style={styles.qrOpenBtnText}>Afficher QR</Text>
                   </Pressable>
-                </View>
-
-                <View style={styles.ticketMetaRow}>
-                  <View style={styles.ticketMetaItem}>
-                    <MaterialIcons name="key" size={14} color={colors.primary} />
-                    <Text style={styles.ticketMetaCode}>{t.code}</Text>
-                  </View>
-                  <View style={styles.ticketMetaItem}>
-                    <MaterialIcons name="payments" size={14} color={colors.secondary} />
-                    <Text style={styles.ticketMetaText}>{t.paymentMethod}</Text>
-                  </View>
-                  <View style={styles.ticketMetaItem}>
-                    <MaterialIcons name="schedule" size={14} color={colors.outline} />
-                    <Text style={styles.ticketMetaText}>{t.date}</Text>
-                  </View>
                 </View>
               </Card>
             ))}
           </View>
         ) : (
-          /* Aucun ticket actif -> Inviter à en acheter un */
           <Card style={styles.noTicketCard}>
             <MaterialIcons name="airplane-ticket" size={36} color={colors.outline} />
-            <Text style={styles.noTicketTitle}>Aucun titre de transport actif</Text>
-            <Text style={styles.noTicketSub}>
-              Achetez votre ticket subventionné à 100 FCFA pour voyager sereinement sur le réseau Campus.
-            </Text>
+            <Text style={styles.noTicketTitle}>Aucun titre actif</Text>
             <Pressable
               style={styles.buyTicketActionBtn}
               onPress={() => navigation.navigate('Booking')}
             >
               <MaterialIcons name="qr-code-scanner" size={18} color="#ffffff" />
-              <Text style={styles.buyTicketActionText}>Acheter un Ticket (100 FCFA)</Text>
+              <Text style={styles.buyTicketActionText}>Acheter un Ticket (100 F)</Text>
             </Pressable>
           </Card>
         )}
 
-        {/* ========================================================================= */}
-        {/* GRILLE DE NAVIGATION PRINCIPALE                                           */}
-        {/* ========================================================================= */}
         <View style={styles.grid}>
-          <Pressable
-            style={styles.tile}
-            onPress={() => {
-              if (user?.kyc_status !== 'APPROVED') {
-                navigation.navigate('KycOnboarding');
-              } else {
-                navigation.navigate('Booking');
-              }
-            }}
-          >
+          <Pressable style={styles.tile} onPress={() => navigation.navigate('Booking')}>
             <View style={[styles.tileIcon, { backgroundColor: colors.primaryFixed }]}>
               <MaterialIcons name="confirmation-number" size={24} color={colors.primary} />
             </View>
             <Text style={styles.tileLabel}>Réserver / Payer</Text>
           </Pressable>
-          <Pressable
-            style={styles.tile}
-            onPress={() => {
-              if (user?.kyc_status !== 'APPROVED') {
-                navigation.navigate('KycOnboarding');
-              } else {
-                navigation.navigate('Tickets');
-              }
-            }}
-          >
+          <Pressable style={styles.tile} onPress={() => navigation.navigate('Tickets')}>
             <View style={[styles.tileIcon, { backgroundColor: colors.secondaryContainer }]}>
               <MaterialIcons name="near-me" size={24} color={colors.onSecondaryContainer} />
             </View>
-            <Text style={styles.tileLabel}>Suivi en direct</Text>
+            <Text style={styles.tileLabel}>Suivi</Text>
           </Pressable>
           <Pressable style={styles.tile} onPress={() => navigation.navigate('PaymentMethods')}>
             <View style={[styles.tileIcon, { backgroundColor: '#fef3c7' }]}>
@@ -451,54 +405,37 @@ export default function HomeScreen({ navigation }: any) {
           </Pressable>
         </View>
 
-        {/* ========================================================================= */}
-        {/* SECTION 2 : PROCHAINS DÉPARTS Campus (DYNAMIQUE AVEC MODAL DE PAIEMENT)    */}
-        {/* ========================================================================= */}
         <Card style={styles.section}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.xs }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               <MaterialIcons name="schedule" size={20} color={colors.primary} />
               <Text style={styles.sectionTitle}>Prochains Départs Campus</Text>
             </View>
-            <Text style={styles.tapToBookHint}>Appuyez pour réserver</Text>
           </View>
 
           <View style={styles.departuresList}>
-            {busSlots.map((slot) => {
-              const freeSeats = Math.max(0, slot.totalSeats - slot.bookedSeats);
-              return (
-                <Pressable
-                  key={slot.id}
-                  style={[styles.departureRow, slot.full && styles.departureRowFull]}
-                  onPress={() => handleOpenDeparture(slot)}
-                >
+            {busSlots && busSlots.length > 0 ? (
+              busSlots.map((slot: any) => (
+                <Pressable key={slot.id} style={styles.departureRow} onPress={() => handleOpenDeparture(slot)}>
                   <View style={styles.busIconSquare}>
-                    <MaterialIcons name="directions-bus" size={20} color={slot.full ? colors.outline : colors.primary} />
+                    <MaterialIcons name="directions-bus" size={20} color={colors.primary} />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={[styles.departureTitle, slot.full && { color: colors.onSurfaceVariant }]}>
-                      {slot.time}
-                    </Text>
+                    <Text style={styles.departureTitle}>{slot.time}</Text>
                     <Text style={styles.departureRouteSub}>{slot.route}</Text>
-                    <View style={styles.departureMetaRow}>
-                      <MaterialIcons
-                        name={slot.full ? 'person-off' : 'groups'}
-                        size={13}
-                        color={slot.full ? colors.error : colors.secondary}
-                      />
-                      <Text style={[styles.departureSeatsText, slot.full && { color: colors.error }]}>
-                        {slot.full ? 'Bus Complet (50/50)' : `${freeSeats} place(s) libre(s) • ${slot.bookedSeats}/50`}
-                      </Text>
-                      <Text style={styles.departurePricePill}>100 F</Text>
-                    </View>
                   </View>
-                  <View style={{ alignItems: 'flex-end', gap: 4 }}>
-                    <Badge label={slot.full ? 'Complet' : 'Disponible'} tone={slot.full ? 'error' : 'success'} />
-                    <MaterialIcons name="chevron-right" size={20} color={colors.outline} />
-                  </View>
+                  <MaterialIcons name="chevron-right" size={20} color={colors.outline} />
                 </Pressable>
-              );
-            })}
+              ))
+            ) : (
+              <View style={styles.emptyDeparturesBox}>
+                <MaterialIcons name="schedule" size={32} color={colors.outline} />
+                <Text style={styles.emptyDeparturesText}>Aucun départ pour le moment.</Text>
+                <Pressable style={styles.reloadDeparturesBtn} onPress={onRefresh}>
+                  <Text style={styles.reloadDeparturesBtnText}>Recharger</Text>
+                </Pressable>
+              </View>
+            )}
           </View>
         </Card>
       </ScrollView>
@@ -1186,5 +1123,28 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.onSurface,
     fontWeight: '600',
+  },
+  emptyDeparturesBox: {
+    padding: spacing.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+  },
+  emptyDeparturesText: {
+    ...typography.bodyMd,
+    color: colors.onSurfaceVariant,
+    textAlign: 'center',
+  },
+  reloadDeparturesBtn: {
+    marginTop: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    backgroundColor: colors.primaryContainer,
+    borderRadius: radius.full,
+  },
+  reloadDeparturesBtnText: {
+    ...typography.bodySm,
+    color: colors.primary,
+    fontWeight: '700',
   },
 });

@@ -9,6 +9,7 @@ import {
   Animated,
   Easing,
   Alert,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -19,12 +20,24 @@ import { colors, radius, spacing, typography } from '../../theme/theme';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
 
-
-
 export default function BookTicketScreen({ navigation }: any) {
-  const { user, walletBalance, operatorPhoneNumbers, debitWallet, busSlots, purchaseTicket } = useAuth();
+  const { user, walletBalance, operatorPhoneNumbers, debitWallet, busSlots, purchaseTicket, refreshTrips } = useAuth();
   const { showToast } = useNotifications();
   const [activeTab, setActiveTab] = useState<'SCAN_QR' | 'MANUAL_BOOKING'>('SCAN_QR');
+  const [refreshing, setRefreshing] = useState(false);
+
+  useEffect(() => {
+    if (refreshTrips) {
+      refreshTrips();
+    }
+  }, [refreshTrips]);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    if (refreshTrips) await refreshTrips();
+    setRefreshing(false);
+  };
+
 
   // État du Scan QR
   const [isScanning, setIsScanning] = useState(true);
@@ -274,7 +287,10 @@ export default function BookTicketScreen({ navigation }: any) {
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />}
+      >
         {/* Onglets de sélection de méthode */}
         <View style={styles.modeTabsRow}>
           <Pressable
@@ -519,57 +535,68 @@ export default function BookTicketScreen({ navigation }: any) {
 
             <Card style={styles.section}>
               <Text style={styles.sectionLabel}>ROTATIONS DISPONIBLES (AUJOURD'HUI)</Text>
-              {busSlots.map((s, i) => (
-                <Pressable
-                  key={s.id}
-                  disabled={s.full}
-                  onPress={() => setSelectedSlot(i)}
-                  style={[
-                    styles.slot,
-                    s.full ? styles.slotFull : selectedSlot === i ? styles.slotActive : null,
-                  ]}
-                >
-                  <View style={styles.slotLeft}>
-                    <View
-                      style={[
-                        styles.radio,
-                        selectedSlot === i && !s.full ? styles.radioActive : null,
-                      ]}
-                    />
-                    <View>
-                      <Text
+              {busSlots && busSlots.length > 0 ? (
+                busSlots.map((s, i) => (
+                  <Pressable
+                    key={s.id}
+                    disabled={s.full}
+                    onPress={() => setSelectedSlot(i)}
+                    style={[
+                      styles.slot,
+                      s.full ? styles.slotFull : selectedSlot === i ? styles.slotActive : null,
+                    ]}
+                  >
+                    <View style={styles.slotLeft}>
+                      <View
                         style={[
-                          styles.slotTime,
-                          s.full && { color: colors.onSurfaceVariant },
+                          styles.radio,
+                          selectedSlot === i && !s.full ? styles.radioActive : null,
                         ]}
-                      >
-                        {s.time}
-                      </Text>
-                      <Text style={styles.slotRouteSub}>{s.route}</Text>
-                      <View style={styles.slotSeatsRow}>
-                        <MaterialIcons
-                          name={s.full ? 'person-off' : 'groups'}
-                          size={14}
-                          color={s.full ? colors.error : colors.onSurfaceVariant}
-                        />
+                      />
+                      <View>
                         <Text
                           style={[
-                            styles.slotSeats,
-                            { color: s.full ? colors.error : colors.onSurfaceVariant },
+                            styles.slotTime,
+                            s.full && { color: colors.onSurfaceVariant },
                           ]}
                         >
-                          {' '}
-                          {s.bookedSeats}/{s.totalSeats} places
+                          {s.time}
                         </Text>
+                        <Text style={styles.slotRouteSub}>{s.route}</Text>
+                        <View style={styles.slotSeatsRow}>
+                          <MaterialIcons
+                            name={s.full ? 'person-off' : 'groups'}
+                            size={14}
+                            color={s.full ? colors.error : colors.onSurfaceVariant}
+                          />
+                          <Text
+                            style={[
+                              styles.slotSeats,
+                              { color: s.full ? colors.error : colors.onSurfaceVariant },
+                            ]}
+                          >
+                            {' '}
+                            {s.bookedSeats}/{s.totalSeats} places
+                          </Text>
+                        </View>
                       </View>
                     </View>
-                  </View>
-                  <Badge
-                    label={s.full ? 'Complet' : 'Disponible'}
-                    tone={s.full ? 'error' : 'success'}
-                  />
-                </Pressable>
-              ))}
+                    <Badge
+                      label={s.full ? 'Complet' : 'Disponible'}
+                      tone={s.full ? 'error' : 'success'}
+                    />
+                  </Pressable>
+                ))
+              ) : (
+                <View style={styles.emptyRotationsBox}>
+                  <MaterialIcons name="schedule" size={32} color={colors.outline} />
+                  <Text style={styles.emptyRotationsText}>Aucune rotation disponible pour aujourd'hui.</Text>
+                  <Pressable style={styles.reloadRotationsBtn} onPress={onRefresh}>
+                    <MaterialIcons name="refresh" size={16} color={colors.primary} />
+                    <Text style={styles.reloadRotationsBtnText}>Recharger les Rotations</Text>
+                  </Pressable>
+                </View>
+              )}
             </Card>
 
             <Card style={styles.section}>
@@ -912,5 +939,28 @@ const styles = StyleSheet.create({
     ...typography.bodySm,
     color: colors.onSurfaceVariant,
     flex: 1,
+  },
+  emptyRotationsBox: {
+    padding: spacing.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+  },
+  emptyRotationsText: {
+    ...typography.bodyMd,
+    color: colors.onSurfaceVariant,
+    textAlign: 'center',
+  },
+  reloadRotationsBtn: {
+    marginTop: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    backgroundColor: colors.primaryContainer,
+    borderRadius: radius.full,
+  },
+  reloadRotationsBtnText: {
+    ...typography.bodySm,
+    color: colors.primary,
+    fontWeight: '700',
   },
 });

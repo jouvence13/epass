@@ -12,6 +12,7 @@ from app.models.ticket_model import Tickets, TicketStatusEnum
 from app.models.fleet_model import Routes, Stops, Buses, RouteStops
 from app.models.user_model import Users
 from app.schemas.trip_schema import TripOutSchema
+from app.schemas.fleet_schema import RouteOutSchema, StopOutSchema, BusOutSchema
 from app.schemas.ticket_schema import ActiveTicketScreenOutSchema
 from app.services.auth_service import get_current_authenticated_user
 from app.services.eta_calculator_service import compute_dynamic_eta
@@ -20,17 +21,61 @@ router = APIRouter(prefix="/trips", tags=["Trips & Schedules"])
 
 
 def _format_trip_output(t: Trips) -> TripOutSchema:
-    """Helper to populate frontend-aligned computed fields."""
-    origin_name = t.route.origin_stop.stop_name if (t.route and t.route.origin_stop) else "Calavi Campus"
-    destination_name = t.route.destination_stop.stop_name if (t.route and t.route.destination_stop) else "Cotonou Centre"
-    route_label = t.route.route_name if t.route else "Ligne A"
-    time_str = t.departure_time.strftime("%H:%M")
+    """Helper to populate frontend-aligned computed fields safely without lazy load errors."""
+    origin_name = t.route.origin_stop.stop_name if (t.route and t.route.origin_stop) else "Campus UAC Calavi"
+    destination_name = t.route.destination_stop.stop_name if (t.route and t.route.destination_stop) else "Cotonou Étoile Rouge"
+    route_label = t.route.route_name if t.route else "Ligne Campus"
+    time_str = t.departure_time.strftime("%H:%M") if t.departure_time else "08:00"
     
     formatted_time = f"{time_str} - {route_label}"
-    seats_label = f"{t.available_seats}/{t.total_seats} places"
-    is_full = t.available_seats <= 0
+    total_s = t.total_seats if t.total_seats > 0 else 50
+    avail_s = t.available_seats if t.available_seats is not None else total_s
+    seats_label = f"{avail_s}/{total_s} places"
+    is_full = avail_s <= 0
     price_val = float(t.route.base_price) if t.route else 250.00
     duration_str = f"{t.route.estimated_duration_minutes} min" if t.route else "35 min"
+
+    route_out = None
+    if t.route:
+        orig_out = None
+        if t.route.origin_stop:
+            orig_out = StopOutSchema(
+                stop_id=t.route.origin_stop.stop_id,
+                stop_name=t.route.origin_stop.stop_name,
+                created_at=t.route.origin_stop.created_at
+            )
+        dest_out = None
+        if t.route.destination_stop:
+            dest_out = StopOutSchema(
+                stop_id=t.route.destination_stop.stop_id,
+                stop_name=t.route.destination_stop.stop_name,
+                created_at=t.route.destination_stop.created_at
+            )
+        route_out = RouteOutSchema(
+            route_id=t.route.route_id,
+            route_name=t.route.route_name,
+            origin_stop_id=t.route.origin_stop_id,
+            destination_stop_id=t.route.destination_stop_id,
+            base_price=float(t.route.base_price),
+            estimated_duration_minutes=t.route.estimated_duration_minutes,
+            is_active=t.route.is_active,
+            origin_stop=orig_out,
+            destination_stop=dest_out,
+            route_stops=None,
+            created_at=t.route.created_at
+        )
+
+    bus_out = None
+    if t.bus:
+        bus_out = BusOutSchema(
+            bus_id=t.bus.bus_id,
+            immatriculation_number=t.bus.immatriculation_number,
+            bus_code=t.bus.bus_code,
+            max_capacity=t.bus.max_capacity,
+            status=t.bus.status,
+            current_driver_id=t.bus.current_driver_id,
+            created_at=t.bus.created_at
+        )
 
     return TripOutSchema(
         trip_id=t.trip_id,
@@ -41,12 +86,12 @@ def _format_trip_output(t: Trips) -> TripOutSchema:
         estimated_arrival_time=t.estimated_arrival_time,
         actual_departure_time=t.actual_departure_time,
         status=t.status,
-        total_seats=t.total_seats,
-        available_seats=t.available_seats,
+        total_seats=total_s,
+        available_seats=avail_s,
         delay_minutes=t.delay_minutes,
         delay_reason=t.delay_reason,
-        route=t.route,
-        bus=t.bus,
+        route=route_out,
+        bus=bus_out,
         created_at=t.created_at,
         formatted_time=formatted_time,
         seats_label=seats_label,
@@ -56,6 +101,7 @@ def _format_trip_output(t: Trips) -> TripOutSchema:
         price=price_val,
         duration=duration_str
     )
+
 
 
 @router.get("/available", response_model=List[TripOutSchema])
