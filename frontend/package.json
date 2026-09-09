@@ -30,8 +30,9 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "build:preview": "npx eas-cli build -p android --profile preview",
-    "build:production": "npx eas-cli build -p android --profile production"
+    "sync-tunnel": "node scripts/sync-tunnel.js",
+    "build:preview": "node scripts/sync-tunnel.js && npx eas-cli build -p android --profile preview",
+    "build:production": "node scripts/sync-tunnel.js && npx eas-cli build -p android --profile production"
   },
   "private": true
 }
