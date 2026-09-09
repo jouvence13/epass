@@ -43,7 +43,7 @@ import { ENDPOINTS } from '../config/api';
 import { useAuth } from './AuthContext';
 
 export function NotificationProvider({ children }: { children: React.ReactNode }) {
-  const { user, isAuthenticated, isInitialLoading } = useAuth();
+  const { user, token, isAuthenticated, isInitialLoading } = useAuth();
   const [notifications, setNotifications] = useState<GlobalNotification[]>([]);
 
   const fetchNotifications = async () => {
@@ -51,20 +51,28 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       return;
     }
     try {
+      const headers: Record<string, string> = {
+        'ngrok-skip-browser-warning': 'true',
+      };
+      if (token && token !== 'cookie_session' && token !== 'cached_session') {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       const res = await fetch(ENDPOINTS.NOTIFICATIONS, {
         credentials: 'include',
+        headers,
       });
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data)) {
           const mapped: GlobalNotification[] = data.map((item: any) => ({
-            id: item.id,
+            id: item.id || item.notification_id || String(Math.random()),
             category: item.category || 'GENERAL',
             title: item.title,
             message: item.message,
-            time: item.time,
-            read: item.read ?? false,
-            type: item.tone === 'success' ? 'success' : item.tone === 'warning' ? 'warning' : 'info',
+            time: item.time || (item.created_at ? new Date(item.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : "À l'instant"),
+            read: item.read ?? item.is_read ?? false,
+            type: item.tone === 'success' ? 'success' : item.tone === 'warning' ? 'warning' : item.tone === 'error' ? 'error' : 'info',
             icon: item.icon || 'notifications',
           }));
           setNotifications(mapped);
@@ -81,7 +89,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     } else if (!isInitialLoading) {
       setNotifications([]);
     }
-  }, [isAuthenticated, isInitialLoading, user?.user_id]);
+  }, [isAuthenticated, isInitialLoading, user?.user_id, token]);
 
   // Toast actif pour affichage global en haut de l'écran
   const [activeToast, setActiveToast] = useState<{

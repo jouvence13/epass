@@ -309,16 +309,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // 3. Appel asynchrone au Backend API pour enregistrer la transaction et le ticket dans PostgreSQL
     (async () => {
       try {
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+          ...DEFAULT_HEADERS,
+        };
+        if (token && token !== 'cookie_session' && token !== 'cached_session') {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+
         const res = await fetch(ENDPOINTS.INSTANT_PURCHASE, {
           method: 'POST',
           credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers,
           body: JSON.stringify({
             trip_id: params.slotId && params.slotId.includes('-') && params.slotId.length > 20 ? params.slotId : undefined,
             payment_method: params.paymentMethod,
             amount: params.price,
+            phone_number: user?.phone_number || undefined,
           }),
         });
 
@@ -329,6 +336,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               prev.map((t) => (t.id === newTicket.id ? { ...t, code: backendTicket.code, id: backendTicket.ticket_id } : t))
             );
           }
+          await refreshTickets(token || undefined);
         }
         refreshTrips();
       } catch (e) {
@@ -413,12 +421,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           ? '4d92fa13-7652-498b-cfb2-8a023d129b00'
           : '7a6ad347-c0fb-472d-80c7-7830ed61cdad';
 
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        ...DEFAULT_HEADERS,
+      };
+      if (token && token !== 'cookie_session' && token !== 'cached_session') {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       const res = await fetch(ENDPOINTS.RECYCLE_TICKET, {
         method: 'POST',
         credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify({
           ticket_id: targetDbTicketId,
           new_trip_id: targetDbTripId,

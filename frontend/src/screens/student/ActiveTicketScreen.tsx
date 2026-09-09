@@ -44,23 +44,109 @@ interface BusLineConfig {
   stops: RouteStop[];
 }
 
+const DEFAULT_BUS_LINES: Record<string, BusLineConfig> = {
+  LIGNE_A: {
+    id: 'LIGNE_A',
+    name: 'Campus Express • Ligne A',
+    code: 'Calavi Campus ↔ Cotonou Étoile Rouge',
+    busNumber: 'Bus Campus #402',
+    occupancy: '32/50 places (64%)',
+    speed: '42 km/h',
+    currentLocation: 'Campus Abomey-Calavi',
+    nextStop: 'Échangeur Godomey',
+    nextStopEta: '4 min',
+    totalEta: '25 min',
+    stops: [
+      { id: 'st-1', name: 'Campus UAC Calavi (Terminus)', status: 'passed', time: '07:30' },
+      { id: 'st-2', name: 'Carrefour IITA', status: 'current', time: '07:38', etaMinutes: 2 },
+      { id: 'st-3', name: 'Échangeur Godomey', status: 'upcoming', time: '07:46', etaMinutes: 8, connection: 'Ligne B' },
+      { id: 'st-4', name: 'Stade GMK Mathieu Kérékou', status: 'upcoming', time: '07:55', etaMinutes: 17 },
+      { id: 'st-5', name: "Place de l'Étoile Rouge (Terminus)", status: 'upcoming', time: '08:05', etaMinutes: 25 },
+    ],
+  },
+  LIGNE_B: {
+    id: 'LIGNE_B',
+    name: 'Campus Express • Ligne B',
+    code: 'Calavi Campus ↔ Godomey Échangeur',
+    busNumber: 'Bus Campus #405',
+    occupancy: '24/50 places (48%)',
+    speed: '38 km/h',
+    currentLocation: 'Carrefour Arconville',
+    nextStop: 'Godomey Magasin',
+    nextStopEta: '3 min',
+    totalEta: '18 min',
+    stops: [
+      { id: 'st-b1', name: 'Campus UAC Calavi (Terminus)', status: 'passed', time: '08:00' },
+      { id: 'st-b2', name: 'Carrefour Tankpè', status: 'passed', time: '08:07' },
+      { id: 'st-b3', name: 'Carrefour Arconville', status: 'current', time: '08:14', etaMinutes: 2 },
+      { id: 'st-b4', name: 'Godomey Magasin', status: 'upcoming', time: '08:20', etaMinutes: 6 },
+      { id: 'st-b5', name: 'Échangeur Godomey (Terminus)', status: 'upcoming', time: '08:28', etaMinutes: 14 },
+    ],
+  },
+  LIGNE_C: {
+    id: 'LIGNE_C',
+    name: 'Campus Express • Ligne C',
+    code: 'Calavi Campus ↔ Akpakpa Sacré-Cœur',
+    busNumber: 'Bus Campus #408',
+    occupancy: '41/50 places (82%)',
+    speed: '35 km/h',
+    currentLocation: 'Carrefour Vèdoko',
+    nextStop: 'Carrefour Marina',
+    nextStopEta: '5 min',
+    totalEta: '35 min',
+    stops: [
+      { id: 'st-c1', name: 'Campus UAC Calavi (Terminus)', status: 'passed', time: '07:15' },
+      { id: 'st-c2', name: 'Échangeur Godomey', status: 'passed', time: '07:28' },
+      { id: 'st-c3', name: 'Carrefour Vèdoko', status: 'current', time: '07:38', etaMinutes: 3 },
+      { id: 'st-c4', name: 'Carrefour Marina / Ganhi', status: 'upcoming', time: '07:50', etaMinutes: 15 },
+      { id: 'st-c5', name: 'Akpakpa Sacré-Cœur (Terminus)', status: 'upcoming', time: '08:05', etaMinutes: 30 },
+    ],
+  },
+  LIGNE_PORTO_NOVO: {
+    id: 'LIGNE_PORTO_NOVO',
+    name: 'Inter-Campus • Porto-Novo',
+    code: 'Calavi Campus ↔ Porto-Novo Gare',
+    busNumber: 'Navette Inter-Campus #501',
+    occupancy: '45/50 places (90%)',
+    speed: '50 km/h',
+    currentLocation: 'Carrefour Sèmè-Kpodji',
+    nextStop: 'Gare Routière Ouando',
+    nextStopEta: '10 min',
+    totalEta: '45 min',
+    stops: [
+      { id: 'st-p1', name: 'Campus UAC Calavi (Terminus)', status: 'passed', time: '06:45' },
+      { id: 'st-p2', name: 'Échangeur Houéyiho', status: 'passed', time: '07:05' },
+      { id: 'st-p3', name: 'Carrefour Sèmè-Kpodji', status: 'current', time: '07:25', etaMinutes: 4 },
+      { id: 'st-p4', name: 'Gare Routière Ouando', status: 'upcoming', time: '07:45', etaMinutes: 18 },
+      { id: 'st-p5', name: 'Porto-Novo Site Central UNA (Terminus)', status: 'upcoming', time: '08:00', etaMinutes: 30 },
+    ],
+  },
+};
+
 export default function ActiveTicketScreen({ navigation }: any) {
-  const { user, tickets, activeTicket, setActiveTicket, busSlots, recycleTicket } = useAuth();
+  const { user, token, tickets, activeTicket, setActiveTicket, busSlots, recycleTicket } = useAuth();
   const { showToast } = useNotifications();
 
   // Lignes et arrêts de bus dynamiques chargés depuis le Backend API
-  const [busLines, setBusLines] = useState<Record<string, BusLineConfig>>({});
+  const [busLines, setBusLines] = useState<Record<string, BusLineConfig>>(DEFAULT_BUS_LINES);
 
   useEffect(() => {
     const fetchLiveLines = async () => {
       try {
+        const headers: Record<string, string> = {
+          'ngrok-skip-browser-warning': 'true',
+        };
+        if (token && token !== 'cookie_session' && token !== 'cached_session') {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
         const res = await fetch(ENDPOINTS.LIVE_LINES, {
           credentials: 'include',
+          headers,
         });
         if (res.ok) {
           const data = await res.json();
           if (data && typeof data === 'object' && Object.keys(data).length > 0) {
-            setBusLines(data);
+            setBusLines((prev) => ({ ...prev, ...data }));
           }
         }
       } catch (e) {
@@ -69,7 +155,7 @@ export default function ActiveTicketScreen({ navigation }: any) {
     };
 
     fetchLiveLines();
-  }, []);
+  }, [token]);
 
   // Billets actifs de l'étudiant
   const userActiveTickets = tickets.filter((t) => t.status === 'ACTIVE');
@@ -107,20 +193,8 @@ export default function ActiveTicketScreen({ navigation }: any) {
   const [selectedTargetSlotId, setSelectedTargetSlotId] = useState<string>('slot-2');
   const [isRecycling, setIsRecycling] = useState(false);
 
-  const activeLine: BusLineConfig = busLines[selectedLineKey] || Object.values(busLines)[0] || {
-    id: selectedLineKey,
-    name: 'Campus Express',
-    code: 'Ligne Campus',
-    busNumber: 'Bus Campus',
-
-    occupancy: 'Places disponibles',
-    speed: '40 km/h',
-    currentLocation: 'Campus Calavi',
-    nextStop: 'Prochain Arrêt',
-    nextStopEta: '5 min',
-    totalEta: '20 min',
-    stops: [],
-  };
+  const activeLine: BusLineConfig =
+    busLines[selectedLineKey] || DEFAULT_BUS_LINES[selectedLineKey] || Object.values(busLines)[0] || DEFAULT_BUS_LINES.LIGNE_A;
 
   // Animations
   const pulse = useRef(new Animated.Value(0)).current;

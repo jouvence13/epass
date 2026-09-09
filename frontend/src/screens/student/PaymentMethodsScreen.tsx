@@ -42,7 +42,7 @@ interface RechargeHistory {
 import { ENDPOINTS } from '../../config/api';
 
 export default function PaymentMethodsScreen({ navigation }: any) {
-  const { user, walletBalance, operatorPhoneNumbers, rechargeWallet, updateOperatorPhone } = useAuth();
+  const { user, token, walletBalance, operatorPhoneNumbers, rechargeWallet, updateOperatorPhone } = useAuth();
   const { showToast } = useNotifications();
 
   const [methods, setMethods] = useState<PaymentMethod[]>([]);
@@ -51,17 +51,62 @@ export default function PaymentMethodsScreen({ navigation }: any) {
 
   const fetchPaymentData = async () => {
     try {
+      const headers: Record<string, string> = {
+        'ngrok-skip-browser-warning': 'true',
+      };
+      if (token && token !== 'cookie_session' && token !== 'cached_session') {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       const [methodsRes, histRes] = await Promise.all([
-        fetch(ENDPOINTS.PAYMENT_METHODS, { credentials: 'include' }),
-        fetch(ENDPOINTS.PAYMENT_HISTORY, { credentials: 'include' }),
+        fetch(ENDPOINTS.PAYMENT_METHODS, { credentials: 'include', headers }),
+        fetch(ENDPOINTS.PAYMENT_HISTORY, { credentials: 'include', headers }),
       ]);
       if (methodsRes.ok) {
         const data = await methodsRes.json();
-        setMethods(data);
+        if (Array.isArray(data) && data.length > 0) {
+          setMethods(data);
+        } else {
+          const userPhone = user?.phone_number || '+2290197001122';
+          setMethods([
+            {
+              id: 'm-mtn',
+              type: 'MTN_MOMO',
+              title: 'MTN Mobile Money',
+              account: operatorPhoneNumbers.MTN || userPhone,
+              isDefault: true,
+              color: colors.mtnYellow,
+              icon: 'phone-android',
+              code: '*880#',
+            },
+            {
+              id: 'm-moov',
+              type: 'MOOV_MONEY',
+              title: 'Moov Money',
+              account: operatorPhoneNumbers.MOOV || userPhone,
+              isDefault: false,
+              color: colors.moovBlue,
+              icon: 'phone-iphone',
+              code: '*855#',
+            },
+            {
+              id: 'm-celtiis',
+              type: 'CELTIIS_CASH',
+              title: 'Celtiis Cash',
+              account: operatorPhoneNumbers.CELTIIS || userPhone,
+              isDefault: false,
+              color: colors.primary,
+              icon: 'account-balance-wallet',
+              code: '*888#',
+            },
+          ]);
+        }
       }
       if (histRes.ok) {
         const data = await histRes.json();
-        setRechargeHistory(data);
+        if (Array.isArray(data)) {
+          setRechargeHistory(data);
+        }
       }
     } catch (e) {
       console.warn('Error fetching payment data:', e);
@@ -72,7 +117,7 @@ export default function PaymentMethodsScreen({ navigation }: any) {
 
   useEffect(() => {
     fetchPaymentData();
-  }, [operatorPhoneNumbers, walletBalance]);
+  }, [operatorPhoneNumbers, walletBalance, token, user?.phone_number]);
 
   // Modal d'ajout ou d'édition de compte Mobile Money
   const [modalVisible, setModalVisible] = useState(false);
@@ -148,9 +193,17 @@ export default function PaymentMethodsScreen({ navigation }: any) {
         : 'Compte Celtiis Cash';
 
     try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'ngrok-skip-browser-warning': 'true',
+      };
+      if (token && token !== 'cookie_session' && token !== 'cached_session') {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       await fetch(ENDPOINTS.PAYMENT_METHODS, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         credentials: 'include',
         body: JSON.stringify({
           provider_type: providerType,
@@ -210,9 +263,17 @@ export default function PaymentMethodsScreen({ navigation }: any) {
       rechargeWallet(amount, opName, formattedPhone);
 
       try {
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true',
+        };
+        if (token && token !== 'cookie_session' && token !== 'cached_session') {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+
         const rechargeRes = await fetch(ENDPOINTS.WALLET_RECHARGE, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           credentials: 'include',
           body: JSON.stringify({
             amount: amount,
@@ -221,11 +282,10 @@ export default function PaymentMethodsScreen({ navigation }: any) {
           }),
         });
         if (rechargeRes.ok) {
-          const histItem = await rechargeRes.json();
-          setRechargeHistory((prev) => [histItem, ...prev]);
+          fetchPaymentData();
         }
       } catch (err) {
-        console.warn('Error saving recharge to backend:', err);
+        console.warn('Error syncing wallet recharge with backend:', err);
       }
 
       const newBal = walletBalance + amount;
