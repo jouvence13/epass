@@ -1075,7 +1075,7 @@ async def run_seed():
         # ----------------------------------------------------------------------
         # TYPES D'INFRACTIONS & PROCÈS-VERBAUX (INFRACTIONS & FRAUD REPORTS)
         # ----------------------------------------------------------------------
-        print("\n🚨 13. Enregistrement des Types d'Infractions & Procès-Verbaux...")
+        print("\n 13. Enregistrement des Types d'Infractions & Procès-Verbaux...")
         controller_user = users_map["+2290197000002"]
         infractions_catalog = [
             {
@@ -1135,7 +1135,7 @@ async def run_seed():
                 )
                 db.add(new_inf)
                 await db.flush()
-                print(f"   🚨 Type d'infraction créé : {item['key']} - {item['label']} (Amende: {item['penalty_amount']} FCFA)")
+                print(f" Type d'infraction créé : {item['key']} - {item['label']} (Amende: {item['penalty_amount']} FCFA)")
 
         # Procès-verbal de démonstration
         pv_sample = (await db.execute(select(FraudReports).where(FraudReports.pv_code == "PV-2024-001"))).scalars().first()

@@ -696,7 +696,7 @@ async def report_fraud_incident(
     # 3. Record notification for administration
     admin_notif = Notifications(
         user_id=current_user.user_id,
-        title=f"🚨 Procès-Verbal #{pv_code} : {infraction_label}",
+        title=f"Procès-Verbal #{pv_code} : {infraction_label}",
         message=f"Agent : {current_user.first_name} {current_user.last_name} ({current_user.matricule_uac or 'Contrôleur'}). "
                 f"Passager : {payload.student_info or 'Non identifié'}. "
                 f"Motif : {infraction_label}{penalty_str}. Observations : {payload.description or 'Aucune'}",
