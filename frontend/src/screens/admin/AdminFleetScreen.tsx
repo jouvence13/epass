@@ -542,7 +542,7 @@ export default function AdminFleetScreen() {
       <View style={styles.header}>
         <View style={styles.headerTop}>
           <View>
-            <Text style={styles.eyebrow}>INFRASTRUCTURE & OPÉRATIONS (CROUS / SUPERADMIN)</Text>
+            <Text style={styles.eyebrow}>INFRASTRUCTURE & OPÉRATIONS (CAMPUS / SUPERADMIN)</Text>
             <Text style={styles.title}>Flotte & Itinéraires de Campus</Text>
           </View>
           {activeTab === 'BUSES' && (

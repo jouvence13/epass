@@ -101,20 +101,19 @@ export default function HistoryScreen({ navigation }: any) {
     }
   };
 
-  // Liste des billets synchronisée avec le backend
   const combinedHistory: TicketHistoryItem[] = serverHistory.length > 0
     ? serverHistory
     : tickets.map((t) => ({
         ticket_id: t.id,
         trip_id: `trip-${t.id}`,
         route_name: t.route,
-        student_name: user ? `${user.first_name} ${user.last_name}` : 'Étudiant Campus',
-        student_id: `Matricule: ${user?.matricule_uac || 'ETU-2024-XXXX'}`,
+        student_name: user ? `${user.first_name} ${user.last_name}` : '',
+        student_id: user?.matricule_uac ? `Matricule: ${user.matricule_uac}` : '',
         code: t.code,
         status: t.status === 'ACTIVE' ? 'Valid Ticket' : t.status === 'USED' ? 'Validated' : 'Expired',
         raw_status: t.status === 'ACTIVE' ? 'ISSUED' : t.status === 'USED' ? 'VALIDATED' : 'EXPIRED',
         avail_for_label: t.date,
-        bus_code: t.busId,
+        bus_code: t.busId || '',
       }));
 
   const getStatusBadge = (item: TicketHistoryItem) => {
@@ -223,7 +222,7 @@ export default function HistoryScreen({ navigation }: any) {
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.routeName}>{item.route_name}</Text>
-                      <Text style={styles.busInfo}>{item.bus_code || 'Bus Campus'}</Text>
+                      {item.bus_code ? <Text style={styles.busInfo}>{item.bus_code}</Text> : null}
                     </View>
                     {getStatusBadge(item)}
                   </View>

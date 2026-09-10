@@ -273,7 +273,7 @@ export default function KycOnboardingScreen({ navigation }: any) {
             </View>
             <Text style={styles.approvedTitle}>Dossier Académique Certifié</Text>
             <Text style={styles.approvedSub}>
-              Votre compte académique est certifié pour les campus universitaires du Bénin. Vous bénéficiez du tarif subventionné étudiant à 100 FCFA sur toutes les lignes.
+              Votre compte académique est certifié pour les campus universitaires du Bénin. Vous bénéficiez des départs et tarifs subventionnés sur toutes les lignes.
             </Text>
 
             {/* Fiche d'Identité Académique */}
@@ -285,19 +285,19 @@ export default function KycOnboardingScreen({ navigation }: any) {
 
               <View style={styles.idInfoRow}>
                 <Text style={styles.idInfoLabel}>Nom & Prénom</Text>
-                <Text style={styles.idInfoValue}>{user?.first_name} {user?.last_name}</Text>
+                <Text style={styles.idInfoValue}>{user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() : 'Étudiant'}</Text>
               </View>
 
               <View style={styles.idInfoRow}>
-                <Text style={styles.idInfoLabel}>Matricule UAC</Text>
+                <Text style={styles.idInfoLabel}>Matricule</Text>
                 <Text style={[styles.idInfoValue, { color: colors.primary, fontWeight: '700' }]}>
-                  {user?.matricule_uac || 'UAC-2022-8492'}
+                  {user?.matricule_uac || 'Non renseigné'}
                 </Text>
               </View>
 
               <View style={styles.idInfoRow}>
                 <Text style={styles.idInfoLabel}>Téléphone Associé</Text>
-                <Text style={styles.idInfoValue}>{user?.phone_number}</Text>
+                <Text style={styles.idInfoValue}>{user?.phone_number || 'Non renseigné'}</Text>
               </View>
 
               <View style={styles.idInfoRow}>
@@ -325,7 +325,7 @@ export default function KycOnboardingScreen({ navigation }: any) {
                   <MaterialIcons name="badge" size={20} color={colors.primary} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.docItemName}>Carte d'Étudiant UAC (Année en cours)</Text>
+                  <Text style={styles.docItemName}>Carte d'Étudiant (Année en cours)</Text>
                   <Text style={styles.docItemSub}>Scan officiel vérifié • Stocké sur le serveur sécurisé</Text>
                 </View>
                 <MaterialIcons name="check-circle" size={20} color={colors.secondary} />
@@ -348,7 +348,7 @@ export default function KycOnboardingScreen({ navigation }: any) {
               <Text style={styles.perksTitle}>Privilèges Débloqués :</Text>
               <View style={styles.perkRow}>
                 <MaterialIcons name="confirmation-number" size={16} color={colors.primary} />
-                <Text style={styles.perkText}>Tarif subventionné garanti : 100 FCFA / voyage</Text>
+                <Text style={styles.perkText}>Tarif étudiant subventionné garanti sur toutes les lignes</Text>
               </View>
               <View style={styles.perkRow}>
                 <MaterialIcons name="recycling" size={16} color={colors.primary} />
@@ -363,7 +363,7 @@ export default function KycOnboardingScreen({ navigation }: any) {
             {/* Boutons d'action */}
             <View style={{ width: '100%', gap: spacing.md, marginTop: spacing.md }}>
               <PrimaryButton
-                label="Réserver un Ticket (100 FCFA)"
+                label="Réserver un Ticket"
                 icon="confirmation-number"
                 onPress={() => navigation.navigate('Booking')}
               />
@@ -409,8 +409,8 @@ export default function KycOnboardingScreen({ navigation }: any) {
 
           <Card style={styles.summaryCard}>
             <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Matricule UAC :</Text>
-              <Text style={styles.summaryVal}>{matricule || user?.matricule_uac || 'UAC-2024-XXXX'}</Text>
+              <Text style={styles.summaryLabel}>Matricule académique :</Text>
+              <Text style={styles.summaryVal}>{matricule || user?.matricule_uac || 'Non renseigné'}</Text>
             </View>
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Année académique :</Text>
@@ -529,11 +529,11 @@ export default function KycOnboardingScreen({ navigation }: any) {
                 Renseignez votre matricule et sélectionnez l'année académique de votre inscription.
               </Text>
 
-              <Text style={styles.inputLabel}>Numéro de Matricule UAC *</Text>
+              <Text style={styles.inputLabel}>Numéro de Matricule *</Text>
               <TextInput
                 value={matricule}
                 onChangeText={setMatricule}
-                placeholder="ex: UAC-2022-8492"
+                placeholder="ex: Votre numéro matricule"
                 placeholderTextColor={colors.outline}
                 style={styles.input}
                 autoCapitalize="characters"
@@ -662,7 +662,7 @@ export default function KycOnboardingScreen({ navigation }: any) {
           ) : step === 1 ? (
             /* Étape 2 : Carte Étudiant */
             <>
-              <Text style={styles.cardTitle}>Photo de la Carte Étudiant UAC</Text>
+              <Text style={styles.cardTitle}>Photo de la Carte d'Étudiant</Text>
               <Text style={styles.uploadSub}>
                 Téléversez une photo nette ou le scan de votre carte d'étudiant valide pour l'année {academicYear}.
               </Text>

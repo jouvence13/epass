@@ -26,46 +26,67 @@ const FAQS: FaqItem[] = [
   {
     id: '1',
     q: 'Comment valider mon dossier KYC étudiant ?',
-    a: 'Rendez-vous sur "Mon profil KYC", téléversez une photo nette de votre carte d\'étudiant valide (UAC, UP, UNA, UNSTIM...) et votre certificat CIP. La modération par l\'administration est effective en moins de 24h.',
+    a: "Rendez-vous sur la section KYC, téléversez une photo nette de votre carte d'étudiant valide pour l'année en cours ainsi que votre certificat CIP ou CNI. La vérification académique est traitée sous 24h ouvrées.",
   },
   {
     id: '2',
-    q: 'Quels sont les tarifs subventionnés par trajet ?',
-    a: 'Grâce à la subvention du transport universitaire béninois, le ticket étudiant est à seulement 100 FCFA par trajet au lieu du tarif plein grand public.',
+    q: 'Comment s’appliquent les tarifs subventionnés ?',
+    a: "Une fois votre profil académique certifié (KYC validé), le tarif subventionné défini par l'administration du campus est automatiquement appliqué lors de l'achat de vos billets.",
   },
   {
     id: '3',
-    q: 'Que faire en cas de retard d\'un bus ?',
-    a: 'Consultez la section "Suivi en direct" pour localiser votre bus par GPS en temps réel. Si le retard dépasse 15 min, vous pouvez recycler votre ticket sans pénalité.',
+    q: 'Que faire en cas de retard ou d’incident sur une navette ?',
+    a: "Consultez l'onglet Suivi en direct pour localiser le bus par télémétrie GPS en temps réel. En cas de perturbation majeure, le billet reste valide pour la rotation suivante.",
   },
   {
     id: '4',
-    q: 'Comment recharger mon solde via MTN ou Moov ?',
-    a: 'Dans "Moyens de paiement", cliquez sur "Recharger". Saisissez le montant et validez sur votre téléphone via le prompt sécurisé MTN (*880#), Moov (*855#) ou Celtiis (*888#).',
+    q: 'Comment recharger mon portefeuille étudiant ?',
+    a: "Dans la rubrique Portefeuille / Moyens de paiement, saisissez le montant souhaité et validez le débit sur votre compte Mobile Money (MTN MoMo, Moov Money ou Celtiis Cash).",
   },
 ];
 
 export default function SupportScreen({ navigation }: any) {
   const { user } = useAuth();
   const [expandedFaq, setExpandedFaq] = useState<string | null>('1');
-  const [subject, setSubject] = useState('Problème de validation KYC');
+  const [subject, setSubject] = useState('Vérification KYC');
   const [message, setMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
-  const [sentSuccess, setSentSuccess] = useState(false);
+
+  const supportPhone = (user as any)?.campus_support_phone || (user as any)?.support_phone || '';
+  const supportWhatsapp = (user as any)?.campus_support_whatsapp || (user as any)?.support_whatsapp || '';
+  const supportOffice = user?.campus_name
+    ? `${user.campus_name} • Guichet d'Accueil & Assistance Transport`
+    : "Guichet d'Accueil & Assistance Transport Universitaire";
+  const supportHours = 'Du Lundi au Vendredi : 08h00 - 17h30';
 
   const toggleFaq = (id: string) => {
     setExpandedFaq((prev) => (prev === id ? null : id));
   };
 
   const handleCallSupport = () => {
-    Linking.openURL('tel:+22921360100').catch(() => {
-      Alert.alert('Numéro Assistance', 'Téléphone : +22921360100');
+    if (!supportPhone) {
+      Alert.alert(
+        'Assistance Téléphonique',
+        "Le numéro direct du service d'assistance de votre campus sera affiché dès configuration par votre administration."
+      );
+      return;
+    }
+    Linking.openURL(`tel:${supportPhone}`).catch(() => {
+      Alert.alert('Numéro Assistance', `Téléphone : ${supportPhone}`);
     });
   };
 
   const handleWhatsapp = () => {
-    Linking.openURL('https://wa.me/22997000000?text=Bonjour%20ePass%20Campus%20Benin').catch(() => {
-      Alert.alert('WhatsApp Support', 'Numéro WhatsApp : +22997000000');
+    if (!supportWhatsapp) {
+      Alert.alert(
+        'Assistance WhatsApp',
+        "Le canal WhatsApp officiel de votre campus sera mis à disposition par l'administration académique."
+      );
+      return;
+    }
+    const cleanPhone = supportWhatsapp.replace(/[^0-9]/g, '');
+    Linking.openURL(`https://wa.me/${cleanPhone}?text=Bonjour%20Support%20Campus`).catch(() => {
+      Alert.alert('WhatsApp Support', `Numéro WhatsApp : ${supportWhatsapp}`);
     });
   };
 
@@ -78,13 +99,12 @@ export default function SupportScreen({ navigation }: any) {
     setIsSending(true);
     setTimeout(() => {
       setIsSending(false);
-      setSentSuccess(true);
       setMessage('');
       Alert.alert(
-        'Message transmis',
-        'Votre demande a été transmise aux services d\'assistance inter-campus. Vous recevrez une réponse dans l\'onglet Notifications.'
+        'Demande transmise',
+        "Votre message a été envoyé à l'administration de votre campus. Vous recevrez une notification dès traitement."
       );
-    }, 800);
+    }, 700);
   };
 
   return (
@@ -97,7 +117,9 @@ export default function SupportScreen({ navigation }: any) {
           </Pressable>
           <View style={{ flex: 1 }}>
             <Text style={styles.title}>Aide & Support Campus</Text>
-            <Text style={styles.subtitle}>Assistance aux étudiants et transport universitaire</Text>
+            <Text style={styles.subtitle}>
+              {user?.campus_name ? `${user.campus_name} • Assistance` : 'Assistance aux étudiants et transport'}
+            </Text>
           </View>
         </View>
 
@@ -108,7 +130,7 @@ export default function SupportScreen({ navigation }: any) {
               <MaterialIcons name="phone" size={24} color={colors.primary} />
             </View>
             <Text style={styles.contactTitle}>Appel Assistance</Text>
-            <Text style={styles.contactSub}>+22921360100</Text>
+            <Text style={styles.contactSub}>{supportPhone || 'Standard Campus'}</Text>
           </Pressable>
 
           <Pressable style={styles.contactCard} onPress={handleWhatsapp}>
@@ -116,7 +138,7 @@ export default function SupportScreen({ navigation }: any) {
               <MaterialIcons name="chat" size={24} color="#16a34a" />
             </View>
             <Text style={styles.contactTitle}>WhatsApp</Text>
-            <Text style={styles.contactSub}>Assistance directe</Text>
+            <Text style={styles.contactSub}>{supportWhatsapp || 'Assistance en ligne'}</Text>
           </Pressable>
         </View>
 
@@ -126,10 +148,8 @@ export default function SupportScreen({ navigation }: any) {
             <MaterialIcons name="location-on" size={24} color={colors.primary} />
             <View style={{ flex: 1 }}>
               <Text style={styles.locationTitle}>Guichet Universitaire</Text>
-              <Text style={styles.locationText}>
-                Campus Universitaires du Bénin • Bâtiment Administratif et d'Accueil
-              </Text>
-              <Text style={styles.locationHours}>Du Lundi au Vendredi : 08h00 - 17h30</Text>
+              <Text style={styles.locationText}>{supportOffice}</Text>
+              <Text style={styles.locationHours}>{supportHours}</Text>
             </View>
           </View>
         </Card>
@@ -166,31 +186,18 @@ export default function SupportScreen({ navigation }: any) {
         <Card style={styles.formCard}>
           <Text style={styles.formTitle}>Envoyer un message à l'administration</Text>
           <Text style={styles.formSub}>
-            Une équipe dédiée prendra en charge votre dossier sous 24h ouvrées.
+            L'équipe administrative de votre campus prendra en charge votre dossier.
           </Text>
 
           <Text style={styles.inputLabel}>Objet de votre demande :</Text>
           <View style={styles.subjectChips}>
-            {[
-              'Problème KYC',
-              'Paiement / Recharge',
-              'Retard de bus',
-              'Autre',
-            ].map((s) => (
+            {['Vérification KYC', 'Paiement / Recharge', 'Retard de navette', 'Autre'].map((s) => (
               <Pressable
                 key={s}
-                style={[
-                  styles.subjectChip,
-                  subject === s && styles.subjectChipActive,
-                ]}
+                style={[styles.subjectChip, subject === s && styles.subjectChipActive]}
                 onPress={() => setSubject(s)}
               >
-                <Text
-                  style={[
-                    styles.subjectChipText,
-                    subject === s && styles.subjectChipTextActive,
-                  ]}
-                >
+                <Text style={[styles.subjectChipText, subject === s && styles.subjectChipTextActive]}>
                   {s}
                 </Text>
               </Pressable>

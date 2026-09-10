@@ -36,6 +36,15 @@ export interface StudentTicket {
   timeSlot?: string;
   recycleCount?: number;
   routeId?: string;
+  originName?: string;
+  destinationName?: string;
+  occupancy?: string;
+  speed?: string;
+  currentLocation?: string;
+  nextStop?: string;
+  nextStopEta?: string;
+  totalEta?: string;
+  stops?: any[];
 }
 
 
@@ -43,6 +52,13 @@ export interface BusSlot {
   id: string;
   time: string;
   route: string;
+  lineName?: string;
+  origin?: string;
+  destination?: string;
+  busId?: string;
+  busCode?: string;
+  price?: number;
+  duration?: string;
   bookedSeats: number;
   totalSeats: number;
   full: boolean;
@@ -72,6 +88,7 @@ export interface AuthContextType {
   busSlots: BusSlot[];
   refreshTrips: () => Promise<void>;
   refreshTickets: () => Promise<void>;
+  refreshWallet: (authToken?: string) => Promise<void>;
   debitWallet: (amount: number) => boolean;
   rechargeWallet: (amount: number, operator: string, phone: string) => void;
   updateOperatorPhone: (operator: 'MTN' | 'MOOV' | 'CELTIIS', phone: string) => void;
@@ -139,8 +156,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const clearJustRegistered = () => setJustRegistered(false);
   const clearJustLoggedOut = () => setJustLoggedOut(false);
 
-  // Solde dynamique du Portefeuille Universitaire
-  const [walletBalance, setWalletBalance] = useState<number>(2300);
+  // Solde dynamique du Portefeuille Universitaire (initialisé via cache local ou backend)
+  const [walletBalance, setWalletBalance] = useState<number>(0);
 
   // Numéros Mobile Money enregistrés (initialisés dynamiquement avec le numéro du compte)
   const [operatorPhoneNumbers, setOperatorPhoneNumbers] = useState<{
@@ -160,6 +177,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [tickets, setTickets] = useState<StudentTicket[]>([]);
   const [activeTicket, setActiveTicket] = useState<StudentTicket | null>(null);
 
+  // Synchronisation dynamique du solde portefeuille depuis PostgreSQL
+  const refreshWallet = useCallback(async (authToken?: string) => {
+    try {
+      const activeTok = authToken || token;
+      const headers: Record<string, string> = { ...DEFAULT_HEADERS };
+      if (activeTok && activeTok !== 'cookie_session' && activeTok !== 'cached_session') {
+        headers['Authorization'] = `Bearer ${activeTok}`;
+      }
+      const res = await fetch(ENDPOINTS.WALLET_BALANCE, {
+        credentials: 'include',
+        headers,
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (typeof data.balance === 'number') {
+          setWalletBalance(data.balance);
+          await StorageService.saveWallet(data.balance, operatorPhoneNumbers);
+        }
+      }
+    } catch (e) {
+      console.warn('Wallet balance fetch error:', e);
+    }
+  }, [token, operatorPhoneNumbers]);
+
   // Synchronisation dynamique des départs depuis le Backend API
   const refreshTrips = useCallback(async () => {
     try {
@@ -174,15 +215,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data) && data.length > 0) {
-          const mappedSlots: BusSlot[] = data.map((t: any, index: number) => {
-            const booked = t.total_seats - (t.available_seats ?? 0);
+          const mappedSlots: BusSlot[] = data.map((t: any) => {
+            const booked = (t.total_seats ?? 50) - (t.available_seats ?? 0);
+            const routeLabel = t.origin_name && t.destination_name
+              ? `${t.origin_name} → ${t.destination_name}`
+              : (t.route?.route_name || '');
             return {
-              id: t.trip_id || `slot-${index + 1}`,
-              time: t.formatted_time || `${new Date(t.departure_time).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })} - Rotation`,
-              route: t.route?.route_name || `Ligne A (${t.origin_name || 'Calavi'} ↔ ${t.destination_name || 'Cotonou'})`,
+              id: t.trip_id,
+              time: t.formatted_time || (t.departure_time ? new Date(t.departure_time).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : ''),
+              route: routeLabel,
+              lineName: t.route?.route_name || '',
+              origin: t.origin_name || '',
+              destination: t.destination_name || '',
+              busId: t.bus?.bus_code || t.bus?.immatriculation_number || '',
+              busCode: t.bus?.bus_code || '',
+              price: t.price ?? 100,
+              duration: t.duration || '',
               bookedSeats: booked,
               totalSeats: t.total_seats || 50,
-              full: (t.available_seats ?? 0) <= 0 || t.full,
+              full: (t.available_seats ?? 0) <= 0 || Boolean(t.full),
             };
           });
           setBusSlots(mappedSlots);
@@ -213,26 +264,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const mappedTickets: StudentTicket[] = historyData.map((tk: any) => {
             const isAct = tk.raw_status === 'ISSUED' || tk.status === 'Valid Ticket' || tk.status === 'ACTIVE';
             const isUsed = tk.raw_status === 'VALIDATED' || tk.status === 'Validated' || tk.status === 'USED';
+            const origin = tk.origin_name || '';
+            const destination = tk.destination_name || '';
+            const routeLabel = origin && destination
+              ? `${origin} → ${destination}`
+              : tk.route_name || '';
+
             return {
               id: tk.ticket_id,
               code: tk.code,
-              line: tk.route_name || 'Campus Express • Ligne A',
-              route: tk.route_name?.includes('Godomey')
-                ? 'Calavi Campus → Échangeur Godomey'
-                : tk.route_name?.includes('Akpakpa')
-                ? 'Calavi Campus → Akpakpa Sacré-Cœur'
-                : tk.route_name?.includes('Porto-Novo') || tk.route_name?.includes('Porto Novo')
-                ? 'Calavi Campus → Porto-Novo Gare'
-                : tk.route_name?.includes('Express') || tk.route_name?.includes('Ligne A')
-                ? 'Calavi Campus → Cotonou Étoile Rouge'
-                : tk.route_name || 'Calavi Campus → Cotonou Étoile Rouge',
-              busId: tk.bus_code || 'Bus Campus #402',
+              line: tk.route_name || '',
+              route: routeLabel,
+              originName: origin,
+              destinationName: destination,
+              busId: tk.bus_code || '',
               price: Number(tk.amount_paid) || 100,
-              date: tk.created_at ? new Date(tk.created_at).toLocaleDateString('fr-FR') : 'Aujourd\'hui',
+              date: tk.created_at ? new Date(tk.created_at).toLocaleDateString('fr-FR') : '',
               status: isAct ? 'ACTIVE' : isUsed ? 'USED' : 'EXPIRED',
               paymentMethod: 'Portefeuille Universitaire',
               timeSlot: 'Rotation Garantie',
               recycleCount: typeof tk.recycle_count === 'number' ? tk.recycle_count : 0,
+              routeId: tk.route_id,
+              occupancy: tk.occupancy_label || '',
+              speed: tk.speed_kmh ? `${Math.round(tk.speed_kmh)} km/h` : '',
+              currentLocation: tk.current_location || origin,
+              nextStop: tk.next_stop || destination,
+              nextStopEta: tk.next_stop_eta || '',
+              totalEta: tk.total_eta || '',
+              stops: tk.stops || [],
             };
           });
           setTickets(mappedTickets);
@@ -250,23 +309,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [token]);
 
-  // Débit dynamique du portefeuille
+  // Débit dynamique du portefeuille (persistance locale immédiate)
   const debitWallet = (amount: number): boolean => {
     if (walletBalance < amount) return false;
-    setWalletBalance((prev) => prev - amount);
+    const nextBalance = Math.max(0, walletBalance - amount);
+    setWalletBalance(nextBalance);
+    StorageService.saveWallet(nextBalance, operatorPhoneNumbers);
     return true;
   };
 
-  // Rechargement dynamique du portefeuille
+  // Rechargement dynamique du portefeuille (persistance locale immédiate)
   const rechargeWallet = (amount: number, _operator: string, _phone: string) => {
-    setWalletBalance((prev) => prev + amount);
+    const nextBalance = walletBalance + amount;
+    setWalletBalance(nextBalance);
+    StorageService.saveWallet(nextBalance, operatorPhoneNumbers);
   };
 
   // Mise à jour dynamique du numéro Mobile Money par opérateur
   const updateOperatorPhone = (operator: 'MTN' | 'MOOV' | 'CELTIIS', phone: string) => {
     const cleanPhone = phone.replace(/\s+/g, '').replace(/-/g, '');
     const compactPhone = cleanPhone.startsWith('+229') ? cleanPhone : `+229${cleanPhone}`;
-    setOperatorPhoneNumbers((prev) => ({ ...prev, [operator]: compactPhone }));
+    const nextPhones = { ...operatorPhoneNumbers, [operator]: compactPhone };
+    setOperatorPhoneNumbers(nextPhones);
+    StorageService.saveWallet(walletBalance, nextPhones);
   };
 
   // Réservation et achat d'un titre : Envoi direct au backend et mise à jour dynamique
@@ -278,6 +343,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     paymentMethod: string;
     slotId?: string;
   }): StudentTicket => {
+    // Si paiement via portefeuille, débiter immédiatement en local
+    const isWallet =
+      params.paymentMethod.toLowerCase().includes('wallet') ||
+      params.paymentMethod.toLowerCase().includes('portefeuille') ||
+      params.paymentMethod.toLowerCase().includes('campus');
+    if (isWallet) {
+      debitWallet(params.price);
+    }
+
     // 1. Mise à jour immédiate du créneau en mémoire
     const targetSlotId = params.slotId || 'slot-1';
     setBusSlots((prev) =>
@@ -344,6 +418,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             );
           }
           await refreshTickets(token || undefined);
+          await refreshWallet(token || undefined);
         }
         refreshTrips();
       } catch (e) {
@@ -548,6 +623,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setIsOffline(false);
             await StorageService.saveUser(userData);
             await StorageService.saveToken(activeTok);
+            await refreshWallet(activeTok);
           } else if (!cachedUser) {
             setUser(null);
             setToken(null);
@@ -577,6 +653,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     if (user) {
       refreshTickets();
+      refreshWallet();
 
       // Initialise les numéros avec le numéro réel de l'utilisateur
       const raw = user.phone_number || '';
@@ -724,9 +801,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await StorageService.saveUser(userData);
       await StorageService.saveToken(accessToken);
 
-      // Recharger départs et billets en direct depuis le backend
+      // Recharger départs, billets et solde portefeuille en direct depuis le backend
       refreshTrips();
       refreshTickets(accessToken);
+      refreshWallet(accessToken);
 
       return { success: true, user: userData };
     } catch (err: any) {
@@ -803,6 +881,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setToken(null);
     setTickets([]);
     setActiveTicket(null);
+    setWalletBalance(0);
     setJustRegistered(false);
     setJustLoggedOut(true);
   };
@@ -850,6 +929,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         busSlots,
         refreshTrips,
         refreshTickets,
+        refreshWallet,
         debitWallet,
         rechargeWallet,
         updateOperatorPhone,

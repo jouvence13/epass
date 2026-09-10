@@ -22,16 +22,7 @@ export default function ControllerHubScreen({ navigation }: any) {
     capacity_percentage: number;
     bus_code: string;
     delay_minutes: number;
-  }>({
-    route_title: 'Campus Express Ligne 4',
-    next_stop_name: 'Arrêt Faculté des Sciences',
-    next_stop_eta_minutes: 5,
-    capacity_num: 32,
-    capacity_total: 50,
-    capacity_percentage: 64,
-    bus_code: 'Bus #402',
-    delay_minutes: 0,
-  });
+  } | null>(null);
 
   const [refreshing, setRefreshing] = useState(false);
   const [recentAlert, setRecentAlert] = useState<{
@@ -55,12 +46,12 @@ export default function ControllerHubScreen({ navigation }: any) {
         if (data && data.route_title) {
           setActiveTrip({
             route_title: data.route_title,
-            next_stop_name: data.next_stop_name || 'Prochain Arrêt',
-            next_stop_eta_minutes: data.next_stop_eta_minutes ?? 5,
-            capacity_num: data.capacity_num ?? 32,
+            next_stop_name: data.next_stop_name || 'Terminus',
+            next_stop_eta_minutes: data.next_stop_eta_minutes ?? 0,
+            capacity_num: data.capacity_num ?? 0,
             capacity_total: data.capacity_total ?? 50,
-            capacity_percentage: data.capacity_percentage ?? 64,
-            bus_code: data.bus_code || 'Bus Campus',
+            capacity_percentage: data.capacity_percentage ?? 0,
+            bus_code: data.bus_code || 'Navette Campus',
             delay_minutes: data.delay_minutes ?? 0,
           });
         }
@@ -212,10 +203,14 @@ export default function ControllerHubScreen({ navigation }: any) {
           <View style={styles.routeHeader}>
             <View>
               <Text style={styles.badgeLine}>NAVETTE SOUS CONTRÔLE</Text>
-              <Text style={styles.routeTitle}>{activeTrip.route_title}</Text>
+              <Text style={styles.routeTitle}>
+                {activeTrip?.route_title || 'Supervision des Lignes & Navettes'}
+              </Text>
               <View style={styles.rowCenter}>
                 <MaterialIcons name="directions-bus" size={16} color={colors.onSurfaceVariant} />
-                <Text style={styles.hint}> {activeTrip.bus_code} • Prochain arrêt : {activeTrip.next_stop_name}</Text>
+                <Text style={styles.hint}>
+                  {' '}{activeTrip ? `${activeTrip.bus_code} • Prochain arrêt : ${activeTrip.next_stop_name}` : 'Rotation active'}
+                </Text>
               </View>
             </View>
             <View style={styles.livePill}>
@@ -233,11 +228,11 @@ export default function ControllerHubScreen({ navigation }: any) {
               <MaterialIcons name="group" size={20} color={colors.outline} />
             </View>
             <View style={styles.capacityRow}>
-              <Text style={styles.capacityNum}>{activeTrip.capacity_num}</Text>
-              <Text style={styles.capacityTotal}>/{activeTrip.capacity_total}</Text>
+              <Text style={styles.capacityNum}>{activeTrip?.capacity_num ?? 0}</Text>
+              <Text style={styles.capacityTotal}>/{activeTrip?.capacity_total ?? 50}</Text>
             </View>
             <View style={styles.progressTrack}>
-              <View style={[styles.progressFill, { width: `${activeTrip.capacity_percentage}%` }]} />
+              <View style={[styles.progressFill, { width: `${activeTrip?.capacity_percentage ?? 0}%` }]} />
             </View>
             <Pressable
               style={[styles.boardBtn, !isKycApproved && { opacity: 0.6 }]}

@@ -17,27 +17,24 @@ import { normalizeBeninPhone, extractLocalDigits } from '../../utils/phoneUtils'
 
 type LoginRole = 'STUDENT' | 'DRIVER' | 'CONTROLLER';
 
-const ROLES: { key: LoginRole; label: string; icon: any; hint: string; defaultMatricule: string }[] = [
+const ROLES: { key: LoginRole; label: string; icon: any; hint: string }[] = [
   {
     key: 'STUDENT',
     label: 'Étudiant',
     icon: 'school',
     hint: 'Accès tickets, QR Code & suivi GPS des bus campus',
-    defaultMatricule: 'UAC-2024-8492',
   },
   {
     key: 'DRIVER',
     label: 'Chauffeur',
     icon: 'local-shipping',
     hint: 'Gestion des trajets, retards & manifeste de bord (Matricule requis)',
-    defaultMatricule: 'DRV-2024-001',
   },
   {
     key: 'CONTROLLER',
     label: 'Contrôleur',
     icon: 'qr-code-scanner',
     hint: 'Scan et contrôle des titres de transport à bord (Matricule requis)',
-    defaultMatricule: 'CTR-2024-001',
   },
 ];
 

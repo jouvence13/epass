@@ -1,28 +1,93 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, ScrollView, Pressable, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  StyleSheet,
+  ScrollView,
+  Pressable,
+  ActivityIndicator,
+  RefreshControl,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { colors, radius, spacing, typography } from '../../theme/theme';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
+import { ENDPOINTS } from '../../config/api';
+
+interface InfractionItem {
+  key: string;
+  label: string;
+  icon: keyof typeof MaterialIcons.glyphMap;
+  severity: string;
+  penalty_amount: number;
+  description: string;
+}
 
 export default function ReportFraudScreen({ navigation }: any) {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const { showToast } = useNotifications();
+
+  const [infractions, setInfractions] = useState<InfractionItem[]>([]);
+  const [loadingTypes, setLoadingTypes] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   const [studentInfo, setStudentInfo] = useState('');
   const [infractionType, setInfractionType] = useState('NO_TICKET');
   const [description, setDescription] = useState('');
   const [sending, setSending] = useState(false);
 
-  const infractions = [
-    { key: 'NO_TICKET', label: 'Absence totale de titre de transport', icon: 'money-off' },
-    { key: 'REUSED_TICKET', label: 'Tentative de réutilisation d’un billet expiré', icon: 'replay' },
-    { key: 'IDENTITY_MISMATCH', label: 'Usurpation d’identité / Mauvais matricule', icon: 'person-outline' },
-    { key: 'REFUSAL', label: 'Refus de contrôle ou comportement inapproprié', icon: 'warning' },
-  ];
+  const fetchInfractionTypes = useCallback(async () => {
+    try {
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      const res = await fetch(ENDPOINTS.CONTROLLER_INFRACTION_TYPES, {
+        credentials: 'include',
+        headers,
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          setInfractions(data);
+          if (!data.some((d: InfractionItem) => d.key === infractionType)) {
+            setInfractionType(data[0].key);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Error fetching infraction types from backend:', e);
+    } finally {
+      setLoadingTypes(false);
+      setRefreshing(false);
+    }
+  }, [token, infractionType]);
+
+  useEffect(() => {
+    fetchInfractionTypes();
+  }, [fetchInfractionTypes]);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchInfractionTypes();
+  };
+
+  const isKycApproved = (user?.kyc_status || 'APPROVED') === 'APPROVED';
 
   const handleSubmit = async () => {
+    if (!isKycApproved) {
+      showToast({
+        title: 'Habilitation Requise',
+        message: 'Votre badge doit être validé par l’administration pour enregistrer un PV.',
+        type: 'warning',
+        category: 'KYC',
+      });
+      navigation.navigate('DriverProfile');
+      return;
+    }
+
     if (!description.trim() && !studentInfo.trim()) {
       showToast({
         title: 'Champs requis',
@@ -34,18 +99,56 @@ export default function ReportFraudScreen({ navigation }: any) {
     }
 
     setSending(true);
-    // Simuler l'enregistrement du procès-verbal de contrôle
-    setTimeout(() => {
-      setSending(false);
-      showToast({
-        title: 'Procès-Verbal Enregistré',
-        message: 'Le signalement d’infraction a été transmis à la direction des transports.',
-        type: 'success',
-        category: 'TRIP',
+    try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const res = await fetch(ENDPOINTS.CONTROLLER_REPORT_FRAUD, {
+        method: 'POST',
+        credentials: 'include',
+        headers,
+        body: JSON.stringify({
+          infraction_type: infractionType,
+          student_info: studentInfo.trim(),
+          description: description.trim(),
+        }),
       });
-      navigation.goBack();
-    }, 600);
+
+      if (res.ok) {
+        const data = await res.json();
+        showToast({
+          title: `Procès-Verbal ${data.report_id || 'Enregistré'}`,
+          message: data.message || 'Le signalement d’infraction a été transmis à la direction des transports.',
+          type: 'success',
+          category: 'TRIP',
+        });
+        navigation.goBack();
+      } else {
+        const err = await res.json().catch(() => null);
+        showToast({
+          title: 'Erreur d’Enregistrement',
+          message: err?.detail || 'Impossible de transmettre le procès-verbal.',
+          type: 'error',
+          category: 'TRIP',
+        });
+      }
+    } catch (e) {
+      showToast({
+        title: 'Erreur Réseau',
+        message: 'Impossible de joindre le serveur.',
+        type: 'error',
+        category: 'GENERAL',
+      });
+    } finally {
+      setSending(false);
+    }
   };
+
+  const selectedInfraction = infractions.find((i) => i.key === infractionType);
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
@@ -61,7 +164,10 @@ export default function ReportFraudScreen({ navigation }: any) {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />}
+      >
         {/* Banner */}
         <View style={styles.banner}>
           <MaterialIcons name="gavel" size={26} color="#b91c1c" />
@@ -73,29 +179,49 @@ export default function ReportFraudScreen({ navigation }: any) {
           </View>
         </View>
 
-        {/* Infraction Types */}
+        {/* Infraction Types from Backend */}
         <Text style={styles.sectionTitle}>
-          <MaterialIcons name="report-problem" size={18} color={colors.primary} /> Nature de l'Infraction
+          <MaterialIcons name="report-problem" size={18} color={colors.primary} /> Nature de l'Infraction (Backend)
         </Text>
-        <View style={{ gap: spacing.sm }}>
-          {infractions.map((inf) => {
-            const active = infractionType === inf.key;
-            return (
-              <Pressable
-                key={inf.key}
-                onPress={() => setInfractionType(inf.key)}
-                style={[styles.infractionRow, active && styles.infractionRowActive]}
-              >
-                <View style={[styles.infractionIcon, active && styles.infractionIconActive]}>
-                  <MaterialIcons name={inf.icon as any} size={20} color={active ? '#ffffff' : colors.onSurfaceVariant} />
-                </View>
-                <Text style={[styles.infractionLabel, active && { color: colors.primary, fontWeight: '700' }]}>
-                  {inf.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
+
+        {loadingTypes ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="small" color={colors.primary} />
+            <Text style={styles.loadingText}>Chargement des motifs d'infraction...</Text>
+          </View>
+        ) : (
+          <View style={{ gap: spacing.sm }}>
+            {infractions.map((inf) => {
+              const active = infractionType === inf.key;
+              return (
+                <Pressable
+                  key={inf.key}
+                  onPress={() => setInfractionType(inf.key)}
+                  style={[styles.infractionRow, active && styles.infractionRowActive]}
+                >
+                  <View style={[styles.infractionIcon, active && styles.infractionIconActive]}>
+                    <MaterialIcons name={inf.icon || 'warning'} size={20} color={active ? '#ffffff' : colors.onSurfaceVariant} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Text style={[styles.infractionLabel, active && { color: colors.primary, fontWeight: '700' }]}>
+                        {inf.label}
+                      </Text>
+                      {inf.penalty_amount > 0 && (
+                        <View style={styles.penaltyBadge}>
+                          <Text style={styles.penaltyText}>Amende : {inf.penalty_amount} F</Text>
+                        </View>
+                      )}
+                    </View>
+                    {inf.description ? (
+                      <Text style={styles.infractionDesc}>{inf.description}</Text>
+                    ) : null}
+                  </View>
+                </Pressable>
+              );
+            })}
+          </View>
+        )}
 
         {/* Passenger Identifier */}
         <Text style={[styles.sectionTitle, { marginTop: spacing.lg }]}>
@@ -104,7 +230,7 @@ export default function ReportFraudScreen({ navigation }: any) {
         <TextInput
           value={studentInfo}
           onChangeText={setStudentInfo}
-          placeholder="Nom, Matricule UAC ou Téléphone (si disponible)"
+          placeholder="Nom, Matricule Étudiant ou Téléphone (si disponible)"
           placeholderTextColor={colors.outline}
           style={styles.input}
         />
@@ -128,7 +254,11 @@ export default function ReportFraudScreen({ navigation }: any) {
           <Pressable style={styles.cancelBtn} onPress={() => navigation.goBack()}>
             <Text style={styles.cancelText}>Annuler</Text>
           </Pressable>
-          <Pressable style={styles.submitBtn} onPress={handleSubmit} disabled={sending}>
+          <Pressable
+            style={[styles.submitBtn, (!isKycApproved || sending) && { opacity: 0.7 }]}
+            onPress={handleSubmit}
+            disabled={sending}
+          >
             {sending ? (
               <ActivityIndicator color="#ffffff" size="small" />
             ) : (
@@ -179,6 +309,15 @@ const styles = StyleSheet.create({
   bannerTitle: { ...typography.headlineSm, fontSize: 15, color: '#991b1b', marginBottom: 2 },
   bannerBody: { ...typography.bodySm, color: '#991b1b', opacity: 0.9 },
   sectionTitle: { ...typography.headlineSm, fontSize: 15, color: colors.onSurface, marginTop: spacing.xs },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    padding: spacing.md,
+    backgroundColor: colors.surfaceContainer,
+    borderRadius: radius.md,
+  },
+  loadingText: { ...typography.bodySm, color: colors.onSurfaceVariant },
   infractionRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -199,7 +338,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   infractionIconActive: { backgroundColor: colors.primary },
-  infractionLabel: { ...typography.bodyMd, color: colors.onSurface, flex: 1 },
+  infractionLabel: { ...typography.bodyMd, color: colors.onSurface, fontSize: 14, fontWeight: '600' },
+  infractionDesc: { ...typography.bodySm, color: colors.onSurfaceVariant, fontSize: 11, marginTop: 2 },
+  penaltyBadge: {
+    backgroundColor: '#fee2e2',
+    borderRadius: radius.full,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderWidth: 0.5,
+    borderColor: '#ef4444',
+  },
+  penaltyText: { ...typography.labelCaps, color: '#b91c1c', fontSize: 9, fontWeight: '700' },
   input: {
     borderWidth: 1,
     borderColor: colors.outlineVariant,
@@ -240,3 +389,4 @@ const styles = StyleSheet.create({
   },
   submitText: { ...typography.labelCaps, color: '#ffffff', fontSize: 13, fontWeight: '700' },
 });
+

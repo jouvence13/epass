@@ -42,7 +42,7 @@ interface RechargeHistory {
 import { ENDPOINTS } from '../../config/api';
 
 export default function PaymentMethodsScreen({ navigation }: any) {
-  const { user, token, walletBalance, operatorPhoneNumbers, rechargeWallet, updateOperatorPhone } = useAuth();
+  const { user, token, walletBalance, operatorPhoneNumbers, rechargeWallet, refreshWallet, updateOperatorPhone } = useAuth();
   const { showToast } = useNotifications();
 
   const [methods, setMethods] = useState<PaymentMethod[]>([]);
@@ -58,6 +58,8 @@ export default function PaymentMethodsScreen({ navigation }: any) {
         headers['Authorization'] = `Bearer ${token}`;
       }
 
+      await refreshWallet();
+
       const [methodsRes, histRes] = await Promise.all([
         fetch(ENDPOINTS.PAYMENT_METHODS, { credentials: 'include', headers }),
         fetch(ENDPOINTS.PAYMENT_HISTORY, { credentials: 'include', headers }),
@@ -67,7 +69,7 @@ export default function PaymentMethodsScreen({ navigation }: any) {
         if (Array.isArray(data) && data.length > 0) {
           setMethods(data);
         } else {
-          const userPhone = user?.phone_number || '+2290197001122';
+          const userPhone = user?.phone_number || '';
           setMethods([
             {
               id: 'm-mtn',

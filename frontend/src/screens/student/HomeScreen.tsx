@@ -35,6 +35,7 @@ export default function HomeScreen({ navigation }: any) {
     purchaseTicket,
     refreshTrips,
     refreshTickets,
+    refreshWallet,
   } = useAuth();
   const { showToast } = useNotifications();
 
@@ -51,10 +52,10 @@ export default function HomeScreen({ navigation }: any) {
     await Promise.all([
       refreshTrips ? refreshTrips() : Promise.resolve(),
       refreshTickets ? refreshTickets() : Promise.resolve(),
+      refreshWallet ? refreshWallet() : Promise.resolve(),
     ]);
     setRefreshing(false);
   };
-
 
   const studentName = user ? `${user.first_name} ${user.last_name}` : 'Étudiant';
   const activeTicketsList = tickets.filter((t) => t.status === 'ACTIVE');
@@ -63,7 +64,7 @@ export default function HomeScreen({ navigation }: any) {
   const [selectedDeparture, setSelectedDeparture] = useState<BusSlot | null>(null);
   const [departureModalVisible, setDepartureModalVisible] = useState(false);
   const [paymentOp, setPaymentOp] = useState<'WALLET' | 'MTN' | 'MOOV' | 'CELTIIS'>('WALLET');
-  const [phone, setPhone] = useState(operatorPhoneNumbers.MTN || '+2290157774305');
+  const [phone, setPhone] = useState(operatorPhoneNumbers.MTN || user?.phone_number || '');
   const [isProcessing, setIsProcessing] = useState(false);
 
   const handleOpenDeparture = (slot: BusSlot) => {
@@ -82,14 +83,14 @@ export default function HomeScreen({ navigation }: any) {
     }
     setSelectedDeparture(slot);
     setPaymentOp('WALLET');
-    setPhone(operatorPhoneNumbers.MTN || '+2290157774305');
+    setPhone(operatorPhoneNumbers.MTN || user?.phone_number || '');
     setDepartureModalVisible(true);
   };
 
   const handleSelectOp = (op: 'WALLET' | 'MTN' | 'MOOV' | 'CELTIIS') => {
     setPaymentOp(op);
     if (op !== 'WALLET') {
-      setPhone(operatorPhoneNumbers[op] || '+2290157774305');
+      setPhone(operatorPhoneNumbers[op] || user?.phone_number || '');
     }
   };
 
@@ -97,11 +98,14 @@ export default function HomeScreen({ navigation }: any) {
     if (!selectedDeparture) return;
 
     if (selectedDeparture.full) {
-      Alert.alert('Bus Complet', 'Ce bus est déjà complet (50/50 places occupées). Veuillez choisir une autre rotation.');
+      Alert.alert(
+        'Bus Complet',
+        `Ce bus est déjà complet (${selectedDeparture.totalSeats}/${selectedDeparture.totalSeats} places occupées). Veuillez choisir une autre rotation.`
+      );
       return;
     }
 
-    const price = 100;
+    const price = selectedDeparture.price || 0;
 
     if (paymentOp === 'WALLET') {
       if (walletBalance < price) {
@@ -109,7 +113,7 @@ export default function HomeScreen({ navigation }: any) {
           'Solde Portefeuille Insuffisant',
           `Votre solde actuel (${walletBalance.toLocaleString(
             'fr-FR'
-          )} FCFA) est insuffisant. Veuillez recharger votre portefeuille.`,
+          )} FCFA) est insuffisant pour régler ${price.toLocaleString('fr-FR')} FCFA. Veuillez recharger votre portefeuille.`,
           [
             { text: 'Annuler', style: 'cancel' },
             {
@@ -136,10 +140,10 @@ export default function HomeScreen({ navigation }: any) {
         const ok = debitWallet(price);
         if (ok) {
           const newTicket = purchaseTicket({
-            line: `Ligne ${selectedDeparture.route}`,
+            line: selectedDeparture.lineName || selectedDeparture.route,
             route: selectedDeparture.route,
-            busId: 'Navette Campus #402',
-            price: 100,
+            busId: selectedDeparture.busId || selectedDeparture.busCode || '',
+            price: price,
             paymentMethod: 'Portefeuille Campus',
             slotId: selectedDeparture.id,
           });
@@ -148,7 +152,7 @@ export default function HomeScreen({ navigation }: any) {
 
           showToast({
             title: 'Titre Validé en Temps Réel !',
-            message: `100 FCFA débités du Portefeuille Campus. Ticket : ${newTicket.code}`,
+            message: `${price.toLocaleString('fr-FR')} FCFA débités du Portefeuille Campus. Ticket : ${newTicket.code}`,
             type: 'success',
             category: 'WALLET',
           });
@@ -189,10 +193,10 @@ export default function HomeScreen({ navigation }: any) {
           : 'Celtiis Cash (*888#)';
 
       const newTicket = purchaseTicket({
-        line: `Ligne ${selectedDeparture.route}`,
+        line: selectedDeparture.lineName || selectedDeparture.route,
         route: selectedDeparture.route,
-        busId: 'Bus Campus #402',
-        price: 100,
+        busId: selectedDeparture.busId || selectedDeparture.busCode || '',
+        price: price,
         paymentMethod: opName,
         slotId: selectedDeparture.id,
       });
@@ -201,7 +205,7 @@ export default function HomeScreen({ navigation }: any) {
 
       showToast({
         title: 'Titre Validé !',
-        message: `100 FCFA réglés via ${opName} (${cleanPhone}).`,
+        message: `${price.toLocaleString('fr-FR')} FCFA réglés via ${opName} (${cleanPhone}).`,
         type: 'success',
         category: 'PAYMENT',
       });
@@ -221,7 +225,6 @@ export default function HomeScreen({ navigation }: any) {
       );
     }, 900);
   };
-
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
@@ -344,7 +347,7 @@ export default function HomeScreen({ navigation }: any) {
           </Card>
         ) : activeTicketsList.length > 0 ? (
           <View style={{ gap: spacing.md }}>
-            {activeTicketsList.map((t, idx) => (
+            {activeTicketsList.map((t) => (
               <Card key={t.id} floating style={styles.activeTicketCard}>
                 <View style={styles.ticketCardHeader}>
                   <View style={{ flex: 1 }}>
@@ -373,7 +376,7 @@ export default function HomeScreen({ navigation }: any) {
               onPress={() => navigation.navigate('Booking')}
             >
               <MaterialIcons name="qr-code-scanner" size={18} color="#ffffff" />
-              <Text style={styles.buyTicketActionText}>Acheter un Ticket (100 F)</Text>
+              <Text style={styles.buyTicketActionText}>Acheter un Ticket</Text>
             </Pressable>
           </Card>
         )}
@@ -415,7 +418,7 @@ export default function HomeScreen({ navigation }: any) {
 
           <View style={styles.departuresList}>
             {busSlots && busSlots.length > 0 ? (
-              busSlots.map((slot: any) => (
+              busSlots.map((slot: BusSlot) => (
                 <Pressable key={slot.id} style={styles.departureRow} onPress={() => handleOpenDeparture(slot)}>
                   <View style={styles.busIconSquare}>
                     <MaterialIcons name="directions-bus" size={20} color={colors.primary} />
@@ -452,7 +455,6 @@ export default function HomeScreen({ navigation }: any) {
         <View style={styles.bottomSheetOverlay}>
           <Pressable style={styles.bottomSheetBackdrop} onPress={() => setDepartureModalVisible(false)} />
           <View style={styles.bottomSheetContent}>
-            {/* Poignée de drag */}
             <View style={styles.sheetHandle} />
 
             {selectedDeparture && (
@@ -465,7 +467,10 @@ export default function HomeScreen({ navigation }: any) {
                       icon={selectedDeparture.full ? 'person-off' : 'check-circle'}
                     />
                     <Text style={styles.sheetTitle}>{selectedDeparture.time}</Text>
-                    <Text style={styles.sheetSub}>{selectedDeparture.route} • Navette Campus #402</Text>
+                    <Text style={styles.sheetSub}>
+                      {selectedDeparture.route}
+                      {selectedDeparture.busId ? ` • ${selectedDeparture.busId}` : ''}
+                    </Text>
                   </View>
                   <Pressable onPress={() => setDepartureModalVisible(false)} style={styles.closeSheetBtn}>
                     <MaterialIcons name="close" size={24} color={colors.onSurface} />
@@ -477,32 +482,33 @@ export default function HomeScreen({ navigation }: any) {
                   <View style={styles.sheetDetailRow}>
                     <MaterialIcons name="trip-origin" size={18} color={colors.primary} />
                     <Text style={styles.sheetDetailLabel}>Départ :</Text>
-                    <Text style={styles.sheetDetailVal}>Campus Universitaire</Text>
+                    <Text style={styles.sheetDetailVal}>{selectedDeparture.origin || '-'}</Text>
                   </View>
                   <View style={styles.sheetDetailRow}>
                     <MaterialIcons name="location-on" size={18} color={colors.secondary} />
                     <Text style={styles.sheetDetailLabel}>Terminus :</Text>
-                    <Text style={styles.sheetDetailVal}>
-                      {selectedDeparture.route.includes('Godomey')
-                        ? 'Échangeur Godomey'
-                        : selectedDeparture.route.includes('Akpakpa')
-                        ? 'Akpakpa Sacré-Cœur'
-                        : 'Cotonou Étoile Rouge'}
-                    </Text>
+                    <Text style={styles.sheetDetailVal}>{selectedDeparture.destination || '-'}</Text>
                   </View>
                   <View style={styles.sheetDivider} />
                   <View style={styles.sheetDetailRow}>
                     <MaterialIcons name="airline-seat-recline-normal" size={18} color={colors.primary} />
                     <Text style={styles.sheetDetailLabel}>Disponibilité :</Text>
-                    <Text style={[styles.sheetDetailVal, { color: selectedDeparture.full ? colors.error : colors.secondary, fontWeight: '700' }]}>
-                      {selectedDeparture.full ? 'Complet (50/50)' : `${50 - selectedDeparture.bookedSeats} places restantes (${selectedDeparture.bookedSeats}/50)`}
+                    <Text
+                      style={[
+                        styles.sheetDetailVal,
+                        { color: selectedDeparture.full ? colors.error : colors.secondary, fontWeight: '700' },
+                      ]}
+                    >
+                      {selectedDeparture.full
+                        ? `Complet (${selectedDeparture.totalSeats}/${selectedDeparture.totalSeats})`
+                        : `${selectedDeparture.totalSeats - selectedDeparture.bookedSeats} places restantes (${selectedDeparture.bookedSeats}/${selectedDeparture.totalSeats})`}
                     </Text>
                   </View>
                   <View style={styles.sheetDetailRow}>
                     <MaterialIcons name="payments" size={18} color={colors.primary} />
                     <Text style={styles.sheetDetailLabel}>Tarif Subventionné :</Text>
                     <Text style={[styles.sheetDetailVal, { color: colors.primary, fontWeight: '700', fontSize: 16 }]}>
-                      100 FCFA
+                      {(selectedDeparture.price || 0).toLocaleString('fr-FR')} FCFA
                     </Text>
                   </View>
                 </View>
@@ -581,10 +587,16 @@ export default function HomeScreen({ navigation }: any) {
                       : selectedDeparture.full
                       ? 'Rotation Complète'
                       : paymentOp === 'WALLET'
-                      ? 'Payer avec mon Portefeuille (100 FCFA)'
-                      : 'Payer & Réserver mon Siège (100 FCFA)'
+                      ? `Payer avec mon Portefeuille (${(selectedDeparture.price || 0).toLocaleString('fr-FR')} FCFA)`
+                      : `Payer & Réserver mon Siège (${(selectedDeparture.price || 0).toLocaleString('fr-FR')} FCFA)`
                   }
-                  icon={selectedDeparture.full ? 'person-off' : paymentOp === 'WALLET' ? 'account-balance-wallet' : 'confirmation-number'}
+                  icon={
+                    selectedDeparture.full
+                      ? 'person-off'
+                      : paymentOp === 'WALLET'
+                      ? 'account-balance-wallet'
+                      : 'confirmation-number'
+                  }
                   variant={selectedDeparture.full ? 'muted' : 'gold'}
                   onPress={handleConfirmDeparturePayment}
                   disabled={isProcessing || selectedDeparture.full}
@@ -654,7 +666,7 @@ const styles = StyleSheet.create({
     color: '#ffffff',
   },
 
-  // Bannière de bienvenue / Notification
+  // Bannière de bienvenue
   welcomeBanner: {
     backgroundColor: '#ecfdf5',
     borderWidth: 1.5,
@@ -697,45 +709,6 @@ const styles = StyleSheet.create({
   },
   closeBannerBtn: {
     padding: spacing.xs,
-  },
-  welcomeDetailsBox: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    backgroundColor: '#ffffff',
-    borderRadius: radius.md,
-    padding: spacing.sm,
-    gap: spacing.md,
-    borderWidth: 1,
-    borderColor: '#d1fae5',
-  },
-  detailItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  detailText: {
-    ...typography.bodySm,
-    fontSize: 12,
-    color: '#166534',
-  },
-  welcomeActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    marginTop: 2,
-  },
-  kycActionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#16a34a',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs + 2,
-    borderRadius: radius.md,
-  },
-  kycActionText: {
-    ...typography.bodySm,
-    fontWeight: '700',
-    color: '#ffffff',
   },
 
   greetingHeader: {
@@ -809,39 +782,6 @@ const styles = StyleSheet.create({
     gap: 2,
     minWidth: 64,
   },
-  qrOpenBtnText: {
-    ...typography.labelCaps,
-    fontSize: 10,
-    color: colors.onPrimary,
-    fontWeight: '700',
-  },
-  ticketMetaRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: colors.surfaceContainerLow,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.sm,
-    marginTop: spacing.xs,
-    gap: 8,
-  },
-  ticketMetaItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  ticketMetaCode: {
-    ...typography.statusCode,
-    fontSize: 12,
-    color: colors.primary,
-  },
-  ticketMetaText: {
-    ...typography.bodySm,
-    fontSize: 11,
-    color: colors.onSurfaceVariant,
-  },
 
   noTicketCard: {
     alignItems: 'center',
@@ -858,13 +798,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: colors.onSurface,
     marginTop: spacing.xs,
-  },
-  noTicketSub: {
-    ...typography.bodySm,
-    color: colors.onSurfaceVariant,
-    textAlign: 'center',
-    lineHeight: 18,
-    marginBottom: spacing.sm,
   },
   buyTicketActionBtn: {
     flexDirection: 'row',
@@ -895,16 +828,9 @@ const styles = StyleSheet.create({
   tileLabel: { ...typography.bodyLg, fontWeight: '600', color: colors.onSurface },
   section: { gap: spacing.sm },
   sectionTitle: { ...typography.headlineSm, color: colors.primary, fontSize: 16 },
-  tapToBookHint: {
-    ...typography.bodySm,
-    fontSize: 11,
-    color: colors.primary,
-    fontWeight: '600',
-  },
 
   // Prochains Départs Campus
   departuresList: {
-
     gap: spacing.sm,
     marginTop: spacing.xs,
   },
@@ -917,11 +843,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.outlineVariant,
-  },
-  departureRowFull: {
-    backgroundColor: '#fef2f2',
-    borderColor: '#fecaca',
-    opacity: 0.85,
   },
   busIconSquare: {
     width: 36,
@@ -944,28 +865,6 @@ const styles = StyleSheet.create({
     color: colors.onSurfaceVariant,
     fontSize: 12,
     marginTop: 1,
-  },
-  departureMetaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: 4,
-  },
-  departureSeatsText: {
-    ...typography.bodySm,
-    fontSize: 11,
-    color: colors.secondary,
-    fontWeight: '600',
-  },
-  departurePricePill: {
-    ...typography.labelCaps,
-    fontSize: 10,
-    color: colors.primary,
-    backgroundColor: colors.primaryFixed,
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: radius.xs,
-    fontWeight: '700',
   },
 
   // Bottom Sheet Modal

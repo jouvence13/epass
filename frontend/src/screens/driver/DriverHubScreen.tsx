@@ -27,16 +27,8 @@ export default function DriverHubScreen({ navigation }: any) {
     capacity_percentage: number;
     bus_code: string;
     delay_minutes: number;
-  }>({
-    route_title: 'Campus Express Ligne 4',
-    next_stop_name: 'Arrêt Faculté des Sciences',
-    next_stop_eta_minutes: 5,
-    capacity_num: 32,
-    capacity_total: 50,
-    capacity_percentage: 64,
-    bus_code: 'Bus #402',
-    delay_minutes: 0,
-  });
+  } | null>(null);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const fetchActiveTrip = useCallback(async () => {
@@ -54,12 +46,12 @@ export default function DriverHubScreen({ navigation }: any) {
         if (data && data.route_title) {
           setActiveTrip({
             route_title: data.route_title,
-            next_stop_name: data.next_stop_name || 'Prochain Arrêt',
-            next_stop_eta_minutes: data.next_stop_eta_minutes ?? 5,
-            capacity_num: data.capacity_num ?? 32,
+            next_stop_name: data.next_stop_name || 'Terminus',
+            next_stop_eta_minutes: data.next_stop_eta_minutes ?? 0,
+            capacity_num: data.capacity_num ?? 0,
             capacity_total: data.capacity_total ?? 50,
-            capacity_percentage: data.capacity_percentage ?? 64,
-            bus_code: data.bus_code || 'Bus Campus',
+            capacity_percentage: data.capacity_percentage ?? 0,
+            bus_code: data.bus_code || 'Navette Campus',
             delay_minutes: data.delay_minutes ?? 0,
           });
         }
@@ -67,6 +59,7 @@ export default function DriverHubScreen({ navigation }: any) {
     } catch (e) {
       console.warn('Error fetching driver active trip:', e);
     } finally {
+      setLoading(false);
       setRefreshing(false);
     }
   }, [token]);
@@ -129,7 +122,9 @@ export default function DriverHubScreen({ navigation }: any) {
             </View>
             <View>
               <Text style={styles.driverName}>{driverName}</Text>
-              <Text style={styles.driverRole}>{activeTrip.bus_code} • {activeTrip.route_title.split(' ')[0]}</Text>
+              <Text style={styles.driverRole}>
+                {activeTrip ? `${activeTrip.bus_code} • ${activeTrip.route_title}` : (isController ? 'Contrôle & Validation' : 'Service de Conduite')}
+              </Text>
             </View>
           </Pressable>
 
@@ -176,12 +171,14 @@ export default function DriverHubScreen({ navigation }: any) {
 
         <Card style={styles.routeCard}>
           <View style={styles.routeHeader}>
-            <View>
-              <Text style={styles.routeTitle}>{activeTrip.route_title}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.routeTitle}>
+                {activeTrip?.route_title || (isController ? 'Supervision des Lignes' : 'Service de Transport Campus')}
+              </Text>
               <View style={styles.rowCenter}>
                 <MaterialIcons name="schedule" size={16} color={colors.onSurfaceVariant} />
                 <Text style={styles.hint}>
-                  {' '}Prochain arrêt dans {activeTrip.next_stop_eta_minutes} min : {activeTrip.next_stop_name}
+                  {' '}{activeTrip ? `Prochain arrêt dans ${activeTrip.next_stop_eta_minutes} min : ${activeTrip.next_stop_name}` : 'Rotation active'}
                 </Text>
               </View>
             </View>
@@ -207,11 +204,11 @@ export default function DriverHubScreen({ navigation }: any) {
               <MaterialIcons name="group" size={20} color={colors.outline} />
             </View>
             <View style={styles.capacityRow}>
-              <Text style={styles.capacityNum}>{activeTrip.capacity_num}</Text>
-              <Text style={styles.capacityTotal}>/{activeTrip.capacity_total}</Text>
+              <Text style={styles.capacityNum}>{activeTrip?.capacity_num ?? 0}</Text>
+              <Text style={styles.capacityTotal}>/{activeTrip?.capacity_total ?? 50}</Text>
             </View>
             <View style={styles.progressTrack}>
-              <View style={[styles.progressFill, { width: `${activeTrip.capacity_percentage}%` }]} />
+              <View style={[styles.progressFill, { width: `${activeTrip?.capacity_percentage ?? 0}%` }]} />
             </View>
             <Pressable
               style={[styles.boardBtn, !isKycApproved && { opacity: 0.6 }]}
@@ -231,7 +228,7 @@ export default function DriverHubScreen({ navigation }: any) {
             >
               <MaterialIcons name="warning" size={30} color={colors.onError} />
               <Text style={styles.reportBtnText}>
-                {activeTrip.delay_minutes > 0 ? `Retard Signalé (+${activeTrip.delay_minutes} min)` : 'Signaler un Retard'}
+                {(activeTrip?.delay_minutes ?? 0) > 0 ? `Retard Signalé (+${activeTrip?.delay_minutes} min)` : 'Signaler un Retard'}
               </Text>
             </Pressable>
             <View style={styles.smallRow}>

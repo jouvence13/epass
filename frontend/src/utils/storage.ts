@@ -145,12 +145,12 @@ export const StorageService = {
       const bal = await UniversalStorage.getItem(STORAGE_KEYS.WALLET);
       const phonesRaw = await UniversalStorage.getItem(STORAGE_KEYS.PHONE_NUMBERS);
       return {
-        balance: bal ? parseFloat(bal) : 2300,
+        balance: bal !== null && bal !== undefined ? parseFloat(bal) : 0,
         phones: phonesRaw ? JSON.parse(phonesRaw) : null,
       };
     } catch (e) {
       console.warn('StorageService.getWallet error:', e);
-      return { balance: 2300, phones: null };
+      return { balance: 0, phones: null };
     }
   },
 

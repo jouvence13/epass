@@ -50,22 +50,20 @@ export default function BookTicketScreen({ navigation }: any) {
 
   // Moyen de paiement
   const [paymentOperator, setPaymentOperator] = useState<'MTN' | 'MOOV' | 'CELTIIS' | 'WALLET'>('MTN');
-  const [phone, setPhone] = useState(operatorPhoneNumbers.MTN || '+2290157774305');
+  const [phone, setPhone] = useState(operatorPhoneNumbers.MTN || user?.phone_number || '');
   const [isProcessing, setIsProcessing] = useState(false);
 
   // Synchronisation automatique du numéro de téléphone lors du changement d'opérateur
   const handleSelectOperator = (op: 'MTN' | 'MOOV' | 'CELTIIS' | 'WALLET') => {
     setPaymentOperator(op);
     if (op !== 'WALLET') {
-      const savedNumber = operatorPhoneNumbers[op] || user?.phone_number || '+2290157774305';
+      const savedNumber = operatorPhoneNumbers[op] || user?.phone_number || '';
       setPhone(savedNumber);
     }
   };
 
   // État Réservation Manuelle
   const [selectedSlot, setSelectedSlot] = useState(0);
-  const [departure, setDeparture] = useState('Calavi Campus');
-  const [destination, setDestination] = useState('Cotonou Centre');
 
   // Animation laser du scanner QR
   const scanLineAnim = useRef(new Animated.Value(0)).current;
@@ -101,12 +99,14 @@ export default function BookTicketScreen({ navigation }: any) {
   const handleSimulateScan = () => {
     setIsScanning(false);
     const activeSlot = busSlots[selectedSlot] || busSlots[0];
-    setScannedBusData({
-      busId: 'Bus Campus #402',
-      line: activeSlot ? `Ligne Express (${activeSlot.route})` : 'Ligne Campus Express',
-      route: activeSlot ? activeSlot.route : 'Calavi Campus → Cotonou Centre',
-      price: 100, // Tarif subventionné
-    });
+    if (activeSlot) {
+      setScannedBusData({
+        busId: activeSlot.busId || activeSlot.busCode || '',
+        line: activeSlot.lineName || activeSlot.route || '',
+        route: activeSlot.route || '',
+        price: activeSlot.price || 100,
+      });
+    }
   };
 
   const handleResetScan = () => {
@@ -115,13 +115,13 @@ export default function BookTicketScreen({ navigation }: any) {
   };
 
   const handleConfirmPayment = (priceOverride?: number) => {
-    const price = priceOverride || scannedBusData?.price || 100;
     const isQR = activeTab === 'SCAN_QR';
     const currentSlot = busSlots[selectedSlot] || busSlots[0];
-    const targetLine = isQR ? scannedBusData?.line || 'Ligne Campus Express' : (currentSlot?.route || 'Campus Express');
-    const targetRoute = isQR ? scannedBusData?.route || 'Calavi Campus → Cotonou Centre' : `${departure} → ${destination}`;
-    const targetBus = isQR ? scannedBusData?.busId || 'Bus Campus #402' : 'Bus Campus #402';
-    const slotId = isQR ? (currentSlot?.id || 'slot-1') : (currentSlot?.id || 'slot-1');
+    const price = priceOverride ?? scannedBusData?.price ?? currentSlot?.price ?? 0;
+    const targetLine = isQR ? (scannedBusData?.line || currentSlot?.lineName || currentSlot?.route || '') : (currentSlot?.lineName || currentSlot?.route || '');
+    const targetRoute = isQR ? (scannedBusData?.route || currentSlot?.route || '') : (currentSlot?.route || `${currentSlot?.origin || ''} → ${currentSlot?.destination || ''}`);
+    const targetBus = isQR ? (scannedBusData?.busId || currentSlot?.busId || '') : (currentSlot?.busId || '');
+    const slotId = currentSlot?.id;
 
     if (paymentOperator === 'WALLET') {
       if (walletBalance < price) {
@@ -521,14 +521,14 @@ export default function BookTicketScreen({ navigation }: any) {
               <View style={styles.routeRow}>
                 <MaterialIcons name="trip-origin" size={20} color={colors.primary} />
                 <View style={styles.select}>
-                  <Text style={styles.selectText}>{departure}</Text>
+                  <Text style={styles.selectText}>{busSlots[selectedSlot]?.origin || '-'}</Text>
                 </View>
               </View>
               <View style={styles.routeLine} />
               <View style={styles.routeRow}>
                 <MaterialIcons name="location-on" size={20} color={colors.error} />
                 <View style={styles.select}>
-                  <Text style={styles.selectText}>{destination}</Text>
+                  <Text style={styles.selectText}>{busSlots[selectedSlot]?.destination || '-'}</Text>
                 </View>
               </View>
             </Card>
@@ -681,12 +681,12 @@ export default function BookTicketScreen({ navigation }: any) {
                 isProcessing
                   ? 'Validation en cours...'
                   : paymentOperator === 'WALLET'
-                  ? `Payer avec mon Portefeuille (100 FCFA)`
-                  : 'Réserver & Payer (100 FCFA)'
+                  ? `Payer avec mon Portefeuille (${(busSlots[selectedSlot]?.price || 0).toLocaleString('fr-FR')} FCFA)`
+                  : `Réserver & Payer (${(busSlots[selectedSlot]?.price || 0).toLocaleString('fr-FR')} FCFA)`
               }
               icon={paymentOperator === 'WALLET' ? 'account-balance-wallet' : 'confirmation-number'}
               variant="gold"
-              onPress={() => handleConfirmPayment(100)}
+              onPress={() => handleConfirmPayment(busSlots[selectedSlot]?.price)}
               disabled={isProcessing}
               style={{ marginTop: spacing.sm }}
             />

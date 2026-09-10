@@ -26,8 +26,6 @@ interface RoleOption {
   badgeColor?: string;
   requiresMatricule: boolean;
   matriculePlaceholder: string;
-  defaultPhone: string;
-  defaultMatricule: string;
 }
 
 const ROLES_LIST: RoleOption[] = [
@@ -38,8 +36,6 @@ const ROLES_LIST: RoleOption[] = [
     icon: 'school',
     requiresMatricule: false,
     matriculePlaceholder: 'ex: UAC-2024-8492',
-    defaultPhone: '+2290197001122',
-    defaultMatricule: 'UAC-2024-8492',
   },
   {
     key: 'DRIVER',
@@ -50,8 +46,6 @@ const ROLES_LIST: RoleOption[] = [
     badgeColor: '#b45309',
     requiresMatricule: true,
     matriculePlaceholder: 'ex: DRV-2024-001',
-    defaultPhone: '+2290197000001',
-    defaultMatricule: 'DRV-2024-001',
   },
   {
     key: 'CONTROLLER',
@@ -62,20 +56,16 @@ const ROLES_LIST: RoleOption[] = [
     badgeColor: '#b91c1c',
     requiresMatricule: true,
     matriculePlaceholder: 'ex: CTR-2024-001',
-    defaultPhone: '+2290197000002',
-    defaultMatricule: 'CTR-2024-001',
   },
   {
     key: 'ADMIN',
     title: 'Direction Universitaire',
-    sub: 'Directeur de Campus & Super Administration Bénin',
+    sub: 'Directeur de Campus & Administration',
     icon: 'admin-panel-settings',
     badge: 'Administration',
     badgeColor: '#008751',
     requiresMatricule: true,
     matriculePlaceholder: 'ex: ADMIN-2024-001',
-    defaultPhone: '+2290197000000',
-    defaultMatricule: 'ADMIN-2024-001',
   },
 ];
 
@@ -91,9 +81,9 @@ export default function RoleSelectScreen({ navigation }: any) {
 
   const handleSelectRole = (roleItem: RoleOption) => {
     setSelectedRole(roleItem);
-    setPhoneNumber(roleItem.defaultPhone);
-    setMatricule(roleItem.defaultMatricule);
-    setPassword(roleItem.key === 'STUDENT' ? 'Student1234' : roleItem.key === 'DRIVER' ? 'Driver1234' : roleItem.key === 'CONTROLLER' ? 'Controller1234' : 'Admin1234');
+    setPhoneNumber('');
+    setMatricule('');
+    setPassword('');
     setErrorMessage(null);
     setModalVisible(true);
   };

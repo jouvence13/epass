@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, Pressable, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import Card from '../../components/Card';
@@ -18,8 +18,17 @@ const ROWS: { icon: keyof typeof MaterialIcons.glyphMap; label: string; action: 
 ];
 
 export default function ProfileScreen({ navigation }: any) {
-  const { user, walletBalance, logout } = useAuth();
+  const { user, walletBalance, refreshWallet, logout } = useAuth();
   const { showToast } = useNotifications();
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    if (refreshWallet) {
+      await refreshWallet();
+    }
+    setRefreshing(false);
+  };
 
   const handleLogout = () => {
     showToast({
@@ -31,21 +40,24 @@ export default function ProfileScreen({ navigation }: any) {
     logout();
   };
 
-  const fullName = user ? `${user.first_name} ${user.last_name}` : 'Étudiant Universitaire';
+  const fullName = user
+    ? `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'Étudiant'
+    : 'Étudiant';
+
   const roleLabel =
     user?.role === 'SUPERADMIN'
       ? 'Super Administrateur'
       : user?.role === 'ADMIN' || user?.role === 'ADMIN_CAMPUS' || user?.role === 'ADMIN_CROUS'
       ? 'Directeur de Campus'
       : user?.role === 'DRIVER'
-      ? 'Chauffeur Professionnel'
+      ? 'Chauffeur'
       : user?.role === 'CONTROLLER'
-      ? 'Contrôleur de Ligne'
-      : 'Étudiant Béninois';
+      ? 'Contrôleur'
+      : 'Étudiant';
 
-  const campusDisplayName = user?.campus_name || "Université d'Abomey-Calavi (UAC)";
-  const campusCode = user?.campus_code || 'UAC';
-  const phoneDisplay = user?.phone_number ? formatBeninPhoneDisplay(user.phone_number) : '+229 01 -- -- -- --';
+  const campusDisplayName = user?.campus_name || '';
+  const campusCode = user?.campus_code || '';
+  const phoneDisplay = user?.phone_number ? formatBeninPhoneDisplay(user.phone_number) : 'Non renseigné';
   const matricule = user?.matricule_uac || 'Non renseigné';
 
   const kycTone =
@@ -75,12 +87,15 @@ export default function ProfileScreen({ navigation }: any) {
         month: 'long',
         year: 'numeric',
       })
-    : 'Session active';
+    : 'Non renseigné';
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
-      <ScrollView contentContainerStyle={styles.scroll}>
-        {/* En-tête Profil avec Palette Officielle Bénin */}
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />}
+      >
+        {/* En-tête Profil */}
         <View style={styles.header}>
           <View style={styles.avatar}>
             <MaterialIcons name="person" size={42} color={colors.primary} />
@@ -94,10 +109,12 @@ export default function ProfileScreen({ navigation }: any) {
           <View style={styles.roleTag}>
             <Text style={styles.roleTagText}>{roleLabel}</Text>
           </View>
-          <View style={styles.campusBadge}>
-            <MaterialIcons name="account-balance" size={16} color={colors.primary} />
-            <Text style={styles.campusBadgeText}>{campusDisplayName}</Text>
-          </View>
+          {campusDisplayName ? (
+            <View style={styles.campusBadge}>
+              <MaterialIcons name="account-balance" size={16} color={colors.primary} />
+              <Text style={styles.campusBadgeText}>{campusDisplayName}</Text>
+            </View>
+          ) : null}
         </View>
 
         {/* Fiche d'Identité Complète & Données Académiques */}
@@ -139,7 +156,11 @@ export default function ProfileScreen({ navigation }: any) {
               <View style={styles.infoContent}>
                 <Text style={styles.infoLabel}>Campus d'Attache</Text>
                 <Text style={styles.infoValue}>
-                  {campusDisplayName} ({campusCode})
+                  {campusDisplayName
+                    ? campusCode
+                      ? `${campusDisplayName} (${campusCode})`
+                      : campusDisplayName
+                    : 'Non renseigné'}
                 </Text>
               </View>
             </View>

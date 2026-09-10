@@ -6,20 +6,26 @@ import { Platform } from 'react-native';
 // 1. Variable d'environnement Expo (ex: tunnel ngrok, serveur distant, etc.)
 const ENV_API_URL = process.env.EXPO_PUBLIC_API_URL;
 
-// 2. URL Publique HTTPS du Tunnel pour l'APK mobile (accessible en 4G, Wi-Fi et partout dans le monde) :
-export const PUBLIC_TUNNEL_URL = 'https://bee2-2c0f-53c0-618-9c00-db91-3bc3-36df-8940.ngrok-free.app';
-
-// 3. IP Réseau local de la machine hôte
-export const LOCAL_LAN_API_URL = 'http://192.168.1.87:8001';
+// 2. URL de secours si aucune variable d'environnement n'est détectée
+export const PUBLIC_TUNNEL_URL = 'https://epass-staging.ngrok-free.app';
+export const LOCAL_LAN_API_URL = 'http://10.0.2.2:8001';
 
 const getBaseUrl = () => {
+  // Sur le Web, toujours cibler l'API locale directement (sans passer par un tunnel distant éphémère)
+  if (Platform.OS === 'web') {
+    if (typeof window !== 'undefined' && window.location) {
+      const hostname = window.location.hostname || 'localhost';
+      return `http://${hostname}:8001`;
+    }
+    return 'http://localhost:8001';
+  }
+
+  // Si une variable d'environnement explicite est fournie
   if (ENV_API_URL && ENV_API_URL.trim().length > 0) {
     return ENV_API_URL.trim();
   }
-  if (Platform.OS === 'web') {
-    return 'http://localhost:8001';
-  }
-  // Sur mobile Android / iOS (APK autonome), utiliser le tunnel sécurisé HTTPS
+
+  // Sur mobile Android / iOS (APK autonome), utiliser le tunnel sécurisé HTTPS ou l'IP locale
   return PUBLIC_TUNNEL_URL;
 };
 
@@ -45,6 +51,7 @@ export const ENDPOINTS = {
   CREATE_NOTIFICATION: `${API_V1_URL}/notifications/create`,
 
   // Paiements & Portefeuille
+  WALLET_BALANCE: `${API_V1_URL}/payments/wallet`,
   PAYMENT_METHODS: `${API_V1_URL}/payments/methods`,
   PAYMENT_HISTORY: `${API_V1_URL}/payments/history`,
   WALLET_RECHARGE: `${API_V1_URL}/payments/wallet/recharge`,
@@ -76,6 +83,8 @@ export const ENDPOINTS = {
   DRIVER_PROFILE: `${API_V1_URL}/driver/profile`,
   DRIVER_UPLOAD_DOCS: `${API_V1_URL}/kyc/driver/upload`,
   CONTROLLER_UPLOAD_DOCS: `${API_V1_URL}/kyc/controller/upload`,
+  CONTROLLER_INFRACTION_TYPES: `${API_V1_URL}/driver/infractions/types`,
+  CONTROLLER_REPORT_FRAUD: `${API_V1_URL}/driver/report-fraud`,
 
   // Administration Campus & SuperAdmin
   ADMIN_AUDIT_FIN: `${API_V1_URL}/admin/audit-fin`,

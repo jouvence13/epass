@@ -147,34 +147,46 @@ export default function ActiveTicketScreen({ navigation }: any) {
     return Array.from(keys);
   }, [userActiveTickets, busLines]);
 
-  // Construction de la configuration active de ligne (dynamique 100%)
+  // Construction de la configuration active de ligne (100% dynamique depuis le Backend)
   const activeLine: BusLineConfig = useMemo(() => {
     if (selectedLineKey && busLines[selectedLineKey]) {
       return busLines[selectedLineKey];
+    }
+    if (activeTicket) {
+      return {
+        id: activeTicket.routeId || activeTicket.id,
+        routeId: activeTicket.routeId,
+        name: activeTicket.line || activeTicket.route || '',
+        code: activeTicket.route || activeTicket.line || '',
+        origin: activeTicket.originName || '',
+        destination: activeTicket.destinationName || '',
+        busNumber: activeTicket.busId || '',
+        occupancy: activeTicket.occupancy || '',
+        speed: activeTicket.speed || '',
+        currentLocation: activeTicket.currentLocation || activeTicket.originName || '',
+        nextStop: activeTicket.nextStop || activeTicket.destinationName || '',
+        nextStopEta: activeTicket.nextStopEta || '',
+        totalEta: activeTicket.totalEta || '',
+        stops: activeTicket.stops || [],
+      };
     }
     const firstAvailable = Object.values(busLines)[0];
     if (firstAvailable) {
       return firstAvailable;
     }
 
-    // Structure dynamique basée sur le ticket actif
-    const routeName = activeTicket?.route || activeTicket?.line || 'Ligne Campus Universitaire';
     return {
-      id: activeTicket?.id || 'dynamic-line',
-      name: routeName,
-      code: routeName,
-      busNumber: activeTicket?.busId || 'Bus Campus',
-      occupancy: 'En rotation',
-      speed: '40 km/h',
-      currentLocation: 'Campus Universitaire',
-      nextStop: 'Arrêt suivant',
-      nextStopEta: '5 min',
-      totalEta: '30 min',
-      stops: [
-        { id: 'st-orig', name: 'Départ Campus (Terminus)', status: 'passed', time: '07:30' },
-        { id: 'st-mid', name: 'Arrêt Intermédiaire', status: 'current', time: '07:45', etaMinutes: 5 },
-        { id: 'st-dest', name: 'Terminus Destination', status: 'upcoming', time: '08:00', etaMinutes: 20 },
-      ],
+      id: '',
+      name: '',
+      code: '',
+      busNumber: '',
+      occupancy: '',
+      speed: '',
+      currentLocation: '',
+      nextStop: '',
+      nextStopEta: '',
+      totalEta: '',
+      stops: [],
     };
   }, [selectedLineKey, busLines, activeTicket]);
 
