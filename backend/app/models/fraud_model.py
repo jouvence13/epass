@@ -1,5 +1,5 @@
 import uuid
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 from sqlalchemy import (
     Boolean,
     Float,
@@ -11,6 +11,10 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin
+
+if TYPE_CHECKING:
+    from app.models.user_model import Users
+    from app.models.trip_model import Trips
 
 
 class InfractionTypes(Base, TimestampMixin):

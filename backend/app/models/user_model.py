@@ -1,7 +1,7 @@
 import enum
 import uuid
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, TYPE_CHECKING
 from sqlalchemy import (
     Boolean,
     DateTime,
@@ -15,6 +15,12 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin
+
+if TYPE_CHECKING:
+    from app.models.campus_model import Campuses
+    from app.models.ticket_model import Tickets
+    from app.models.payment_model import Payments, Wallets, UserPaymentMethods
+    from app.models.notification_model import Notifications
 
 
 class UserRoleEnum(str, enum.Enum):

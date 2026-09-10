@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 logger = logging.getLogger(__name__)
 
 from app.core.database import get_async_db
-from app.models.user_model import Users
+from app.models.user_model import Users, UserRoleEnum
 from app.schemas.payment_schema import PaymentInitiateRequestSchema, PaymentInitiateResponseSchema
 from app.schemas.ticket_schema import ActiveTicketScreenOutSchema
 from app.services.auth_service import get_current_authenticated_user

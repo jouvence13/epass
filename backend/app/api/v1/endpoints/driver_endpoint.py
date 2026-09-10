@@ -9,6 +9,7 @@ from sqlalchemy.orm import selectinload
 from app.core.database import get_async_db
 from app.models.user_model import Users, UserRoleEnum, KycStatusEnum
 from app.models.trip_model import Trips, TripStatusEnum
+from app.models.fleet_model import Routes, Buses
 from app.models.ticket_model import Tickets, TicketStatusEnum
 from app.models.notification_model import Notifications
 from app.schemas.ticket_schema import (
