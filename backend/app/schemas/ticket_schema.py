@@ -32,12 +32,24 @@ class TicketValidationResponseSchema(BaseModel):
 # Student Active Ticket & Live Tracking Schemas (for ActiveTicketScreen.tsx)
 # ==============================================================================
 
+class TicketStopSchema(BaseModel):
+    id: str
+    name: str
+    status: Literal["passed", "current", "upcoming"]
+    time: str
+    etaMinutes: Optional[int] = None
+    connection: Optional[str] = None
+
+
 class ActiveTicketScreenOutSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     ticket_id: uuid.UUID
     trip_id: uuid.UUID
+    route_id: Optional[uuid.UUID] = None
     route_name: str                           # e.g. "Campus Express Route 4"
+    origin_name: Optional[str] = None
+    destination_name: Optional[str] = None
     student_name: str                         # e.g. "Koffi Alain"
     student_id: str                           # e.g. "Student ID: 2023-4458"
     matricule_uac: Optional[str] = None
@@ -58,11 +70,18 @@ class ActiveTicketScreenOutSchema(BaseModel):
     # Live Bus Telemetry & Map
     bus_code: str                             # e.g. "Bus #402"
     capacity_percentage: int                  # e.g. 65
+    occupancy_label: Optional[str] = None     # e.g. "18/50 places (36%)"
+    current_location: Optional[str] = None    # e.g. "Campus UAC Calavi"
+    next_stop: Optional[str] = None           # e.g. "Carrefour IITA"
+    next_stop_eta: Optional[str] = None       # e.g. "5 min"
+    total_eta: Optional[str] = None           # e.g. "35 min"
     eta_minutes: int                          # e.g. 8
     eta_label: str = "8 min"
     latitude: float                           # Current bus latitude
     longitude: float                          # Current bus longitude
     speed_kmh: float = 0.0
+    amount_paid: Optional[float] = None
+    stops: Optional[List[TicketStopSchema]] = None
 
 
 # ==============================================================================
@@ -161,3 +180,33 @@ class TicketOutSchema(BaseModel):
     validated_at: Optional[datetime] = None
     created_at: datetime
     trip: Optional[TripOutSchema] = None
+
+
+# ==============================================================================
+# Controller Fraud & Infraction Schemas (for ReportFraudScreen.tsx)
+# ==============================================================================
+
+class InfractionTypeOutSchema(BaseModel):
+    key: str
+    label: str
+    icon: str
+    severity: str
+    penalty_amount: float
+    description: str
+
+
+class ReportFraudRequestSchema(BaseModel):
+    trip_id: Optional[uuid.UUID] = None
+    student_info: Optional[str] = None
+    infraction_type: str
+    description: Optional[str] = None
+
+
+class ReportFraudResponseSchema(BaseModel):
+    success: bool
+    report_id: str
+    message: str
+    infraction_type: str
+    student_info: Optional[str] = None
+    recorded_at: datetime
+

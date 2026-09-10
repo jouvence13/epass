@@ -73,8 +73,13 @@ class UserProfileSchema(BaseModel):
     role: UserRoleEnum
     kyc_status: KycStatusEnum
     campus_id: Optional[uuid.UUID] = None
-    campus_code: Optional[str] = "UAC"
-    campus_name: Optional[str] = "Université d'Abomey-Calavi"
+    campus_code: Optional[str] = None
+    campus_name: Optional[str] = None
+    campus_support_phone: Optional[str] = None
+    campus_support_whatsapp: Optional[str] = None
+    campus_office_location: Optional[str] = None
+    campus_office_hours: Optional[str] = None
+    subsidized_price: Optional[float] = None
     last_kyc_verification_date: Optional[datetime] = None
     next_kyc_due_date: Optional[datetime] = None
     is_active: bool

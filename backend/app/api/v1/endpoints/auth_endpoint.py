@@ -310,16 +310,27 @@ async def get_my_profile(
     db: AsyncSession = Depends(get_async_db)
 ):
     """Retrieve logged in user profile & KYC information."""
-    campus_name = "Université d'Abomey-Calavi"
+    campus_name = None
+    support_phone = None
+    support_whatsapp = None
+    office_location = None
+    office_hours = None
+    subsidized_price = None
+
+    c = None
     if current_user.campus_id:
         c = await db.get(Campuses, current_user.campus_id)
-        if c:
-            campus_name = c.name
     elif current_user.campus_code:
         c_query = await db.execute(select(Campuses).where(Campuses.code == current_user.campus_code))
         c = c_query.scalars().first()
-        if c:
-            campus_name = c.name
+
+    if c:
+        campus_name = c.name
+        support_phone = c.support_phone
+        support_whatsapp = c.support_whatsapp
+        office_location = c.office_location
+        office_hours = c.office_hours
+        subsidized_price = c.subsidized_price
 
     return UserProfileSchema(
         user_id=current_user.user_id,
@@ -330,8 +341,13 @@ async def get_my_profile(
         role=current_user.role,
         kyc_status=current_user.kyc_status,
         campus_id=current_user.campus_id,
-        campus_code=current_user.campus_code or "UAC",
+        campus_code=current_user.campus_code,
         campus_name=campus_name,
+        campus_support_phone=support_phone,
+        campus_support_whatsapp=support_whatsapp,
+        campus_office_location=office_location,
+        campus_office_hours=office_hours,
+        subsidized_price=subsidized_price,
         last_kyc_verification_date=current_user.last_kyc_verification_date,
         next_kyc_due_date=current_user.next_kyc_due_date,
         is_active=current_user.is_active,

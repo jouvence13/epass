@@ -1,10 +1,13 @@
 import uuid
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 from sqlalchemy import Boolean, Float, String
 from sqlalchemy.dialects.postgresql import JSONB, UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin
+
+if TYPE_CHECKING:
+    from app.models.user_model import Users
 
 
 class Campuses(Base, TimestampMixin):
@@ -49,8 +52,37 @@ class Campuses(Base, TimestampMixin):
         default=True,
         nullable=False
     )
+    support_phone: Mapped[Optional[str]] = mapped_column(
+        String(30),
+        nullable=True
+    )
+    support_whatsapp: Mapped[Optional[str]] = mapped_column(
+        String(30),
+        nullable=True
+    )
+    support_email: Mapped[Optional[str]] = mapped_column(
+        String(100),
+        nullable=True
+    )
+    office_location: Mapped[Optional[str]] = mapped_column(
+        String(200),
+        nullable=True
+    )
+    office_hours: Mapped[Optional[str]] = mapped_column(
+        String(100),
+        nullable=True,
+        default="Du Lundi au Vendredi : 08h00 - 17h30"
+    )
+    subsidized_price: Mapped[Optional[float]] = mapped_column(
+        Float,
+        nullable=True,
+        default=100.0
+    )
     landmarks: Mapped[Optional[List[Dict[str, Any]]]] = mapped_column(
         JSONB,
         nullable=True,
         default=list
     )
+
+    # Relationships
+    users: Mapped[List["Users"]] = relationship("Users", back_populates="campus")

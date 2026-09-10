@@ -20,6 +20,9 @@ from app.schemas.ticket_schema import (
     DriverReportDelayRequestSchema,
     DriverReportDelayResponseSchema,
     DriverAlertOutSchema,
+    InfractionTypeOutSchema,
+    ReportFraudRequestSchema,
+    ReportFraudResponseSchema,
 )
 from app.schemas.trip_schema import DriverActiveTripOutSchema
 from app.services.auth_service import require_roles, get_current_authenticated_user
@@ -40,13 +43,17 @@ async def get_driver_active_trip(
 ):
     """
     Driver Hub Endpoint:
-    Returns the driver's currently assigned active route, live capacity metrics (e.g. 32/50),
-    next upcoming stop, and delay status.
+    Returns the driver's currently assigned active route, live capacity metrics,
+    next upcoming stop, and delay status dynamically from the database.
     """
+    from app.models.fleet_model import Routes, RouteStops
+
     query = (
         select(Trips)
         .options(
-            selectinload(Trips.route),
+            selectinload(Trips.route).selectinload(Routes.route_stops).selectinload(RouteStops.stop),
+            selectinload(Trips.route).selectinload(Routes.origin_stop),
+            selectinload(Trips.route).selectinload(Routes.destination_stop),
             selectinload(Trips.bus)
         )
         .where(
@@ -63,7 +70,9 @@ async def get_driver_active_trip(
         fallback_query = (
             select(Trips)
             .options(
-                selectinload(Trips.route),
+                selectinload(Trips.route).selectinload(Routes.route_stops).selectinload(RouteStops.stop),
+                selectinload(Trips.route).selectinload(Routes.origin_stop),
+                selectinload(Trips.route).selectinload(Routes.destination_stop),
                 selectinload(Trips.bus)
             )
             .where(Trips.status.in_([TripStatusEnum.SCHEDULED, TripStatusEnum.BOARDING, TripStatusEnum.EN_ROUTE]))
@@ -78,19 +87,34 @@ async def get_driver_active_trip(
         )
 
     # Calculate capacity values
-    total_cap = trip.total_seats if trip.total_seats > 0 else 50
+    total_cap = trip.total_seats if trip.total_seats > 0 else (trip.bus.max_capacity if trip.bus else 50)
     occupied = total_cap - max(0, trip.available_seats)
     cap_pct = int((occupied / total_cap) * 100) if total_cap > 0 else 0
 
-    route_title = trip.route.route_name if trip.route else "Campus Express Route 4"
-    bus_code = trip.bus.bus_code if trip.bus else "Bus #402"
-    next_stop_name = "Science Block"
+    route_title = trip.route.route_name if trip.route else "Ligne Campus"
+    bus_code = trip.bus.bus_code if trip.bus else "Navette Campus"
+
+    # Compute next upcoming stop dynamically
+    next_stop_name = "Terminus Destination"
+    next_stop_eta_minutes = 5
+
+    if trip.route:
+        if trip.route.route_stops and len(trip.route.route_stops) > 1:
+            sorted_stops = sorted(trip.route.route_stops, key=lambda s: s.stop_order)
+            # Pick the second stop (first upcoming intermediate stop)
+            upcoming = sorted_stops[1] if len(sorted_stops) > 1 else sorted_stops[0]
+            if upcoming.stop:
+                next_stop_name = upcoming.stop.stop_name
+            next_stop_eta_minutes = max(3, upcoming.estimated_minutes_from_origin)
+        elif trip.route.destination_stop:
+            next_stop_name = trip.route.destination_stop.stop_name
+            next_stop_eta_minutes = max(5, trip.route.estimated_duration_minutes)
 
     return DriverActiveTripOutSchema(
         trip_id=trip.trip_id,
         route_title=route_title,
         next_stop_name=next_stop_name,
-        next_stop_eta_minutes=5,
+        next_stop_eta_minutes=next_stop_eta_minutes,
         capacity_num=occupied,
         capacity_total=total_cap,
         capacity_percentage=cap_pct,
@@ -149,10 +173,16 @@ async def get_passenger_manifest(
 
     # Fetch trip and tickets with eager loading
     trip_res = await db.execute(
-        select(Trips).options(selectinload(Trips.route)).where(Trips.trip_id == target_trip_id)
+        select(Trips)
+        .options(
+            selectinload(Trips.route).selectinload(Routes.origin_stop),
+            selectinload(Trips.route).selectinload(Routes.destination_stop)
+        )
+        .where(Trips.trip_id == target_trip_id)
     )
     trip = trip_res.scalars().first()
-    trip_title = f"Trip #{str(target_trip_id)[:4].upper()} - {trip.route.route_name if (trip and trip.route) else 'Campus to Cotonou'}"
+    trip_title = f"Rotation #{str(target_trip_id)[:4].upper()} - {trip.route.route_name if (trip and trip.route) else 'Ligne Campus'}"
+    default_stop_str = trip.route.destination_stop.stop_name if (trip and trip.route and trip.route.destination_stop) else "Arrêt Campus"
 
     tickets_query = (
         select(Tickets)
@@ -174,15 +204,15 @@ async def get_passenger_manifest(
         checked = tk.status == TicketStatusEnum.VALIDATED
         if checked:
             checked_count += 1
-            checked_time_str = tk.validated_at.strftime("%H:%M %p") if tk.validated_at else "Just now"
+            checked_time_str = tk.validated_at.strftime("%H:%M") if tk.validated_at else "À l'instant"
         else:
             pending_count += 1
             checked_time_str = None
 
-        name_str = f"{u.first_name} {u.last_name}" if u else "Étudiant UAC"
-        matricule_str = u.matricule_uac if (u and u.matricule_uac) else f"UAC-2023-{str(tk.ticket_id)[:4]}"
-        phone_str = u.phone_number if u else "+229 97 00 00 00"
-        stop_str = "Portail Principal"
+        name_str = f"{u.first_name} {u.last_name}" if u else "Étudiant Campus"
+        matricule_str = u.matricule_uac if (u and u.matricule_uac) else f"EPASS-{str(tk.ticket_id)[:6].upper()}"
+        phone_str = u.phone_number if u else ""
+        stop_str = default_stop_str
 
         passenger_list.append(
             PassengerOutSchema(
@@ -230,18 +260,23 @@ async def validate_student_ticket(
         )
 
     target_trip_id = payload.trip_id
+    active_t = None
     if not target_trip_id:
         active_trip_res = await db.execute(
-            select(Trips).where(Trips.driver_id == current_driver.user_id).order_by(Trips.departure_time.asc())
+            select(Trips)
+            .options(selectinload(Trips.route))
+            .where(Trips.driver_id == current_driver.user_id)
+            .order_by(Trips.departure_time.asc())
         )
         active_t = active_trip_res.scalars().first()
         if active_t:
             target_trip_id = active_t.trip_id
         else:
             # Fallback to any active trip
-            first_t = (await db.execute(select(Trips).limit(1))).scalars().first()
+            first_t = (await db.execute(select(Trips).options(selectinload(Trips.route)).limit(1))).scalars().first()
             if first_t:
                 target_trip_id = first_t.trip_id
+                active_t = first_t
             else:
                 target_trip_id = uuid.uuid4()
 
@@ -254,8 +289,8 @@ async def validate_student_ticket(
         db=db
     )
 
-    line_str = "Campus Express (Ligne A)"
-    now_str = ticket.validated_at.strftime("%H:%M %p") if ticket.validated_at else "Just now"
+    line_str = (active_t.route.route_name if (active_t and active_t.route) else "Ligne Campus")
+    now_str = ticket.validated_at.strftime("%H:%M") if ticket.validated_at else "À l'instant"
 
     return TicketValidationResponseSchema(
         validation_status="ACCESS_GRANTED",
@@ -522,3 +557,165 @@ async def get_driver_profile(
             for d in docs
         ]
     }
+
+
+# ==============================================================================
+# 7. Fraud & Infractions System (ReportFraudScreen.tsx)
+# ==============================================================================
+
+from app.models.fraud_model import InfractionTypes, FraudReports
+
+DEFAULT_INFRACTION_TYPES = [
+    {
+        "key": "NO_TICKET",
+        "label": "Absence totale de titre de transport",
+        "icon": "money-off",
+        "severity": "HIGH",
+        "penalty_amount": 500.0,
+        "description": "Passager voyageant à bord sans aucun titre valide ou non composté."
+    },
+    {
+        "key": "REUSED_TICKET",
+        "label": "Tentative de réutilisation d’un billet expiré",
+        "icon": "replay",
+        "severity": "MEDIUM",
+        "penalty_amount": 300.0,
+        "description": "Présentation d'un titre de transport ayant déjà dépassé son délai ou sa limite d'utilisation."
+    },
+    {
+        "key": "IDENTITY_MISMATCH",
+        "label": "Usurpation d’identité / Mauvais matricule",
+        "icon": "person-outline",
+        "severity": "HIGH",
+        "penalty_amount": 1000.0,
+        "description": "Non-concordance entre la carte d'étudiant / CIP et le titulaire du billet."
+    },
+    {
+        "key": "REFUSAL",
+        "label": "Refus d'obtempérer ou comportement inapproprié",
+        "icon": "warning",
+        "severity": "CRITICAL",
+        "penalty_amount": 2000.0,
+        "description": "Obstruction au travail des agents assermentés de contrôle ou trouble à l'ordre à bord."
+    },
+    {
+        "key": "FORGERY",
+        "label": "Faux titre / Capture d'écran contrefaite",
+        "icon": "phonelink-erase",
+        "severity": "CRITICAL",
+        "penalty_amount": 5000.0,
+        "description": "Utilisation frauduleuse d'une capture d'écran, QR code falsifié ou titre contrefait."
+    }
+]
+
+
+@router.get("/infractions/types", response_model=List[InfractionTypeOutSchema])
+async def get_infraction_types(
+    current_user: Users = Depends(require_roles([UserRoleEnum.CONTROLLER, UserRoleEnum.DRIVER, UserRoleEnum.SUPERADMIN])),
+    db: AsyncSession = Depends(get_async_db)
+):
+    """
+    Returns the dynamic catalog of infractions and fraud types configured in PostgreSQL.
+    If the table is unseeded, automatically populates the default regulatory catalog.
+    """
+    result = await db.execute(select(InfractionTypes).where(InfractionTypes.is_active == True))
+    db_items = result.scalars().all()
+
+    if not db_items:
+        # Auto-seed into PostgreSQL
+        for item in DEFAULT_INFRACTION_TYPES:
+            inf = InfractionTypes(
+                infraction_id=uuid.uuid4(),
+                key=item["key"],
+                label=item["label"],
+                icon=item["icon"],
+                severity=item["severity"],
+                penalty_amount=item["penalty_amount"],
+                description=item["description"],
+                is_active=True
+            )
+            db.add(inf)
+        await db.commit()
+        result = await db.execute(select(InfractionTypes).where(InfractionTypes.is_active == True))
+        db_items = result.scalars().all()
+
+    return [
+        InfractionTypeOutSchema(
+            key=it.key,
+            label=it.label,
+            icon=it.icon,
+            severity=it.severity,
+            penalty_amount=it.penalty_amount,
+            description=it.description or ""
+        )
+        for it in db_items
+    ]
+
+
+@router.post("/report-fraud", response_model=ReportFraudResponseSchema)
+async def report_fraud_incident(
+    payload: ReportFraudRequestSchema,
+    current_user: Users = Depends(require_roles([UserRoleEnum.CONTROLLER, UserRoleEnum.DRIVER, UserRoleEnum.SUPERADMIN])),
+    db: AsyncSession = Depends(get_async_db)
+):
+    """
+    Records a formal inspection fraud report (Procès-Verbal de Contrôle) in PostgreSQL.
+    Alerts transport administration and logs the incident in PostgreSQL tables.
+    """
+    if current_user.kyc_status != KycStatusEnum.APPROVED:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Opération bloquée : Votre badge / accréditation doit être validé par l'administration pour déclarer des fraudes."
+        )
+
+    # 1. Query infraction details from PostgreSQL
+    res = await db.execute(select(InfractionTypes).where(InfractionTypes.key == payload.infraction_type))
+    item_info = res.scalars().first()
+
+    infraction_label = item_info.label if item_info else payload.infraction_type
+    penalty_val = item_info.penalty_amount if item_info else 0.0
+    penalty_str = f" (Amende standard : {penalty_val:.0f} FCFA)" if penalty_val > 0 else ""
+
+    report_uuid = uuid.uuid4()
+    pv_code = f"PV-{str(report_uuid)[:8].upper()}"
+
+    # 2. Persist FraudReport in PostgreSQL
+    fraud_report = FraudReports(
+        report_id=report_uuid,
+        pv_code=pv_code,
+        controller_id=current_user.user_id,
+        trip_id=payload.trip_id,
+        student_identifier=payload.student_info,
+        infraction_type_key=payload.infraction_type,
+        penalty_amount=penalty_val,
+        description=payload.description,
+        status="TRANSMITTED"
+    )
+    db.add(fraud_report)
+
+    # 3. Record notification for administration
+    admin_notif = Notifications(
+        user_id=current_user.user_id,
+        title=f"🚨 Procès-Verbal #{pv_code} : {infraction_label}",
+        message=f"Agent : {current_user.first_name} {current_user.last_name} ({current_user.matricule_uac or 'Contrôleur'}). "
+                f"Passager : {payload.student_info or 'Non identifié'}. "
+                f"Motif : {infraction_label}{penalty_str}. Observations : {payload.description or 'Aucune'}",
+        channel="PUSH",
+        is_sent=True,
+        scheduled_for=datetime.now(timezone.utc),
+        sent_at=datetime.now(timezone.utc)
+    )
+    db.add(admin_notif)
+    await db.commit()
+    await db.refresh(fraud_report)
+
+    return ReportFraudResponseSchema(
+        success=True,
+        report_id=pv_code,
+        message="Procès-verbal enregistré avec succès. Le signalement d’infraction a été transmis à la direction des transports.",
+        infraction_type=payload.infraction_type,
+        student_info=payload.student_info,
+        recorded_at=fraud_report.created_at or datetime.now(timezone.utc)
+    )
+
+

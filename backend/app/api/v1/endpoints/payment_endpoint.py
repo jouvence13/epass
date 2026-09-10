@@ -31,6 +31,35 @@ from app.services.payment_service import payment_service
 router = APIRouter(prefix="/payments", tags=["Payments & Wallet"])
 
 
+@router.get("/wallet", response_model=WalletBalanceOutSchema)
+async def get_wallet_balance(
+    current_user: Users = Depends(get_current_authenticated_user),
+    db: AsyncSession = Depends(get_async_db)
+):
+    """
+    Returns current user's live wallet balance strictly from PostgreSQL.
+    If no wallet exists yet, automatically creates one with 0 FCFA.
+    """
+    wallet_query = await db.execute(
+        select(Wallets).where(Wallets.user_id == current_user.user_id)
+    )
+    wallet = wallet_query.scalars().first()
+    if not wallet:
+        wallet = Wallets(
+            user_id=current_user.user_id,
+            balance=0.0,
+            currency="FCFA"
+        )
+        db.add(wallet)
+        await db.commit()
+        await db.refresh(wallet)
+
+    return WalletBalanceOutSchema(
+        balance=float(wallet.balance),
+        currency=wallet.currency or "FCFA"
+    )
+
+
 @router.get("/methods", response_model=List[PaymentMethodOutSchema])
 async def get_payment_methods(
     current_user: Users = Depends(get_current_authenticated_user),
@@ -91,7 +120,7 @@ async def get_payment_methods(
     if not wallet:
         wallet = Wallets(
             user_id=current_user.user_id,
-            balance=2300.0,
+            balance=0.0,
             currency="FCFA"
         )
         db.add(wallet)
@@ -146,13 +175,13 @@ async def get_payment_methods(
         items.append(
             PaymentMethodOutSchema(
                 id=str(wallet.wallet_id),
-                type="CROUS_WALLET",
-                title="Portefeuille Étudiant CROUS",
+                type="CAMPUS_WALLET",
+                title="Portefeuille Étudiant Campus",
                 account=f"Solde disponible : {int(wallet.balance):,} FCFA".replace(",", " "),
                 isDefault=False,
                 color="#1a56db",
                 icon="account-balance-wallet",
-                code="Subvention CROUS"
+                code="Subvention Transport"
             )
         )
 

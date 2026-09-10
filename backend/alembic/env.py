@@ -16,6 +16,7 @@ from app.models import (
     ticket_model,
     payment_model,
     notification_model,
+    campus_model,
 )
 
 config = context.config

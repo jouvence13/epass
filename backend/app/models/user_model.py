@@ -106,7 +106,7 @@ class Users(Base, TimestampMixin):
     )
 
     # Relationships
-    campus: Mapped[Optional["Campuses"]] = relationship("Campuses", foreign_keys=[campus_id])
+    campus: Mapped[Optional["Campuses"]] = relationship("Campuses", back_populates="users", foreign_keys=[campus_id])
     kyc_documents: Mapped[List["KycDocuments"]] = relationship(
         "KycDocuments",
         back_populates="user",

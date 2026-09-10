@@ -1,8 +1,11 @@
 import uuid
+import logging
 from typing import Optional
 from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
+
+logger = logging.getLogger(__name__)
 
 from app.core.database import get_async_db
 from app.models.user_model import Users
@@ -102,7 +105,7 @@ async def instant_ticket_purchase(
     from sqlalchemy import select
     from sqlalchemy.orm import selectinload
     from app.models.trip_model import Trips, TripStatusEnum
-    from app.models.fleet_model import Routes, Buses
+    from app.models.fleet_model import Routes, Buses, RouteStops
     from app.models.ticket_model import Tickets, TicketStatusEnum
     from app.models.payment_model import Payments, PaymentStatusEnum, PaymentGatewayEnum
     from app.services.ticket_engine_service import generate_secure_sms_otp, generate_encrypted_qr_payload
@@ -115,7 +118,9 @@ async def instant_ticket_purchase(
         trip_query = await db.execute(
             select(Trips)
             .options(
-                selectinload(Trips.route),
+                selectinload(Trips.route).selectinload(Routes.origin_stop),
+                selectinload(Trips.route).selectinload(Routes.destination_stop),
+                selectinload(Trips.route).selectinload(Routes.route_stops).selectinload(RouteStops.stop),
                 selectinload(Trips.bus)
             )
             .where(Trips.trip_id == target_trip_id)
@@ -127,7 +132,9 @@ async def instant_ticket_purchase(
         trip_query = await db.execute(
             select(Trips)
             .options(
-                selectinload(Trips.route),
+                selectinload(Trips.route).selectinload(Routes.origin_stop),
+                selectinload(Trips.route).selectinload(Routes.destination_stop),
+                selectinload(Trips.route).selectinload(Routes.route_stops).selectinload(RouteStops.stop),
                 selectinload(Trips.bus)
             )
             .where(Trips.status.in_([TripStatusEnum.SCHEDULED, TripStatusEnum.BOARDING]))
@@ -151,14 +158,35 @@ async def instant_ticket_purchase(
     # 2. Décrémentation de la place disponible
     trip.available_seats = max(0, trip.available_seats - 1)
 
-    # 3. Création du paiement réussi
+    # 3. Traitement du moyen de paiement & débit réel du portefeuille dans PostgreSQL
+    is_wallet_payment = (
+        "PORTEFEUILLE" in payload.payment_method.upper() or
+        "WALLET" in payload.payment_method.upper() or
+        "CAMPUS" in payload.payment_method.upper()
+    )
+
+    if is_wallet_payment:
+        from app.models.payment_model import Wallets
+        wallet_query = await db.execute(
+            select(Wallets).where(Wallets.user_id == current_user.user_id).with_for_update()
+        )
+        wallet = wallet_query.scalars().first()
+        if not wallet or float(wallet.balance) < payload.amount:
+            avail_bal = float(wallet.balance) if wallet else 0.0
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Solde insuffisant dans votre portefeuille ({avail_bal:.0f} FCFA disponibles pour {payload.amount:.0f} FCFA requis). Veuillez recharger votre portefeuille."
+            )
+        wallet.balance = float(wallet.balance) - payload.amount
+        db.add(wallet)
+
     clean_phone = (payload.phone_number or current_user.phone_number).replace(" ", "")
-    txn_ref = f"CROUS-PAY-{uuid.uuid4().hex[:8].upper()}"
+    txn_ref = f"EPASS-PAY-{uuid.uuid4().hex[:8].upper()}"
     payment = Payments(
         user_id=current_user.user_id,
         transaction_reference=txn_ref,
-        gateway=PaymentGatewayEnum.FEDAPAY,
-        gateway_reference=f"WALLET-{payload.payment_method}",
+        gateway=PaymentGatewayEnum.FEDAPAY if not is_wallet_payment else PaymentGatewayEnum.FEDAPAY,
+        gateway_reference=f"WALLET-{uuid.uuid4().hex[:10].upper()}" if is_wallet_payment else f"MOMO-{uuid.uuid4().hex[:10].upper()}",
         amount=payload.amount,
         phone_number=clean_phone,
         status=PaymentStatusEnum.SUCCESSFUL
@@ -243,26 +271,17 @@ async def instant_ticket_purchase(
     except Exception as e:
         logger.warning(f"Erreur notification contrôleurs: {e}")
 
-    # 7. Récupération de la télémétrie GPS depuis PostgreSQL
-    from app.models.trip_model import GpsLogs
-    from geoalchemy2.functions import ST_X, ST_Y
-    gps_query = await db.execute(
-        select(GpsLogs, ST_Y(GpsLogs.position).label("lat"), ST_X(GpsLogs.position).label("lon"))
-        .where(GpsLogs.trip_id == trip.trip_id)
-        .order_by(GpsLogs.recorded_at.desc())
-    )
-    gps_row = gps_query.first()
-    live_lat = float(gps_row.lat) if (gps_row and gps_row.lat is not None) else 6.4474
-    live_lon = float(gps_row.lon) if (gps_row and gps_row.lon is not None) else 2.3557
-    live_speed = float(gps_row[0].speed_kmh) if (gps_row and gps_row[0].speed_kmh is not None) else 38.0
-
-    route_name = trip.route.route_name if trip.route else "Campus Express • Ligne A"
-    bus_label = trip.bus.bus_code if trip.bus else "Bus CROUS #402"
+    # 7. Calcul dynamique de la télémétrie et des arrêts
+    from app.api.v1.endpoints.trip_endpoint import _compute_trip_telemetry_and_stops
+    telemetry = await _compute_trip_telemetry_and_stops(trip, trip.route, db, now)
 
     return ActiveTicketScreenOutSchema(
         ticket_id=ticket.ticket_id,
         trip_id=trip.trip_id,
-        route_name=route_name,
+        route_id=telemetry["route_id"],
+        route_name=telemetry["route_name"],
+        origin_name=telemetry["origin_name"],
+        destination_name=telemetry["destination_name"],
         student_name=f"{current_user.first_name} {current_user.last_name}",
         student_id=f"Student ID: {current_user.matricule_uac or '2023-4458'}",
         matricule_uac=current_user.matricule_uac,
@@ -270,18 +289,26 @@ async def instant_ticket_purchase(
         code=formatted_code,
         status="Valid Ticket",
         raw_status=ticket.status,
+        recycle_count=0,
         available_for_days=7,
         avail_for_label="Available for 7 more days",
         has_delay=trip.delay_minutes > 0,
         delay_minutes=trip.delay_minutes,
         delay_title=f"Delay: +{trip.delay_minutes} min" if trip.delay_minutes > 0 else None,
         delay_reason=trip.delay_reason,
-        bus_code=bus_label,
-        capacity_percentage=int(((trip.total_seats - trip.available_seats) / trip.total_seats) * 100),
+        bus_code=telemetry["bus_label"],
+        capacity_percentage=telemetry["capacity_percentage"],
+        occupancy_label=telemetry["occupancy_label"],
+        current_location=telemetry["current_loc"],
+        next_stop=telemetry["next_stop"],
+        next_stop_eta=telemetry["next_stop_eta"],
+        total_eta=telemetry["total_eta"],
         eta_minutes=8,
         eta_label="8 min",
-        latitude=live_lat,
-        longitude=live_lon,
-        speed_kmh=live_speed
+        latitude=telemetry["latitude"],
+        longitude=telemetry["longitude"],
+        speed_kmh=telemetry["speed_kmh"],
+        amount_paid=payload.amount,
+        stops=telemetry["stops"]
     )
 

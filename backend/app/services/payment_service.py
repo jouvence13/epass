@@ -61,7 +61,7 @@ class PaymentGatewayService:
     async def get_or_create_wallet(
         db: AsyncSession,
         user_id: uuid.UUID,
-        initial_balance: float = 2300.00
+        initial_balance: float = 0.00
     ) -> Wallets:
         """Fetch existing user wallet or initialize a default subsidized balance."""
         query = await db.execute(select(Wallets).where(Wallets.user_id == user_id))

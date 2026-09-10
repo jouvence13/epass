@@ -10,6 +10,7 @@ from app.models.fleet_model import (
     Buses,
     Stops,
     Routes,
+    RouteStops,
     BusStatusEnum,
 )
 from app.models.trip_model import (
@@ -34,6 +35,10 @@ from app.models.notification_model import (
 from app.models.campus_model import (
     Campuses,
 )
+from app.models.fraud_model import (
+    InfractionTypes,
+    FraudReports,
+)
 
 __all__ = [
     "Base",
@@ -46,6 +51,7 @@ __all__ = [
     "Buses",
     "Stops",
     "Routes",
+    "RouteStops",
     "BusStatusEnum",
     "Trips",
     "GpsLogs",
@@ -59,4 +65,6 @@ __all__ = [
     "TicketStatusEnum",
     "Notifications",
     "Campuses",
+    "InfractionTypes",
+    "FraudReports",
 ]
