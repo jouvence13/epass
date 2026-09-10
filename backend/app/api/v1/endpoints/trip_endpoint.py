@@ -17,6 +17,11 @@ from app.schemas.ticket_schema import ActiveTicketScreenOutSchema
 from app.services.auth_service import get_current_authenticated_user
 from app.services.eta_calculator_service import compute_dynamic_eta
 
+try:
+    from geoalchemy2.shape import to_shape
+except ImportError:
+    to_shape = None
+
 router = APIRouter(prefix="/trips", tags=["Trips & Schedules"])
 
 
@@ -191,13 +196,13 @@ async def _compute_trip_telemetry_and_stops(
         if latest_gps:
             if latest_gps.speed_kmh is not None:
                 speed_kmh = float(latest_gps.speed_kmh)
-            try:
-                from geoalchemy2.shape import to_shape
-                pt = to_shape(latest_gps.position)
-                lat = float(pt.y)
-                lon = float(pt.x)
-            except Exception:
-                pass
+            if to_shape and latest_gps.position is not None:
+                try:
+                    pt = to_shape(latest_gps.position)
+                    lat = float(pt.y)
+                    lon = float(pt.x)
+                except Exception:
+                    pass
 
     speed_val = f"{int(speed_kmh)} km/h" if speed_kmh > 0 else "0 km/h"
 
